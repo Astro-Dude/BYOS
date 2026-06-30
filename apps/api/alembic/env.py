@@ -6,9 +6,10 @@ from logging.config import fileConfig
 from alembic import context
 from sqlalchemy import pool
 from sqlalchemy.engine import Connection
-from sqlalchemy.ext.asyncio import async_engine_from_config
+from sqlalchemy.ext.asyncio import create_async_engine
 
 from byos_api.core.config import get_settings
+from byos_api.core.db import prepare_asyncpg
 from byos_api.db.base import Base  # noqa: F401  (populates Base.metadata)
 
 config = context.config
@@ -40,11 +41,8 @@ def do_run_migrations(connection: Connection) -> None:
 
 
 async def run_async_migrations() -> None:
-    connectable = async_engine_from_config(
-        config.get_section(config.config_ini_section, {}),
-        prefix="sqlalchemy.",
-        poolclass=pool.NullPool,
-    )
+    url, connect_args = prepare_asyncpg(get_settings().database_url)
+    connectable = create_async_engine(url, poolclass=pool.NullPool, connect_args=connect_args)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
     await connectable.dispose()

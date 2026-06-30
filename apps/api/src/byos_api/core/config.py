@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 
+from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -35,6 +36,15 @@ class Settings(BaseSettings):
 
     # CORS
     cors_origins: str = "http://localhost:3000"
+
+    @field_validator("telegram_api_id", "telegram_api_hash", mode="before")
+    @classmethod
+    def _blank_to_none(cls, value: object) -> object:
+        """Treat empty env vars (e.g. `TELEGRAM_API_ID=`) as unset rather than
+        failing validation."""
+        if isinstance(value, str) and value.strip() == "":
+            return None
+        return value
 
     @property
     def cors_origins_list(self) -> list[str]:
