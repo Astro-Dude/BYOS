@@ -1,0 +1,42 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build outputs
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# Turborepo
+.turbo/
+
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+
+# Env / secrets
+.env
+.env.*
+!.env.example
+
+# Generated API artifacts (regenerate with `pnpm codegen`)
+packages/api-client/openapi.json
+packages/api-client/src/generated/
+
+# Local storage volume (LocalStorageProvider dev bucket)
+.data/
+
+# OS / editor
+.DS_Store
+*.log
+coverage/
+.idea/
+.vscode/

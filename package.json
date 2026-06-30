@@ -1,0 +1,24 @@
+{
+  "name": "byos",
+  "version": "0.0.0",
+  "private": true,
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "dev": "turbo run dev",
+    "build": "turbo run build",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "format": "prettier --write \"**/*.{ts,tsx,js,json,md,yaml,yml}\"",
+    "codegen": "pnpm run codegen:schema && pnpm run codegen:client",
+    "codegen:schema": "cd apps/api && uv run python -m byos_api.openapi_export ../../packages/api-client/openapi.json",
+    "codegen:client": "openapi-ts"
+  },
+  "devDependencies": {
+    "@hey-api/openapi-ts": "^0.64.0",
+    "prettier": "^3.4.2",
+    "turbo": "^2.3.3"
+  }
+}

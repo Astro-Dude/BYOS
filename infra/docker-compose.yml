@@ -1,0 +1,104 @@
+# BYOS local dev stack. Run from repo root:
+#   docker compose -f infra/docker-compose.yml up --build
+# Paths are relative to this file (infra/), so repo root is "..".
+
+name: byos
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  api:
+    build:
+      context: ../apps/api
+      dockerfile: Dockerfile
+      target: dev
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      # Override host-oriented .env values for the Docker network.
+      DATABASE_URL: postgresql+asyncpg://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
+      REDIS_URL: redis://redis:6379/0
+    command: >
+      sh -c "uv run alembic upgrade head &&
+             uv run uvicorn byos_api.main:app --host 0.0.0.0 --port 8000 --reload --reload-dir src"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ../apps/api/src:/app/src
+      - ../apps/api/alembic:/app/alembic
+      - ../apps/api/alembic.ini:/app/alembic.ini
+      - local_storage:/app/.data
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+      target: dev
+    restart: unless-stopped
+    env_file:
+      - ../.env
+    environment:
+      # In-browser calls hit localhost; SSR calls hit the api service over the compose network.
+      NEXT_PUBLIC_API_URL: http://localhost:8000
+      INTERNAL_API_URL: http://api:8000
+    command: pnpm --filter @byos/web dev
+    ports:
+      - "3000:3000"
+    volumes:
+      - ../apps/web:/app/apps/web
+      - /app/apps/web/.next
+      - /app/apps/web/node_modules
+      - /app/node_modules
+    depends_on:
+      api:
+        condition: service_started
+
+  # Background worker (arq) — enabled in Phase 13.
+  # worker:
+  #   build: { context: ../apps/api, dockerfile: Dockerfile, target: dev }
+  #   env_file: [../.env]
+  #   command: uv run arq byos_api.worker.WorkerSettings
+  #   depends_on:
+  #     redis: { condition: service_healthy }
+  #     postgres: { condition: service_healthy }
+
+volumes:
+  pgdata:
+  redisdata:
+  local_storage:
