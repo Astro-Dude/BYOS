@@ -10,6 +10,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
+from byos_api.core.errors import CatchUnhandledErrorsMiddleware
 from byos_api.storage import available_providers, register_default_providers
 
 settings = get_settings()
@@ -29,6 +30,9 @@ def create_app() -> FastAPI:
         lifespan=lifespan,
     )
 
+    # Order matters: the LAST-added middleware is outermost. CORS must wrap the
+    # error handler so that synthesized 500s still receive CORS headers.
+    app.add_middleware(CatchUnhandledErrorsMiddleware)
     app.add_middleware(
         CORSMiddleware,
         allow_origins=settings.cors_origins_list,
