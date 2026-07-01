@@ -161,6 +161,11 @@ export interface AuditItem {
   created_at: string;
 }
 
+export interface DuplicateGroup {
+  hash: string;
+  files: FileItem[];
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -316,6 +321,16 @@ export class ByosClient {
     if (opts?.mime) params.set("mime", opts.mime);
     if (opts?.folderId) params.set("folder_id", opts.folderId);
     return this.request<FileItem[]>(`/files/search?${params.toString()}`, { token });
+  }
+
+  /** Natural-language search: "pdfs from last week larger than 2mb invoice". */
+  nlSearch(token: string, query: string, limit = 50): Promise<FileItem[]> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    return this.request<FileItem[]>(`/files/nl-search?${params.toString()}`, { token });
+  }
+
+  listDuplicates(token: string): Promise<DuplicateGroup[]> {
+    return this.request<DuplicateGroup[]>("/files/duplicates", { token });
   }
 
   uploadFile(token: string, file: File, folderId?: string): Promise<FileItem> {

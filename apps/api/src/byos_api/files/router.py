@@ -10,6 +10,8 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
 
+from byos_api.ai import nl_search
+from byos_api.ai.tagging import suggest_tags
 from byos_api.analytics.recorder import record_event
 from byos_api.audit import recorder as audit
 from byos_api.auth.dependencies import CurrentUser
@@ -17,7 +19,7 @@ from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
-from byos_api.files.schemas import FavoriteRequest, FileOut, TagRequest, VersionOut
+from byos_api.files.schemas import DuplicateGroup, FavoriteRequest, FileOut, TagRequest, VersionOut
 from byos_api.security.scanning import scan_upload
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
@@ -161,6 +163,17 @@ async def upload_file(
         raise
 
     dispatcher.emit(record.owner_id, "file.created", _file_event_payload(record))
+
+    # Auto-tag by type (heuristic by default; pluggable). Best-effort — a tagging
+    # failure must not fail an otherwise-successful upload.
+    if get_settings().auto_tagging:
+        for tag in suggest_tags(filename=filename, mime=record.mime, ext=record.ext):
+            try:
+                # add_tag mutates and refreshes this same identity-mapped record.
+                await service.add_tag(db, user, record.id, tag)
+            except Exception:
+                logger.debug("auto-tag %s failed", tag, exc_info=True)
+
     return FileOut.model_validate(record)
 
 
@@ -186,6 +199,30 @@ async def search_files(
 @router.get("/tags", response_model=list[str])
 async def list_tags(user: CurrentUser, db: DbDep) -> list[str]:
     return await service.list_tags(db, user)
+
+
+@router.get("/duplicates", response_model=list[DuplicateGroup])
+async def list_duplicates(user: CurrentUser, db: DbDep) -> list[DuplicateGroup]:
+    groups = await service.find_duplicates(db, user)
+    return [
+        DuplicateGroup(hash=digest, files=[FileOut.model_validate(f) for f in files])
+        for digest, files in groups
+    ]
+
+
+@router.get("/nl-search", response_model=list[FileOut])
+async def natural_language_search(
+    user: CurrentUser,
+    db: DbDep,
+    q: str,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> list[FileOut]:
+    """Natural-language file search: "pdfs from last week larger than 2mb"."""
+    if not q.strip():
+        return []
+    parsed = nl_search.parse(q)
+    files = await service.nl_search(db, user, parsed, limit)
+    return [FileOut.model_validate(f) for f in files]
 
 
 @router.get("", response_model=list[FileOut])

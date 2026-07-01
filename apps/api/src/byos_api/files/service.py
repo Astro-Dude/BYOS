@@ -6,10 +6,12 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from byos_api.ai.nl_search import ParsedQuery
 from byos_api.core import crypto
 from byos_api.db.models import File, FileVersion, StorageAccount, Tag, User
 from byos_api.providers import service as providers_service
@@ -150,6 +152,63 @@ async def search_files(
     ).limit(limit)
     result = await db.execute(stmt)
     return list(result.scalars())
+
+
+async def nl_search(db: AsyncSession, user: User, parsed: ParsedQuery, limit: int) -> list[File]:
+    """Run a parsed natural-language query: structured filters (type/size/
+    recency) plus optional full-text on the remaining terms."""
+    stmt = select(File).where(File.owner_id == user.id)
+    if parsed.text:
+        stmt = stmt.where(
+            text(
+                "(search_vector @@ websearch_to_tsquery('english', :q) OR name ILIKE :like)"
+            ).bindparams(q=parsed.text, like=f"%{parsed.text}%")
+        )
+    if parsed.ext:
+        stmt = stmt.where(File.ext == parsed.ext.lower())
+    if parsed.mime_prefix:
+        stmt = stmt.where(File.mime.ilike(f"{parsed.mime_prefix}%"))
+    if parsed.min_size is not None:
+        stmt = stmt.where(File.size >= parsed.min_size)
+    if parsed.max_size is not None:
+        stmt = stmt.where(File.size <= parsed.max_size)
+    if parsed.since_days is not None:
+        stmt = stmt.where(File.created_at >= datetime.now(UTC) - timedelta(days=parsed.since_days))
+
+    if parsed.text:
+        stmt = stmt.order_by(
+            text(
+                "ts_rank(search_vector, websearch_to_tsquery('english', :rank_q)) DESC"
+            ).bindparams(rank_q=parsed.text),
+            File.created_at.desc(),
+        )
+    else:
+        stmt = stmt.order_by(File.created_at.desc())
+    result = await db.execute(stmt.limit(limit))
+    return list(result.scalars())
+
+
+async def find_duplicates(db: AsyncSession, user: User) -> list[tuple[str, list[File]]]:
+    """Group the user's files by content hash where the same bytes appear more
+    than once. Uses the hash already stored at upload — no re-reading needed."""
+    dup_hashes = (
+        select(File.hash)
+        .where(File.owner_id == user.id, File.hash.is_not(None))
+        .group_by(File.hash)
+        .having(func.count() > 1)
+    ).scalar_subquery()
+    rows = (
+        await db.execute(
+            select(File)
+            .where(File.owner_id == user.id, File.hash.in_(dup_hashes))
+            .order_by(File.hash, File.created_at)
+        )
+    ).scalars()
+    groups: dict[str, list[File]] = {}
+    for file in rows:
+        if file.hash is not None:
+            groups.setdefault(file.hash, []).append(file)
+    return list(groups.items())
 
 
 async def set_favorite(db: AsyncSession, user: User, file_id: uuid.UUID, favorite: bool) -> File:

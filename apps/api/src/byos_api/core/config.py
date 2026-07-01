@@ -47,6 +47,9 @@ class Settings(BaseSettings):
     public_rate_limit: int = 120
     public_rate_window: int = 60
 
+    # AI: heuristic auto-tagging of uploads by type (Phase 15).
+    auto_tagging: bool = True
+
     @property
     def blocked_extensions_set(self) -> set[str]:
         return {

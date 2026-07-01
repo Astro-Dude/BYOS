@@ -210,7 +210,7 @@ export default function DashboardPage() {
         setResults(null);
         return;
       }
-      authed((t) => api.searchFiles(t, search.trim()))
+      authed((t) => api.nlSearch(t, search.trim()))
         .then(setResults)
         .catch(() => setResults([]));
     }, 300);
@@ -503,7 +503,7 @@ export default function DashboardPage() {
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
-                placeholder="Search in BYOS"
+                placeholder='Search — try "pdfs from last week"'
                 className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
               />
             </div>

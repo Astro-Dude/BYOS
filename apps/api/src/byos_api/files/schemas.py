@@ -39,6 +39,11 @@ class VersionOut(BaseModel):
     is_current: bool = False
 
 
+class DuplicateGroup(BaseModel):
+    hash: str
+    files: list[FileOut]
+
+
 class FavoriteRequest(BaseModel):
     favorite: bool
 

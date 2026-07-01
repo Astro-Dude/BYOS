@@ -5,6 +5,7 @@ import {
   type AnalyticsDayPoint,
   type AnalyticsOverview,
   type AnalyticsTopItem,
+  type DuplicateGroup,
 } from "@byos/api-client";
 import { useCallback, useEffect, useState } from "react";
 
@@ -85,6 +86,7 @@ export function InsightsPanel() {
   const [overview, setOverview] = useState<AnalyticsOverview | null>(null);
   const [series, setSeries] = useState<AnalyticsDayPoint[]>([]);
   const [top, setTop] = useState<AnalyticsTopItem[]>([]);
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
@@ -92,16 +94,18 @@ export function InsightsPanel() {
     setLoading(true);
     setError(null);
     try {
-      const [o, s, t] = await authed((token) =>
+      const [o, s, t, d] = await authed((token) =>
         Promise.all([
           api.getAnalyticsOverview(token),
           api.getAnalyticsTimeseries(token, 30),
           api.getAnalyticsTop(token, 8),
+          api.listDuplicates(token),
         ]),
       );
       setOverview(o);
       setSeries(s);
       setTop(t);
+      setDuplicates(d);
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to load insights");
     } finally {
@@ -165,6 +169,32 @@ export function InsightsPanel() {
                 <span className="shrink-0 text-sm font-medium text-zinc-500">
                   {item.hits.toLocaleString()} hits
                 </span>
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-5">
+        <h2 className="font-semibold text-zinc-900">Duplicate files</h2>
+        <p className="text-sm text-zinc-500">Files with identical content, grouped by hash.</p>
+        {duplicates.length === 0 ? (
+          <p className="mt-3 text-sm text-zinc-400">No duplicates found — nice and tidy.</p>
+        ) : (
+          <ul className="mt-3 space-y-3">
+            {duplicates.map((group) => (
+              <li key={group.hash} className="rounded-lg bg-zinc-50 p-3">
+                <div className="mb-1 text-xs font-medium text-zinc-500">
+                  {group.files.length} copies
+                </div>
+                <ul className="space-y-1">
+                  {group.files.map((file) => (
+                    <li key={file.id} className="flex items-center gap-2 text-sm text-zinc-700">
+                      <span aria-hidden>📄</span>
+                      <span className="truncate">{file.name}</span>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
