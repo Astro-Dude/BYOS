@@ -50,6 +50,8 @@ export interface FileItem {
   size: number;
   provider: string;
   folder_id: string | null;
+  is_favorite: boolean;
+  tags: string[];
   created_at: string;
   modified_at: string;
 }
@@ -262,6 +264,41 @@ export class ByosClient {
 
   deleteFile(token: string, id: string): Promise<void> {
     return this.request<void>(`/files/${id}`, { method: "DELETE", token });
+  }
+
+  listFavorites(token: string): Promise<FileItem[]> {
+    return this.request<FileItem[]>("/files?favorite=true", { token });
+  }
+
+  listByTag(token: string, tag: string): Promise<FileItem[]> {
+    return this.request<FileItem[]>(`/files?tag=${encodeURIComponent(tag)}`, { token });
+  }
+
+  listTags(token: string): Promise<string[]> {
+    return this.request<string[]>("/files/tags", { token });
+  }
+
+  setFavorite(token: string, id: string, favorite: boolean): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}/favorite`, {
+      method: "PUT",
+      token,
+      body: JSON.stringify({ favorite }),
+    });
+  }
+
+  addTag(token: string, id: string, name: string): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}/tags`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  removeTag(token: string, id: string, name: string): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}/tags/${encodeURIComponent(name)}`, {
+      method: "DELETE",
+      token,
+    });
   }
 
   async downloadBlob(token: string, id: string): Promise<Blob> {

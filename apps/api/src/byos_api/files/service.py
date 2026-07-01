@@ -11,7 +11,7 @@ from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core import crypto
-from byos_api.db.models import File, FileVersion, StorageAccount, User
+from byos_api.db.models import File, FileVersion, StorageAccount, Tag, User
 from byos_api.providers import service as providers_service
 from byos_api.storage import ProviderAccount, StoredObjectRef, get_provider
 
@@ -149,6 +149,49 @@ async def search_files(
         File.created_at.desc(),
     ).limit(limit)
     result = await db.execute(stmt)
+    return list(result.scalars())
+
+
+async def set_favorite(db: AsyncSession, user: User, file_id: uuid.UUID, favorite: bool) -> File:
+    file = await get_owned_file(db, user, file_id)
+    file.is_favorite = favorite
+    await db.commit()
+    await db.refresh(file)
+    return file
+
+
+async def add_tag(db: AsyncSession, user: User, file_id: uuid.UUID, name: str) -> File:
+    file = await get_owned_file(db, user, file_id)
+    clean = name.strip().lower()
+    if not clean:
+        return file
+    tag = (
+        await db.execute(select(Tag).where(Tag.owner_id == user.id, Tag.name == clean))
+    ).scalar_one_or_none()
+    if tag is None:
+        tag = Tag(owner_id=user.id, name=clean)
+        db.add(tag)
+        await db.flush()
+    if all(t.id != tag.id for t in file.tags):
+        file.tags.append(tag)
+    await db.commit()
+    await db.refresh(file)
+    return file
+
+
+async def remove_tag(db: AsyncSession, user: User, file_id: uuid.UUID, name: str) -> File:
+    file = await get_owned_file(db, user, file_id)
+    clean = name.strip().lower()
+    file.tags = [t for t in file.tags if t.name != clean]
+    await db.commit()
+    await db.refresh(file)
+    return file
+
+
+async def list_tags(db: AsyncSession, user: User) -> list[str]:
+    result = await db.execute(
+        select(Tag.name).where(Tag.owner_id == user.id).order_by(Tag.name)
+    )
     return list(result.scalars())
 
 

@@ -7,7 +7,7 @@ import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
-export type DriveView = "drive" | "links";
+export type DriveView = "drive" | "starred" | "links";
 
 export function Sidebar({
   view,
@@ -82,6 +82,7 @@ export function Sidebar({
 
       <nav className="space-y-1">
         {navItem("drive", "My Drive", "🗂️")}
+        {navItem("starred", "Starred", "⭐")}
         {navItem("links", "Links", "🔗")}
       </nav>
 

@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     DateTime,
     ForeignKey,
     Index,
@@ -15,10 +17,13 @@ from sqlalchemy import (
     text,
 )
 from sqlalchemy.dialects.postgresql import JSONB, UUID
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from byos_api.core.db import Base
 from byos_api.db.models.mixins import TimestampMixin, UUIDPrimaryKey
+
+if TYPE_CHECKING:
+    from byos_api.db.models.tag import Tag
 
 
 class File(UUIDPrimaryKey, TimestampMixin, Base):
@@ -52,12 +57,18 @@ class File(UUIDPrimaryKey, TimestampMixin, Base):
     # FK added via ALTER in the migration (circular dependency with file_versions).
     current_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
+    is_favorite: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
+    )
+
     modified_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         onupdate=func.now(),
         nullable=False,
     )
+
+    tags: Mapped[list[Tag]] = relationship(secondary="file_tags", lazy="selectin")
 
     __table_args__ = (
         Index("ix_files_owner_folder", "owner_id", "folder_id"),

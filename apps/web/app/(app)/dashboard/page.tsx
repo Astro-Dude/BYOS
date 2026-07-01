@@ -16,6 +16,7 @@ import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { ShareModal } from "@/components/dashboard/share-modal";
 import { SharesPanel } from "@/components/dashboard/shares-panel";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
+import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -107,6 +108,8 @@ export default function DashboardPage() {
   const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
   const [shareFor, setShareFor] = useState<FileItem | null>(null);
   const [shareRefresh, setShareRefresh] = useState(0);
+  const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
+  const [tagFilter, setTagFilter] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const searchActive = search.trim().length > 0;
@@ -119,20 +122,30 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      const [fld, fls, bc] = await Promise.all([
-        authed((t) => api.listFolders(t, folderId)),
-        authed((t) => api.listFiles(t, folderId)),
-        folderId ? authed((t) => api.folderBreadcrumb(t, folderId)) : Promise.resolve([]),
-      ]);
-      setFolders(fld);
-      setFiles(fls);
-      setCrumbs(bc);
+      if (view === "starred") {
+        setFiles(await authed((t) => api.listFavorites(t)));
+        setFolders([]);
+        setCrumbs([]);
+      } else if (tagFilter) {
+        setFiles(await authed((t) => api.listByTag(t, tagFilter)));
+        setFolders([]);
+        setCrumbs([]);
+      } else {
+        const [fld, fls, bc] = await Promise.all([
+          authed((t) => api.listFolders(t, folderId)),
+          authed((t) => api.listFiles(t, folderId)),
+          folderId ? authed((t) => api.folderBreadcrumb(t, folderId)) : Promise.resolve([]),
+        ]);
+        setFolders(fld);
+        setFiles(fls);
+        setCrumbs(bc);
+      }
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [authed, folderId]);
+  }, [authed, folderId, view, tagFilter]);
 
   useEffect(() => {
     if (user) void load();
@@ -213,6 +226,23 @@ export default function DashboardPage() {
       await load();
     });
 
+  const toggleFavorite = (file: FileItem) =>
+    run(async () => {
+      const updated = await authed((t) => api.setFavorite(t, file.id, !file.is_favorite));
+      const patch = (arr: FileItem[]) =>
+        arr
+          .map((f) => (f.id === file.id ? updated : f))
+          .filter((f) => view !== "starred" || f.is_favorite);
+      if (searchActive) setResults((r) => (r ? patch(r) : r));
+      else setFiles(patch);
+    });
+
+  const openTag = (tag: string) => {
+    setView("drive");
+    setSearch("");
+    setTagFilter(tag);
+  };
+
   if (authLoading || !user) {
     return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
   }
@@ -225,10 +255,11 @@ export default function DashboardPage() {
   const initials = (user.display_name?.trim()?.[0] ?? "U").toUpperCase();
   const typeLabel = CATEGORIES.find((c) => c.key === typeFilter)?.label ?? "All types";
 
+  const plainDrive = view === "drive" && !tagFilter && !searchActive;
   const rawFiles = searchActive ? (results ?? []) : files;
   const shownFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
   const shownFolders =
-    searchActive || (typeFilter !== "all" && typeFilter !== "folder") ? [] : folders;
+    plainDrive && (typeFilter === "all" || typeFilter === "folder") ? folders : [];
 
   const fileMenu = (file: FileItem) => (
     <Menu
@@ -245,6 +276,7 @@ export default function DashboardPage() {
           <MenuItem icon="🔗" label="Get link" onClick={() => { close(); setAliasFor(file); }} />
           <MenuItem icon="🌐" label="Share" onClick={() => { close(); setShareFor(file); }} />
           <MenuItem icon="🕘" label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
+          <MenuItem icon="🏷" label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFile(file); }} />
         </>
       )}
@@ -309,13 +341,31 @@ export default function DashboardPage() {
           key={file.id}
           className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
         >
-          <button
-            onClick={() => setPreview(file)}
-            className="flex min-w-0 items-center gap-3 text-left"
-          >
-            <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-            <span className="truncate text-sm font-medium text-zinc-900">{file.name}</span>
-          </button>
+          <div className="flex min-w-0 items-center gap-2">
+            <button
+              onClick={() => toggleFavorite(file)}
+              className={file.is_favorite ? "text-amber-400" : "text-zinc-300 hover:text-amber-400"}
+              aria-label="Star"
+            >
+              {file.is_favorite ? "★" : "☆"}
+            </button>
+            <button
+              onClick={() => setPreview(file)}
+              className="flex min-w-0 items-center gap-2 text-left"
+            >
+              <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
+              <span className="truncate text-sm font-medium text-zinc-900">{file.name}</span>
+            </button>
+            {file.tags.slice(0, 3).map((tag) => (
+              <button
+                key={tag}
+                onClick={() => openTag(tag)}
+                className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 sm:inline"
+              >
+                {tag}
+              </button>
+            ))}
+          </div>
           <span className="text-sm text-zinc-500">{shortDate(file.modified_at)}</span>
           <span className="text-sm text-zinc-500">{humanSize(file.size)}</span>
           {fileMenu(file)}
@@ -350,7 +400,16 @@ export default function DashboardPage() {
             <button onClick={() => setPreview(file)} className="text-3xl" aria-hidden>
               {fileIcon(file.mime, file.ext)}
             </button>
-            {fileMenu(file)}
+            <div className="flex items-center gap-1">
+              <button
+                onClick={() => toggleFavorite(file)}
+                className={file.is_favorite ? "text-amber-400" : "text-zinc-300 hover:text-amber-400"}
+                aria-label="Star"
+              >
+                {file.is_favorite ? "★" : "☆"}
+              </button>
+              {fileMenu(file)}
+            </div>
           </div>
           <p className="mt-2 truncate text-sm font-medium text-zinc-900">{file.name}</p>
           <p className="text-xs text-zinc-500">{humanSize(file.size)}</p>
@@ -366,10 +425,12 @@ export default function DashboardPage() {
         onView={setView}
         onNewFolder={() => {
           setView("drive");
+          setTagFilter(null);
           setNfOpen(true);
         }}
         onUpload={() => {
           setView("drive");
+          setTagFilter(null);
           inputRef.current?.click();
         }}
       />
@@ -412,14 +473,14 @@ export default function DashboardPage() {
         <main
           className="flex-1 overflow-auto px-6 pb-8"
           onDragOver={(e) => {
-            if (view === "drive" && !searchActive) {
+            if (plainDrive) {
               e.preventDefault();
               setDragging(true);
             }
           }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
-            if (view === "drive" && !searchActive) {
+            if (plainDrive) {
               e.preventDefault();
               setDragging(false);
               upload(e.dataTransfer.files);
@@ -436,25 +497,41 @@ export default function DashboardPage() {
             <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
               {/* Title + view toggle */}
               <div className="flex flex-wrap items-center justify-between gap-3 py-3">
-                <nav className="flex flex-wrap items-center gap-2 text-2xl font-normal text-zinc-800">
-                  <button
-                    onClick={() => setFolderId(undefined)}
-                    className={folderId ? "text-zinc-500 hover:text-zinc-800" : ""}
-                  >
-                    My Drive
-                  </button>
-                  {crumbs.map((c) => (
-                    <span key={c.id} className="flex items-center gap-2">
-                      <span className="text-zinc-300">›</span>
-                      <button
-                        onClick={() => setFolderId(c.id)}
-                        className={c.id === folderId ? "" : "text-zinc-500 hover:text-zinc-800"}
-                      >
-                        {c.name}
-                      </button>
-                    </span>
-                  ))}
-                </nav>
+                {searchActive ? (
+                  <h1 className="text-2xl font-normal text-zinc-800">Results for “{search.trim()}”</h1>
+                ) : view === "starred" ? (
+                  <h1 className="text-2xl font-normal text-zinc-800">Starred</h1>
+                ) : tagFilter ? (
+                  <h1 className="flex items-center gap-2 text-2xl font-normal text-zinc-800">
+                    Tag: {tagFilter}
+                    <button
+                      onClick={() => setTagFilter(null)}
+                      className="text-sm text-indigo-600 hover:underline"
+                    >
+                      clear
+                    </button>
+                  </h1>
+                ) : (
+                  <nav className="flex flex-wrap items-center gap-2 text-2xl font-normal text-zinc-800">
+                    <button
+                      onClick={() => setFolderId(undefined)}
+                      className={folderId ? "text-zinc-500 hover:text-zinc-800" : ""}
+                    >
+                      My Drive
+                    </button>
+                    {crumbs.map((c) => (
+                      <span key={c.id} className="flex items-center gap-2">
+                        <span className="text-zinc-300">›</span>
+                        <button
+                          onClick={() => setFolderId(c.id)}
+                          className={c.id === folderId ? "" : "text-zinc-500 hover:text-zinc-800"}
+                        >
+                          {c.name}
+                        </button>
+                      </span>
+                    ))}
+                  </nav>
+                )}
                 <div className="flex items-center rounded-full border border-zinc-200 bg-white p-0.5">
                   <button
                     onClick={() => setLayout("list")}
@@ -554,6 +631,9 @@ export default function DashboardPage() {
           onClose={() => setShareFor(null)}
           onCreated={() => setShareRefresh((v) => v + 1)}
         />
+      ) : null}
+      {tagsFor ? (
+        <TagsModal file={tagsFor} onClose={() => setTagsFor(null)} onChanged={() => load()} />
       ) : null}
     </div>
   );

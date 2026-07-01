@@ -13,9 +13,9 @@ from telethon.errors import FloodWaitError
 
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
-from byos_api.db.models import File, FileVersion, Folder
+from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
-from byos_api.files.schemas import FileOut, VersionOut
+from byos_api.files.schemas import FavoriteRequest, FileOut, TagRequest, VersionOut
 from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef, get_provider
 
 logger = logging.getLogger("byos")
@@ -191,17 +191,29 @@ async def search_files(
     return [FileOut.model_validate(f) for f in files]
 
 
+@router.get("/tags", response_model=list[str])
+async def list_tags(user: CurrentUser, db: DbDep) -> list[str]:
+    return await service.list_tags(db, user)
+
+
 @router.get("", response_model=list[FileOut])
 async def list_files(
-    user: CurrentUser, db: DbDep, folder_id: uuid.UUID | None = None
+    user: CurrentUser,
+    db: DbDep,
+    folder_id: uuid.UUID | None = None,
+    favorite: bool = False,
+    tag: str | None = None,
 ) -> list[FileOut]:
     stmt = select(File).where(File.owner_id == user.id)
-    # Scope to a folder; absence means the root (files with no folder).
-    stmt = (
-        stmt.where(File.folder_id == folder_id)
-        if folder_id is not None
-        else stmt.where(File.folder_id.is_(None))
-    )
+    if favorite:
+        stmt = stmt.where(File.is_favorite.is_(True))
+    elif tag:
+        stmt = stmt.join(File.tags).where(Tag.name == tag.strip().lower())
+    elif folder_id is not None:
+        stmt = stmt.where(File.folder_id == folder_id)
+    else:
+        # Root: files with no folder.
+        stmt = stmt.where(File.folder_id.is_(None))
     result = await db.execute(stmt.order_by(File.created_at.desc()))
     return [FileOut.model_validate(f) for f in result.scalars()]
 
@@ -414,3 +426,34 @@ async def download_version(
     return await _stream_object(
         get_provider(record.provider), account, ref, filename=record.name, mime=record.mime
     )
+
+
+@router.put("/{file_id}/favorite", response_model=FileOut)
+async def set_favorite(
+    file_id: uuid.UUID, payload: FavoriteRequest, user: CurrentUser, db: DbDep
+) -> FileOut:
+    try:
+        record = await service.set_favorite(db, user, file_id, payload.favorite)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    return FileOut.model_validate(record)
+
+
+@router.post("/{file_id}/tags", response_model=FileOut)
+async def add_tag(
+    file_id: uuid.UUID, payload: TagRequest, user: CurrentUser, db: DbDep
+) -> FileOut:
+    try:
+        record = await service.add_tag(db, user, file_id, payload.name)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    return FileOut.model_validate(record)
+
+
+@router.delete("/{file_id}/tags/{name}", response_model=FileOut)
+async def remove_tag(file_id: uuid.UUID, name: str, user: CurrentUser, db: DbDep) -> FileOut:
+    try:
+        record = await service.remove_tag(db, user, file_id, name)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    return FileOut.model_validate(record)
