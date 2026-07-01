@@ -5,12 +5,13 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, UploadFile, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
 
+from byos_api.analytics.recorder import record_event
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
@@ -219,7 +220,9 @@ async def list_files(
 
 
 @router.get("/{file_id}/content")
-async def download_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> StreamingResponse:
+async def download_file(
+    file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep
+) -> StreamingResponse:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
@@ -229,6 +232,13 @@ async def download_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Str
     if version is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File version not found")
 
+    await record_event(
+        request,
+        owner_id=record.owner_id,
+        target_type="file",
+        target_id=record.id,
+        event_type="download",
+    )
     account = await service.account_for_file(db, user, record)
     if account is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")

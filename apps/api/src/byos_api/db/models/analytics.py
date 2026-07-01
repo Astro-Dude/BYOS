@@ -16,6 +16,9 @@ class AnalyticsEvent(UUIDPrimaryKey, Base):
 
     __tablename__ = "analytics_events"
 
+    # Denormalized owner of the accessed target, so per-user rollups filter on a
+    # single indexed column instead of joining across file/alias/share tables.
+    owner_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
     target_type: Mapped[str] = mapped_column(String(20), nullable=False)  # file | alias | share
     target_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), index=True, nullable=False)
     event_type: Mapped[str] = mapped_column(String(20), nullable=False)  # view | download

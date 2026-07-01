@@ -7,7 +7,7 @@ import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
-export type DriveView = "drive" | "starred" | "links";
+export type DriveView = "drive" | "starred" | "links" | "insights";
 
 export function Sidebar({
   view,
@@ -84,6 +84,7 @@ export function Sidebar({
         {navItem("drive", "My Drive", "🗂️")}
         {navItem("starred", "Starred", "⭐")}
         {navItem("links", "Links", "🔗")}
+        {navItem("insights", "Insights", "📊")}
       </nav>
 
       <div className="mt-auto mx-4 rounded-xl bg-zinc-50 p-3 text-xs">

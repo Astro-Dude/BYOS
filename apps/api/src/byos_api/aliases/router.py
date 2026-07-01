@@ -4,13 +4,14 @@ import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
 
 from byos_api.aliases import service
 from byos_api.aliases.schemas import AliasCreate, AliasOut, AliasUpdate
+from byos_api.analytics.recorder import record_event
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
 from byos_api.files import service as files_service
@@ -75,13 +76,20 @@ async def delete_alias(alias_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
 
 
 @public_router.get("/a/{slug}")
-async def resolve_alias(slug: str, db: DbDep) -> StreamingResponse:
+async def resolve_alias(slug: str, request: Request, db: DbDep) -> StreamingResponse:
     """PUBLIC (unauthenticated): stream the current version of the aliased file."""
     try:
-        _, file, version = await service.resolve(db, slug)
+        alias, file, version = await service.resolve(db, slug)
     except service.AliasNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alias not found") from None
 
+    await record_event(
+        request,
+        owner_id=alias.owner_id,
+        target_type="alias",
+        target_id=alias.id,
+        event_type="view",
+    )
     account = await files_service.account_for_file_public(db, file)
     if account is None:
         raise HTTPException(

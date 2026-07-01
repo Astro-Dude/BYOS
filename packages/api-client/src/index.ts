@@ -106,6 +106,30 @@ export interface ShareInput {
   view_only?: boolean;
 }
 
+export interface AnalyticsOverview {
+  storage_bytes: number;
+  file_count: number;
+  alias_count: number;
+  share_count: number;
+  views_total: number;
+  views_30d: number;
+  downloads_total: number;
+  downloads_30d: number;
+}
+
+export interface AnalyticsDayPoint {
+  day: string; // YYYY-MM-DD
+  views: number;
+  downloads: number;
+}
+
+export interface AnalyticsTopItem {
+  target_type: string; // file | alias | share
+  target_id: string;
+  label: string;
+  hits: number;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -394,5 +418,18 @@ export class ByosClient {
 
   shareUrl(shareToken: string): string {
     return `${this.baseUrl}/s/${shareToken}`;
+  }
+
+  // ── Analytics ─────────────────────────────────────────────────────────────
+  getAnalyticsOverview(token: string): Promise<AnalyticsOverview> {
+    return this.request<AnalyticsOverview>("/analytics/overview", { token });
+  }
+
+  getAnalyticsTimeseries(token: string, days = 30): Promise<AnalyticsDayPoint[]> {
+    return this.request<AnalyticsDayPoint[]>(`/analytics/timeseries?days=${days}`, { token });
+  }
+
+  getAnalyticsTop(token: string, limit = 8): Promise<AnalyticsTopItem[]> {
+    return this.request<AnalyticsTopItem[]>(`/analytics/top?limit=${limit}`, { token });
   }
 }

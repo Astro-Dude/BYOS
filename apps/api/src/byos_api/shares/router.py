@@ -3,10 +3,11 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from byos_api.analytics.recorder import record_event
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
 from byos_api.files import service as files_service
@@ -64,7 +65,9 @@ async def revoke_share(share_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
 
 
 @public_router.get("/s/{token}")
-async def open_share(token: str, db: DbDep, pw: str | None = None) -> StreamingResponse:
+async def open_share(
+    token: str, request: Request, db: DbDep, pw: str | None = None
+) -> StreamingResponse:
     """PUBLIC: stream a shared file's current version, enforcing access controls."""
     try:
         share, file, version = await service.resolve_share(db, token, pw)
@@ -88,6 +91,13 @@ async def open_share(token: str, db: DbDep, pw: str | None = None) -> StreamingR
         locator=version.provider_locator,
         size=version.size,
         checksum=version.hash,
+    )
+    await record_event(
+        request,
+        owner_id=share.owner_id,
+        target_type="share",
+        target_id=share.id,
+        event_type="view" if share.view_only else "download",
     )
     if not share.view_only:
         await service.register_download(db, share)
