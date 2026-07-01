@@ -3,6 +3,7 @@
 import { ApiError, type Breadcrumb, type FileItem, type FolderItem } from "@byos/api-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -34,6 +35,7 @@ export function FilesPanel() {
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<FileItem[] | null>(null);
   const [searching, setSearching] = useState(false);
+  const [preview, setPreview] = useState<FileItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchActive = search.trim().length > 0;
 
@@ -160,6 +162,12 @@ export function FilesPanel() {
       </div>
       <div className="flex shrink-0 gap-3">
         <button
+          onClick={() => setPreview(file)}
+          className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
+        >
+          Preview
+        </button>
+        <button
           onClick={() => download(file)}
           className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
         >
@@ -176,7 +184,8 @@ export function FilesPanel() {
   );
 
   return (
-    <section>
+    <>
+      <section>
       <Input
         value={search}
         onChange={(e) => setSearch(e.target.value)}
@@ -302,6 +311,8 @@ export function FilesPanel() {
           </div>
         </div>
       )}
-    </section>
+      </section>
+      {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
+    </>
   );
 }
