@@ -1,13 +1,11 @@
 from __future__ import annotations
 
 import uuid
-from collections.abc import AsyncIterator
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
-from telethon.errors import FloodWaitError
 
 from byos_api.aliases import service
 from byos_api.aliases.schemas import AliasCreate, AliasOut, AliasUpdate
@@ -16,17 +14,12 @@ from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
 from byos_api.files import service as files_service
 from byos_api.storage import StoredObjectRef, get_provider
+from byos_api.streaming import stream_object
 
 router = APIRouter(prefix="/aliases", tags=["aliases"])
 public_router = APIRouter(tags=["aliases"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
-
-
-async def _aclose(stream: AsyncIterator[bytes]) -> None:
-    aclose = getattr(stream, "aclose", None)
-    if aclose is not None:
-        await aclose()
 
 
 @router.post("", response_model=AliasOut, status_code=status.HTTP_201_CREATED)
@@ -76,7 +69,7 @@ async def delete_alias(alias_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
 
 
 @public_router.get("/a/{slug}")
-async def resolve_alias(slug: str, request: Request, db: DbDep) -> StreamingResponse:
+async def resolve_alias(slug: str, request: Request, db: DbDep) -> Response:
     """PUBLIC (unauthenticated): stream the current version of the aliased file."""
     try:
         alias, file, version = await service.resolve(db, slug)
@@ -96,35 +89,19 @@ async def resolve_alias(slug: str, request: Request, db: DbDep) -> StreamingResp
             status.HTTP_409_CONFLICT, "The file owner's storage provider is not connected"
         )
 
-    provider = get_provider(file.provider)
     ref = StoredObjectRef(
         provider=file.provider,
         locator=version.provider_locator,
         size=version.size,
         checksum=version.hash,
     )
-    stream = provider.download(account, ref)
-    try:
-        first_chunk = await stream.__anext__()
-        exhausted = False
-    except StopAsyncIteration:
-        first_chunk, exhausted = b"", True
-    except FileNotFoundError:
-        await _aclose(stream)
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Content no longer exists") from None
-    except FloodWaitError as exc:
-        await _aclose(stream)
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS, f"Rate limited — retry in {exc.seconds}s"
-        ) from exc
-
-    async def body():
-        if not exhausted:
-            yield first_chunk
-        async for chunk in stream:
-            yield chunk
-
-    headers = {"Content-Disposition": f'inline; filename="{file.name}"'}
-    return StreamingResponse(
-        body(), media_type=file.mime or "application/octet-stream", headers=headers
+    return await stream_object(
+        get_provider(file.provider),
+        account,
+        ref,
+        filename=file.name,
+        mime=file.mime,
+        disposition="inline",
+        etag=version.hash,
+        request=request,
     )

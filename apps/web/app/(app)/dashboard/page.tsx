@@ -82,6 +82,8 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
+const PAGE_SIZE = 100;
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
@@ -112,13 +114,31 @@ export default function DashboardPage() {
   const [shareRefresh, setShareRefresh] = useState(0);
   const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [hasMore, setHasMore] = useState(false);
+  const [loadingMore, setLoadingMore] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const filesRef = useRef<FileItem[]>([]);
+  const sentinelRef = useRef<HTMLDivElement | null>(null);
 
   const searchActive = search.trim().length > 0;
 
   useEffect(() => {
+    filesRef.current = files;
+  }, [files]);
+
+  useEffect(() => {
     if (!authLoading && !user) router.replace("/login");
   }, [authLoading, user, router]);
+
+  // Fetch one page of files for the active view (starred / tag / folder).
+  const fetchPage = useCallback(
+    (offset: number) => {
+      if (view === "starred") return authed((t) => api.listFavorites(t, { limit: PAGE_SIZE, offset }));
+      if (tagFilter) return authed((t) => api.listByTag(t, tagFilter, { limit: PAGE_SIZE, offset }));
+      return authed((t) => api.listFiles(t, folderId, { limit: PAGE_SIZE, offset }));
+    },
+    [authed, view, tagFilter, folderId],
+  );
 
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
@@ -126,34 +146,62 @@ export default function DashboardPage() {
     setLoading(true);
     setError(null);
     try {
-      if (view === "starred") {
-        setFiles(await authed((t) => api.listFavorites(t)));
+      if (view === "starred" || tagFilter) {
+        const fls = await fetchPage(0);
+        setFiles(fls);
         setFolders([]);
         setCrumbs([]);
-      } else if (tagFilter) {
-        setFiles(await authed((t) => api.listByTag(t, tagFilter)));
-        setFolders([]);
-        setCrumbs([]);
+        setHasMore(fls.length === PAGE_SIZE);
       } else {
         const [fld, fls, bc] = await Promise.all([
           authed((t) => api.listFolders(t, folderId)),
-          authed((t) => api.listFiles(t, folderId)),
+          fetchPage(0),
           folderId ? authed((t) => api.folderBreadcrumb(t, folderId)) : Promise.resolve([]),
         ]);
         setFolders(fld);
         setFiles(fls);
         setCrumbs(bc);
+        setHasMore(fls.length === PAGE_SIZE);
       }
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [authed, folderId, view, tagFilter]);
+  }, [authed, folderId, view, tagFilter, fetchPage]);
+
+  const loadMore = useCallback(async () => {
+    setLoadingMore(true);
+    try {
+      const page = await fetchPage(filesRef.current.length);
+      setFiles((prev) => [...prev, ...page]);
+      setHasMore(page.length === PAGE_SIZE);
+    } catch {
+      setHasMore(false); // stop the loop on error; the user can retry via reload
+    } finally {
+      setLoadingMore(false);
+    }
+  }, [fetchPage]);
 
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
+
+  // Infinite scroll: load the next page when the sentinel scrolls into view.
+  useEffect(() => {
+    const el = sentinelRef.current;
+    if (!el) return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries[0]?.isIntersecting && hasMore && !loading && !loadingMore && !searchActive) {
+          void loadMore();
+        }
+      },
+      { rootMargin: "300px" },
+    );
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [hasMore, loading, loadingMore, searchActive, loadMore]);
 
   useEffect(() => {
     const id = setTimeout(() => {
@@ -217,12 +265,15 @@ export default function DashboardPage() {
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
     });
 
-  const removeFile = (file: FileItem) =>
+  const removeFile = (file: FileItem) => {
+    // Optimistic: drop it from the view immediately (delete is idempotent, so a
+    // failed request just leaves the server unchanged and the next load resyncs).
+    setFiles((prev) => prev.filter((f) => f.id !== file.id));
+    setResults((r) => (r ? r.filter((f) => f.id !== file.id) : r));
     run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
-      if (searchActive) setResults((r) => (r ? r.filter((f) => f.id !== file.id) : r));
-      else await load();
     });
+  };
 
   const removeFolder = (folder: FolderItem) =>
     run(async () => {
@@ -613,6 +664,12 @@ export default function DashboardPage() {
               ) : (
                 gridView
               )}
+
+              {!searchActive && !loading ? (
+                <div ref={sentinelRef} className="py-4 text-center text-sm text-zinc-400">
+                  {loadingMore ? "Loading more…" : null}
+                </div>
+              ) : null}
             </div>
           )}
         </main>

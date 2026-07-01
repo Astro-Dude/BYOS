@@ -2,11 +2,10 @@ from __future__ import annotations
 
 import logging
 import uuid
-from collections.abc import AsyncIterator
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, UploadFile, status
-from fastapi.responses import StreamingResponse
+from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, status
+from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
@@ -17,7 +16,8 @@ from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
 from byos_api.files.schemas import FavoriteRequest, FileOut, TagRequest, VersionOut
-from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef, get_provider
+from byos_api.storage import StoredObjectRef, get_provider
+from byos_api.streaming import stream_object
 from byos_api.webhooks import dispatcher
 
 logger = logging.getLogger("byos")
@@ -40,51 +40,6 @@ def _file_event_payload(record: File) -> dict[str, object]:
 def _flood(exc: FloodWaitError) -> HTTPException:
     return HTTPException(
         status.HTTP_429_TOO_MANY_REQUESTS, f"Telegram rate limit — retry in {exc.seconds}s"
-    )
-
-
-async def _aclose(stream: AsyncIterator[bytes]) -> None:
-    aclose = getattr(stream, "aclose", None)
-    if aclose is not None:
-        await aclose()
-
-
-async def _stream_object(
-    provider: StorageProvider,
-    account: ProviderAccount,
-    ref: StoredObjectRef,
-    *,
-    filename: str,
-    mime: str | None,
-    disposition: str = "attachment",
-) -> StreamingResponse:
-    """Stream a stored object, priming the first chunk so provider errors surface
-    as a real status code instead of a truncated body under an already-sent 200."""
-    stream = provider.download(account, ref)
-    try:
-        first_chunk = await stream.__anext__()
-        exhausted = False
-    except StopAsyncIteration:
-        first_chunk, exhausted = b"", True
-    except FileNotFoundError:
-        await _aclose(stream)
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "File content no longer exists in the provider"
-        ) from None
-    except FloodWaitError as exc:
-        await _aclose(stream)
-        raise _flood(exc) from exc
-
-    async def body():
-        if not exhausted:
-            yield first_chunk
-        async for chunk in stream:
-            yield chunk
-
-    return StreamingResponse(
-        body(),
-        media_type=mime or "application/octet-stream",
-        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
     )
 
 
@@ -216,6 +171,8 @@ async def list_files(
     folder_id: uuid.UUID | None = None,
     favorite: bool = False,
     tag: str | None = None,
+    limit: Annotated[int, Query(ge=1, le=500)] = 100,
+    offset: Annotated[int, Query(ge=0)] = 0,
 ) -> list[FileOut]:
     stmt = select(File).where(File.owner_id == user.id)
     if favorite:
@@ -227,14 +184,16 @@ async def list_files(
     else:
         # Root: files with no folder.
         stmt = stmt.where(File.folder_id.is_(None))
-    result = await db.execute(stmt.order_by(File.created_at.desc()))
+    # Paginated for infinite scroll; the client requests the next page by offset.
+    stmt = stmt.order_by(File.created_at.desc()).limit(limit).offset(offset)
+    result = await db.execute(stmt)
     return [FileOut.model_validate(f) for f in result.scalars()]
 
 
 @router.get("/{file_id}/content")
 async def download_file(
     file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep
-) -> StreamingResponse:
+) -> Response:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
@@ -261,8 +220,14 @@ async def download_file(
         size=version.size,
         checksum=version.hash,
     )
-    return await _stream_object(
-        get_provider(record.provider), account, ref, filename=record.name, mime=record.mime
+    return await stream_object(
+        get_provider(record.provider),
+        account,
+        ref,
+        filename=record.name,
+        mime=record.mime,
+        etag=version.hash,
+        request=request,
     )
 
 
@@ -430,8 +395,8 @@ async def delete_version(
 
 @router.get("/{file_id}/versions/{version_id}/content")
 async def download_version(
-    file_id: uuid.UUID, version_id: uuid.UUID, user: CurrentUser, db: DbDep
-) -> StreamingResponse:
+    file_id: uuid.UUID, version_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep
+) -> Response:
     try:
         record = await service.get_owned_file(db, user, file_id)
     except service.FileNotFound:
@@ -448,8 +413,14 @@ async def download_version(
         size=version.size,
         checksum=version.hash,
     )
-    return await _stream_object(
-        get_provider(record.provider), account, ref, filename=record.name, mime=record.mime
+    return await stream_object(
+        get_provider(record.provider),
+        account,
+        ref,
+        filename=record.name,
+        mime=record.mime,
+        etag=version.hash,
+        request=request,
     )
 
 

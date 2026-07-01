@@ -9,8 +9,8 @@ from __future__ import annotations
 
 from collections.abc import AsyncIterator
 
-from fastapi import HTTPException, status
-from fastapi.responses import StreamingResponse
+from fastapi import HTTPException, Request, status
+from fastapi.responses import Response, StreamingResponse
 
 from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef
 
@@ -21,6 +21,25 @@ async def _aclose(stream: AsyncIterator[bytes]) -> None:
         await aclose()
 
 
+def _cache_headers(etag: str | None) -> dict[str, str]:
+    # Content is addressed by hash, so an unchanged body always revalidates to a
+    # 304. max-age=0 + must-revalidate keeps zero staleness (a replaced file gets
+    # a new hash → new ETag) while still sparing the body on repeat downloads.
+    headers = {"Cache-Control": "private, max-age=0, must-revalidate"}
+    if etag:
+        headers["ETag"] = f'"{etag}"'
+    return headers
+
+
+def _matches_etag(request: Request | None, etag: str | None) -> bool:
+    if not etag or request is None:
+        return False
+    header = request.headers.get("if-none-match")
+    if not header:
+        return False
+    return any(tag.strip().strip('"') == etag for tag in header.split(","))
+
+
 async def stream_object(
     provider: StorageProvider,
     account: ProviderAccount,
@@ -29,8 +48,14 @@ async def stream_object(
     filename: str,
     mime: str | None,
     disposition: str = "attachment",
-) -> StreamingResponse:
+    etag: str | None = None,
+    request: Request | None = None,
+) -> Response:
     from telethon.errors import FloodWaitError
+
+    # Conditional GET: the client already holds this exact content.
+    if _matches_etag(request, etag):
+        return Response(status_code=status.HTTP_304_NOT_MODIFIED, headers=_cache_headers(etag))
 
     stream = provider.download(account, ref)
     try:
@@ -55,8 +80,10 @@ async def stream_object(
         async for chunk in stream:
             yield chunk
 
+    headers = {"Content-Disposition": f'{disposition}; filename="{filename}"'}
+    headers.update(_cache_headers(etag))
     return StreamingResponse(
         body(),
         media_type=mime or "application/octet-stream",
-        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
+        headers=headers,
     )

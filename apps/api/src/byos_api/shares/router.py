@@ -4,7 +4,7 @@ import uuid
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from fastapi.responses import StreamingResponse
+from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.analytics.recorder import record_event
@@ -67,7 +67,7 @@ async def revoke_share(share_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
 @public_router.get("/s/{token}")
 async def open_share(
     token: str, request: Request, db: DbDep, pw: str | None = None
-) -> StreamingResponse:
+) -> Response:
     """PUBLIC: stream a shared file's current version, enforcing access controls."""
     try:
         share, file, version = await service.resolve_share(db, token, pw)
@@ -108,4 +108,6 @@ async def open_share(
         filename=file.name,
         mime=file.mime,
         disposition="inline" if share.view_only else "attachment",
+        etag=version.hash,
+        request=request,
     )

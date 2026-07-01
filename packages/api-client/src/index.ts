@@ -285,9 +285,17 @@ export class ByosClient {
   }
 
   // ── Files ─────────────────────────────────────────────────────────────────
-  listFiles(token: string, folderId?: string): Promise<FileItem[]> {
-    const qs = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
-    return this.request<FileItem[]>(`/files${qs}`, { token });
+  listFiles(
+    token: string,
+    folderId?: string,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<FileItem[]> {
+    const params = new URLSearchParams();
+    if (folderId) params.set("folder_id", folderId);
+    if (opts?.limit != null) params.set("limit", String(opts.limit));
+    if (opts?.offset != null) params.set("offset", String(opts.offset));
+    const qs = params.toString();
+    return this.request<FileItem[]>(`/files${qs ? `?${qs}` : ""}`, { token });
   }
 
   searchFiles(
@@ -313,12 +321,22 @@ export class ByosClient {
     return this.request<void>(`/files/${id}`, { method: "DELETE", token });
   }
 
-  listFavorites(token: string): Promise<FileItem[]> {
-    return this.request<FileItem[]>("/files?favorite=true", { token });
+  listFavorites(token: string, opts?: { limit?: number; offset?: number }): Promise<FileItem[]> {
+    const params = new URLSearchParams({ favorite: "true" });
+    if (opts?.limit != null) params.set("limit", String(opts.limit));
+    if (opts?.offset != null) params.set("offset", String(opts.offset));
+    return this.request<FileItem[]>(`/files?${params.toString()}`, { token });
   }
 
-  listByTag(token: string, tag: string): Promise<FileItem[]> {
-    return this.request<FileItem[]>(`/files?tag=${encodeURIComponent(tag)}`, { token });
+  listByTag(
+    token: string,
+    tag: string,
+    opts?: { limit?: number; offset?: number },
+  ): Promise<FileItem[]> {
+    const params = new URLSearchParams({ tag });
+    if (opts?.limit != null) params.set("limit", String(opts.limit));
+    if (opts?.offset != null) params.set("offset", String(opts.offset));
+    return this.request<FileItem[]>(`/files?${params.toString()}`, { token });
   }
 
   listTags(token: string): Promise<string[]> {
