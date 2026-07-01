@@ -31,6 +31,17 @@ async def create_folder(
 ) -> Folder:
     if parent_id is not None:
         await get_owned_folder(db, user, parent_id)  # validates ownership + existence
+    # Idempotency: a folder with the same name in the same parent already exists?
+    existing = await db.execute(
+        select(Folder).where(
+            Folder.owner_id == user.id,
+            Folder.parent_id == parent_id,
+            Folder.name == name,
+        )
+    )
+    found = existing.scalar_one_or_none()
+    if found is not None:
+        return found
     folder = Folder(owner_id=user.id, parent_id=parent_id, name=name)
     db.add(folder)
     await db.commit()

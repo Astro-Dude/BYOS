@@ -66,6 +66,29 @@ async def upload_file(
     except FloodWaitError as exc:
         raise _flood(exc) from exc
 
+    # Idempotency: if an identical file (same name + content hash) already exists
+    # in this folder, drop the redundant upload and return the existing record —
+    # so retries never pile up duplicates.
+    existing = (
+        await db.execute(
+            select(File).where(
+                File.owner_id == user.id,
+                File.folder_id == folder_id,
+                File.name == filename,
+                File.hash == ref.checksum,
+            )
+        )
+    ).scalar_one_or_none()
+    if existing is not None:
+        try:
+            await provider.delete(
+                account,
+                StoredObjectRef(provider=provider_name, locator=ref.locator, size=ref.size),
+            )
+        except Exception:
+            logger.warning("Failed to clean up redundant duplicate upload", exc_info=True)
+        return FileOut.model_validate(existing)
+
     # Persist metadata; if it fails, delete the just-stored object so we never
     # leave an orphan in the provider.
     try:
@@ -200,7 +223,7 @@ async def download_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Str
 async def delete_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+        return  # idempotent: nothing to delete for this user
 
     account = await service.account_for_file(db, user, record)
     versions = list(

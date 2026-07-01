@@ -81,4 +81,4 @@ async def delete_folder(folder_id: uuid.UUID, user: CurrentUser, db: DbDep) -> N
     try:
         await service.delete_folder(db, user, folder_id)
     except service.FolderNotFound:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found") from None
+        return  # idempotent: nothing to delete for this user
