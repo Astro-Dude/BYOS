@@ -11,6 +11,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AliasModal } from "@/components/dashboard/alias-modal";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
+import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
@@ -120,8 +121,8 @@ export default function DashboardPage() {
   }, [authLoading, user, router]);
 
   const load = useCallback(async () => {
-    // "links" and "insights" render their own panels — no file listing needed.
-    if (view === "links" || view === "insights") return;
+    // These views render their own panels — no file listing needed.
+    if (view === "links" || view === "insights" || view === "developer") return;
     setLoading(true);
     setError(null);
     try {
@@ -492,6 +493,8 @@ export default function DashboardPage() {
         >
           {view === "insights" ? (
             <InsightsPanel />
+          ) : view === "developer" ? (
+            <DeveloperPanel />
           ) : view === "links" ? (
             <div className="pt-2">
               <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>

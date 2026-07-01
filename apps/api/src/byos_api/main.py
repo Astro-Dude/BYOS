@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from byos_api.aliases.router import public_router as alias_public_router
 from byos_api.aliases.router import router as aliases_router
 from byos_api.analytics.router import router as analytics_router
+from byos_api.apikeys.router import router as apikeys_router
 from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
@@ -24,6 +25,7 @@ from byos_api.storage import (
     register_default_providers,
     shutdown_providers,
 )
+from byos_api.webhooks.router import router as webhooks_router
 
 settings = get_settings()
 
@@ -73,6 +75,8 @@ def create_app() -> FastAPI:
     app.include_router(shares_router)
     app.include_router(share_public_router)
     app.include_router(analytics_router)
+    app.include_router(apikeys_router)
+    app.include_router(webhooks_router)
     return app
 
 

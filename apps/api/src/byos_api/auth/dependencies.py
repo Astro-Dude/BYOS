@@ -10,11 +10,13 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from byos_api.apikeys import service as apikeys_service
 from byos_api.core.db import get_db
 from byos_api.core.security import decode_access_token
 from byos_api.db.models import User
 
 _bearer = HTTPBearer(auto_error=False)
+_API_KEY_SCHEME = "byosk_"
 _unauthorized = HTTPException(
     status_code=status.HTTP_401_UNAUTHORIZED,
     detail="Not authenticated",
@@ -28,6 +30,14 @@ async def get_current_user(
 ) -> User:
     if creds is None:
         raise _unauthorized
+
+    # Programmatic clients present an API key instead of a JWT access token.
+    if creds.credentials.startswith(_API_KEY_SCHEME):
+        user = await apikeys_service.authenticate(db, creds.credentials)
+        if user is None:
+            raise _unauthorized
+        return user
+
     try:
         payload = decode_access_token(creds.credentials)
     except jwt.PyJWTError:

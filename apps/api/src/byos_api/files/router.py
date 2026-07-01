@@ -18,12 +18,23 @@ from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
 from byos_api.files.schemas import FavoriteRequest, FileOut, TagRequest, VersionOut
 from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef, get_provider
+from byos_api.webhooks import dispatcher
 
 logger = logging.getLogger("byos")
 router = APIRouter(prefix="/files", tags=["files"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 _UPLOAD_CHUNK = 1024 * 1024
+
+
+def _file_event_payload(record: File) -> dict[str, object]:
+    return {
+        "file_id": str(record.id),
+        "name": record.name,
+        "size": record.size,
+        "mime": record.mime,
+        "folder_id": str(record.folder_id) if record.folder_id else None,
+    }
 
 
 def _flood(exc: FloodWaitError) -> HTTPException:
@@ -170,6 +181,7 @@ async def upload_file(
             logger.warning("Failed to clean up orphaned object after upload failure", exc_info=True)
         raise
 
+    dispatcher.emit(record.owner_id, "file.created", _file_event_payload(record))
     return FileOut.model_validate(record)
 
 
@@ -282,10 +294,12 @@ async def delete_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
         # while the remote object may still exist, so the delete can be retried.
         # (Deleting an already-gone message is a no-op, so this path is safe.)
 
+    payload = _file_event_payload(record)
     record.current_version_id = None
     await db.flush()
     await db.delete(record)  # cascades to file_versions
     await db.commit()
+    dispatcher.emit(user.id, "file.deleted", payload)
 
 
 @router.post("/{file_id}/replace", response_model=FileOut)
@@ -361,6 +375,7 @@ async def replace_file(
             )
         raise
 
+    dispatcher.emit(record.owner_id, "file.replaced", _file_event_payload(record))
     return FileOut.model_validate(record)
 
 

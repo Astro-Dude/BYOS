@@ -130,6 +130,29 @@ export interface AnalyticsTopItem {
   hits: number;
 }
 
+export interface ApiKeyItem {
+  id: string;
+  name: string;
+  prefix: string;
+  last_used_at: string | null;
+  revoked_at: string | null;
+  created_at: string;
+}
+
+export interface ApiKeyCreated {
+  key: string; // plaintext — shown only once
+  api_key: ApiKeyItem;
+}
+
+export interface WebhookItem {
+  id: string;
+  url: string;
+  secret: string;
+  events: string[];
+  active: boolean;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -431,5 +454,38 @@ export class ByosClient {
 
   getAnalyticsTop(token: string, limit = 8): Promise<AnalyticsTopItem[]> {
     return this.request<AnalyticsTopItem[]>(`/analytics/top?limit=${limit}`, { token });
+  }
+
+  // ── Developer platform (API keys + webhooks) ──────────────────────────────
+  listApiKeys(token: string): Promise<ApiKeyItem[]> {
+    return this.request<ApiKeyItem[]>("/api-keys", { token });
+  }
+
+  createApiKey(token: string, name: string): Promise<ApiKeyCreated> {
+    return this.request<ApiKeyCreated>("/api-keys", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  revokeApiKey(token: string, id: string): Promise<void> {
+    return this.request<void>(`/api-keys/${id}`, { method: "DELETE", token });
+  }
+
+  listWebhooks(token: string): Promise<WebhookItem[]> {
+    return this.request<WebhookItem[]>("/webhooks", { token });
+  }
+
+  createWebhook(token: string, url: string, events?: string[]): Promise<WebhookItem> {
+    return this.request<WebhookItem>("/webhooks", {
+      method: "POST",
+      token,
+      body: JSON.stringify(events && events.length ? { url, events } : { url }),
+    });
+  }
+
+  deleteWebhook(token: string, id: string): Promise<void> {
+    return this.request<void>(`/webhooks/${id}`, { method: "DELETE", token });
   }
 }
