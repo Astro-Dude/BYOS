@@ -7,7 +7,7 @@
 
 export interface User {
   id: string;
-  email: string;
+  email: string | null;
   display_name: string | null;
   is_verified: boolean;
 }
@@ -18,15 +18,12 @@ export interface TokenResponse {
   expires_in: number;
 }
 
-export interface RegisterInput {
-  email: string;
-  password: string;
-  display_name?: string;
-}
-
-export interface LoginInput {
-  email: string;
-  password: string;
+export interface TelegramLoginResult {
+  status: "code_sent" | "password_needed" | "connected";
+  ticket: string | null;
+  access_token: string | null;
+  token_type: string | null;
+  expires_in: number | null;
 }
 
 export interface HealthResponse {
@@ -124,14 +121,24 @@ export class ByosClient {
   }
 
   // ── Auth ────────────────────────────────────────────────────────────────
-  register(input: RegisterInput): Promise<User> {
-    return this.request<User>("/auth/register", { method: "POST", body: JSON.stringify(input) });
+  telegramStart(phone: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/telegram/start", {
+      method: "POST",
+      body: JSON.stringify({ phone }),
+    });
   }
 
-  login(input: LoginInput): Promise<TokenResponse> {
-    return this.request<TokenResponse>("/auth/login", {
+  telegramVerify(ticket: string, code: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/telegram/verify", {
       method: "POST",
-      body: JSON.stringify(input),
+      body: JSON.stringify({ ticket, code }),
+    });
+  }
+
+  telegramPassword(ticket: string, password: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/telegram/password", {
+      method: "POST",
+      body: JSON.stringify({ ticket, password }),
     });
   }
 
@@ -154,30 +161,6 @@ export class ByosClient {
   // ── Storage providers (Telegram) ─────────────────────────────────────────
   listProviders(token: string): Promise<ProviderStatus[]> {
     return this.request<ProviderStatus[]>("/providers", { token });
-  }
-
-  connectTelegram(token: string, phone: string): Promise<ConnectResult> {
-    return this.request<ConnectResult>("/providers/telegram/connect", {
-      method: "POST",
-      token,
-      body: JSON.stringify({ phone }),
-    });
-  }
-
-  verifyTelegramCode(token: string, code: string): Promise<ConnectResult> {
-    return this.request<ConnectResult>("/providers/telegram/verify", {
-      method: "POST",
-      token,
-      body: JSON.stringify({ code }),
-    });
-  }
-
-  verifyTelegramPassword(token: string, password: string): Promise<ConnectResult> {
-    return this.request<ConnectResult>("/providers/telegram/password", {
-      method: "POST",
-      token,
-      body: JSON.stringify({ password }),
-    });
   }
 
   disconnectTelegram(token: string): Promise<void> {

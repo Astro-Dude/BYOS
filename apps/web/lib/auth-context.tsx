@@ -10,10 +10,9 @@ interface AuthState {
   user: User | null;
   token: string | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (email: string, password: string, displayName?: string) => Promise<void>;
   logout: () => Promise<void>;
   refresh: () => Promise<string | null>;
+  establishSession: (accessToken: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthState | null>(null);
@@ -37,7 +36,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   useEffect(() => {
-    // Attempt a silent refresh on mount using the httpOnly refresh cookie.
     let cancelled = false;
     (async () => {
       await refresh();
@@ -48,19 +46,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     };
   }, [refresh]);
 
-  const login = useCallback(async (email: string, password: string) => {
-    const t = await api.login({ email, password });
-    setToken(t.access_token);
-    setUser(await api.me(t.access_token));
+  const establishSession = useCallback(async (accessToken: string) => {
+    setToken(accessToken);
+    setUser(await api.me(accessToken));
   }, []);
-
-  const register = useCallback(
-    async (email: string, password: string, displayName?: string) => {
-      await api.register({ email, password, display_name: displayName });
-      await login(email, password);
-    },
-    [login],
-  );
 
   const logout = useCallback(async () => {
     try {
@@ -72,7 +61,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   return (
-    <AuthContext.Provider value={{ user, token, loading, login, register, logout, refresh }}>
+    <AuthContext.Provider value={{ user, token, loading, logout, refresh, establishSession }}>
       {children}
     </AuthContext.Provider>
   );
@@ -86,13 +75,9 @@ export function useAuth(): AuthState {
 
 export type Authed = <T>(fn: (token: string) => Promise<T>) => Promise<T>;
 
-/** Returns a helper that runs an API call with the current access token and,
- * on a 401, refreshes once and retries. */
+/** Runs an API call with the current access token; on a 401, refreshes once and retries. */
 export function useAuthed(): Authed {
   const { token, refresh } = useAuth();
-  // Memoized so its identity is stable across renders (only changes when the
-  // token or refresh fn changes). Without this, callers that put `authed` in a
-  // useEffect/useCallback dependency array re-run every render → fetch loop.
   return useCallback(
     async <T,>(fn: (t: string) => Promise<T>): Promise<T> => {
       const current = token ?? (await refresh());

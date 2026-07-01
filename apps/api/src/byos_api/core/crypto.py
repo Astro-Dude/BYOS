@@ -29,3 +29,8 @@ def encrypt(plaintext: str) -> str:
 
 def decrypt(token: str) -> str:
     return _fernet().decrypt(token.encode()).decode()
+
+
+def decrypt_ttl(token: str, ttl: int) -> str:
+    """Decrypt, rejecting tokens older than `ttl` seconds (raises InvalidToken)."""
+    return _fernet().decrypt(token.encode(), ttl=ttl).decode()
