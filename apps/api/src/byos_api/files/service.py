@@ -4,15 +4,91 @@ stored file."""
 
 from __future__ import annotations
 
+import logging
 import uuid
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core import crypto
-from byos_api.db.models import File, StorageAccount, User
+from byos_api.db.models import File, FileVersion, StorageAccount, User
 from byos_api.providers import service as providers_service
-from byos_api.storage import ProviderAccount
+from byos_api.storage import ProviderAccount, StoredObjectRef, get_provider
+
+logger = logging.getLogger("byos")
+
+
+class FileNotFound(Exception):
+    pass
+
+
+class FileVersionNotFound(Exception):
+    pass
+
+
+class CannotDeleteCurrentVersion(Exception):
+    pass
+
+
+async def get_owned_file(db: AsyncSession, user: User, file_id: uuid.UUID) -> File:
+    record = await db.get(File, file_id)
+    if record is None or record.owner_id != user.id:
+        raise FileNotFound
+    return record
+
+
+async def next_version_no(db: AsyncSession, file_id: uuid.UUID) -> int:
+    result = await db.execute(
+        select(func.max(FileVersion.version_no)).where(FileVersion.file_id == file_id)
+    )
+    return (result.scalar() or 0) + 1
+
+
+async def list_versions(db: AsyncSession, file_id: uuid.UUID) -> list[FileVersion]:
+    result = await db.execute(
+        select(FileVersion)
+        .where(FileVersion.file_id == file_id)
+        .order_by(FileVersion.version_no.desc())
+    )
+    return list(result.scalars())
+
+
+async def restore_version(
+    db: AsyncSession, user: User, file_id: uuid.UUID, version_id: uuid.UUID
+) -> File:
+    record = await get_owned_file(db, user, file_id)
+    version = await db.get(FileVersion, version_id)
+    if version is None or version.file_id != record.id:
+        raise FileVersionNotFound
+    record.current_version_id = version.id
+    record.size = version.size
+    record.hash = version.hash
+    await db.commit()
+    await db.refresh(record)
+    return record
+
+
+async def delete_version(
+    db: AsyncSession, user: User, file_id: uuid.UUID, version_id: uuid.UUID
+) -> None:
+    record = await get_owned_file(db, user, file_id)
+    version = await db.get(FileVersion, version_id)
+    if version is None or version.file_id != record.id:
+        return  # idempotent
+    if record.current_version_id == version.id:
+        raise CannotDeleteCurrentVersion
+    account = await account_for_file(db, user, record)
+    if account is not None:
+        # Provider errors propagate (incl. FloodWait) so we don't drop the row
+        # while the remote object still exists.
+        await get_provider(record.provider).delete(
+            account,
+            StoredObjectRef(
+                provider=record.provider, locator=version.provider_locator, size=version.size
+            ),
+        )
+    await db.delete(version)
+    await db.commit()
 
 
 def split_filename(filename: str) -> tuple[str, str | None]:

@@ -15,8 +15,8 @@ from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder
 from byos_api.files import service
-from byos_api.files.schemas import FileOut
-from byos_api.storage import StoredObjectRef, get_provider
+from byos_api.files.schemas import FileOut, VersionOut
+from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef, get_provider
 
 logger = logging.getLogger("byos")
 router = APIRouter(prefix="/files", tags=["files"])
@@ -35,6 +35,45 @@ async def _aclose(stream: AsyncIterator[bytes]) -> None:
     aclose = getattr(stream, "aclose", None)
     if aclose is not None:
         await aclose()
+
+
+async def _stream_object(
+    provider: StorageProvider,
+    account: ProviderAccount,
+    ref: StoredObjectRef,
+    *,
+    filename: str,
+    mime: str | None,
+    disposition: str = "attachment",
+) -> StreamingResponse:
+    """Stream a stored object, priming the first chunk so provider errors surface
+    as a real status code instead of a truncated body under an already-sent 200."""
+    stream = provider.download(account, ref)
+    try:
+        first_chunk = await stream.__anext__()
+        exhausted = False
+    except StopAsyncIteration:
+        first_chunk, exhausted = b"", True
+    except FileNotFoundError:
+        await _aclose(stream)
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND, "File content no longer exists in the provider"
+        ) from None
+    except FloodWaitError as exc:
+        await _aclose(stream)
+        raise _flood(exc) from exc
+
+    async def body():
+        if not exhausted:
+            yield first_chunk
+        async for chunk in stream:
+            yield chunk
+
+    return StreamingResponse(
+        body(),
+        media_type=mime or "application/octet-stream",
+        headers={"Content-Disposition": f'{disposition}; filename="{filename}"'},
+    )
 
 
 @router.post("", response_model=FileOut, status_code=status.HTTP_201_CREATED)
@@ -182,40 +221,14 @@ async def download_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Str
     if account is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")
 
-    provider = get_provider(record.provider)
     ref = StoredObjectRef(
         provider=record.provider,
         locator=version.provider_locator,
         size=version.size,
         checksum=version.hash,
     )
-    stream = provider.download(account, ref)
-
-    # Pull the first chunk now so provider errors surface as a real status code
-    # instead of a truncated body under an already-sent 200.
-    try:
-        first_chunk = await stream.__anext__()
-        exhausted = False
-    except StopAsyncIteration:
-        first_chunk, exhausted = b"", True
-    except FileNotFoundError:
-        await _aclose(stream)
-        raise HTTPException(
-            status.HTTP_404_NOT_FOUND, "File content no longer exists in the provider"
-        ) from None
-    except FloodWaitError as exc:
-        await _aclose(stream)
-        raise _flood(exc) from exc
-
-    async def body():
-        if not exhausted:
-            yield first_chunk
-        async for chunk in stream:
-            yield chunk
-
-    headers = {"Content-Disposition": f'attachment; filename="{record.name}"'}
-    return StreamingResponse(
-        body(), media_type=record.mime or "application/octet-stream", headers=headers
+    return await _stream_object(
+        get_provider(record.provider), account, ref, filename=record.name, mime=record.mime
     )
 
 
@@ -251,3 +264,153 @@ async def delete_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
     await db.flush()
     await db.delete(record)  # cascades to file_versions
     await db.commit()
+
+
+@router.post("/{file_id}/replace", response_model=FileOut)
+async def replace_file(
+    file_id: uuid.UUID, user: CurrentUser, db: DbDep, file: UploadFile
+) -> FileOut:
+    try:
+        record = await service.get_owned_file(db, user, file_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+
+    account = await service.account_for_file(db, user, record)
+    if account is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")
+    provider = get_provider(record.provider)
+    filename = file.filename or record.name
+
+    async def _stream():
+        while chunk := await file.read(_UPLOAD_CHUNK):
+            yield chunk
+
+    try:
+        ref = await provider.upload(
+            account, _stream(), filename=filename, size=file.size or 0, mime=file.content_type
+        )
+    except FloodWaitError as exc:
+        raise _flood(exc) from exc
+
+    # Idempotent replace: identical content creates no new version.
+    current = (
+        await db.get(FileVersion, record.current_version_id)
+        if record.current_version_id
+        else None
+    )
+    if current is not None and current.hash == ref.checksum:
+        try:
+            await provider.delete(
+                account,
+                StoredObjectRef(provider=record.provider, locator=ref.locator, size=ref.size),
+            )
+        except Exception:
+            logger.warning("Failed to clean up redundant identical replace", exc_info=True)
+        return FileOut.model_validate(record)
+
+    try:
+        version = FileVersion(
+            file_id=record.id,
+            version_no=await service.next_version_no(db, record.id),
+            provider=record.provider,
+            provider_locator=ref.locator,
+            size=ref.size,
+            hash=ref.checksum,
+        )
+        db.add(version)
+        await db.flush()
+        record.current_version_id = version.id
+        record.size = ref.size
+        record.hash = ref.checksum
+        if file.content_type:
+            record.mime = file.content_type
+        await db.commit()
+        await db.refresh(record)
+    except Exception:
+        await db.rollback()
+        try:
+            await provider.delete(
+                account,
+                StoredObjectRef(provider=record.provider, locator=ref.locator, size=ref.size),
+            )
+        except Exception:
+            logger.warning(
+                "Failed to clean up orphaned object after replace failure", exc_info=True
+            )
+        raise
+
+    return FileOut.model_validate(record)
+
+
+@router.get("/{file_id}/versions", response_model=list[VersionOut])
+async def list_versions(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> list[VersionOut]:
+    try:
+        record = await service.get_owned_file(db, user, file_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    versions = await service.list_versions(db, record.id)
+    return [
+        VersionOut(
+            id=v.id,
+            version_no=v.version_no,
+            size=v.size,
+            hash=v.hash,
+            created_at=v.created_at,
+            is_current=v.id == record.current_version_id,
+        )
+        for v in versions
+    ]
+
+
+@router.post("/{file_id}/versions/{version_id}/restore", response_model=FileOut)
+async def restore_version(
+    file_id: uuid.UUID, version_id: uuid.UUID, user: CurrentUser, db: DbDep
+) -> FileOut:
+    try:
+        record = await service.restore_version(db, user, file_id, version_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    except service.FileVersionNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found") from None
+    return FileOut.model_validate(record)
+
+
+@router.delete("/{file_id}/versions/{version_id}", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_version(
+    file_id: uuid.UUID, version_id: uuid.UUID, user: CurrentUser, db: DbDep
+) -> None:
+    try:
+        await service.delete_version(db, user, file_id, version_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    except service.CannotDeleteCurrentVersion:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Cannot delete the current version — restore another first"
+        ) from None
+    except FloodWaitError as exc:
+        raise _flood(exc) from exc
+
+
+@router.get("/{file_id}/versions/{version_id}/content")
+async def download_version(
+    file_id: uuid.UUID, version_id: uuid.UUID, user: CurrentUser, db: DbDep
+) -> StreamingResponse:
+    try:
+        record = await service.get_owned_file(db, user, file_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    version = await db.get(FileVersion, version_id)
+    if version is None or version.file_id != record.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Version not found")
+    account = await service.account_for_file(db, user, record)
+    if account is None:
+        raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")
+    ref = StoredObjectRef(
+        provider=record.provider,
+        locator=version.provider_locator,
+        size=version.size,
+        checksum=version.hash,
+    )
+    return await _stream_object(
+        get_provider(record.provider), account, ref, filename=record.name, mime=record.mime
+    )

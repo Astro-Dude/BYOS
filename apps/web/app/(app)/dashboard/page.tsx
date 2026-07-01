@@ -11,12 +11,24 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AliasModal } from "@/components/dashboard/alias-modal";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
+import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
+import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+
+type Category = "all" | "folder" | "image" | "pdf" | "doc" | "video";
+const CATEGORIES: { key: Category; label: string }[] = [
+  { key: "all", label: "All types" },
+  { key: "folder", label: "Folders" },
+  { key: "image", label: "Images" },
+  { key: "pdf", label: "PDFs" },
+  { key: "doc", label: "Documents" },
+  { key: "video", label: "Video" },
+];
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -37,8 +49,32 @@ function fileIcon(mime: string | null, ext: string | null): string {
   if (m.startsWith("audio/")) return "🎵";
   if (m === "application/pdf" || ext === "pdf") return "📕";
   if (["zip", "tar", "gz", "rar", "7z"].includes(ext ?? "")) return "🗜️";
-  if (["doc", "docx", "txt", "md", "rtf"].includes(ext ?? "")) return "📄";
   return "📄";
+}
+
+function matchesType(file: FileItem, cat: Category): boolean {
+  const m = (file.mime ?? "").toLowerCase();
+  const ext = (file.ext ?? "").toLowerCase();
+  switch (cat) {
+    case "image":
+      return m.startsWith("image/");
+    case "pdf":
+      return m === "application/pdf" || ext === "pdf";
+    case "video":
+      return m.startsWith("video/");
+    case "doc":
+      return (
+        m.startsWith("text/") ||
+        m.includes("word") ||
+        ["doc", "docx", "txt", "md", "rtf", "odt"].includes(ext)
+      );
+    default:
+      return true;
+  }
+}
+
+function shortDate(iso: string): string {
+  return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
 export default function DashboardPage() {
@@ -47,7 +83,7 @@ export default function DashboardPage() {
   const authed = useAuthed();
 
   const [view, setView] = useState<DriveView>("drive");
-  const [layout, setLayout] = useState<"grid" | "list">("grid");
+  const [layout, setLayout] = useState<"list" | "grid">("list");
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [crumbs, setCrumbs] = useState<Breadcrumb[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -59,12 +95,14 @@ export default function DashboardPage() {
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<FileItem[] | null>(null);
+  const [typeFilter, setTypeFilter] = useState<Category>("all");
 
   const [nfOpen, setNfOpen] = useState(false);
   const [nfName, setNfName] = useState("");
   const [aliasRefresh, setAliasRefresh] = useState(0);
   const [preview, setPreview] = useState<FileItem | null>(null);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
+  const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const searchActive = search.trim().length > 0;
@@ -109,21 +147,23 @@ export default function DashboardPage() {
     return () => clearTimeout(id);
   }, [search, authed]);
 
-  const run = async (fn: () => Promise<void>) => {
+  const run = (fn: () => Promise<void>) => {
     setError(null);
     setBusy(true);
-    try {
-      await fn();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Something went wrong");
-    } finally {
-      setBusy(false);
-    }
+    (async () => {
+      try {
+        await fn();
+      } catch (err) {
+        setError(err instanceof ApiError ? err.detail : "Something went wrong");
+      } finally {
+        setBusy(false);
+      }
+    })();
   };
 
   const upload = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    void run(async () => {
+    run(async () => {
       for (const file of Array.from(fileList)) {
         await authed((t) => api.uploadFile(t, file, folderId));
       }
@@ -135,7 +175,7 @@ export default function DashboardPage() {
   const createFolder = () => {
     const name = nfName.trim();
     if (!name) return;
-    void run(async () => {
+    run(async () => {
       await authed((t) => api.createFolder(t, name, folderId));
       setNfName("");
       setNfOpen(false);
@@ -144,7 +184,7 @@ export default function DashboardPage() {
   };
 
   const download = (file: FileItem) =>
-    void run(async () => {
+    run(async () => {
       const blob = await authed((t) => api.downloadBlob(t, file.id));
       const url = URL.createObjectURL(blob);
       const a = document.createElement("a");
@@ -157,67 +197,215 @@ export default function DashboardPage() {
     });
 
   const removeFile = (file: FileItem) =>
-    void run(async () => {
+    run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
       if (searchActive) setResults((r) => (r ? r.filter((f) => f.id !== file.id) : r));
       else await load();
     });
 
   const removeFolder = (folder: FolderItem) =>
-    void run(async () => {
+    run(async () => {
       await authed((t) => api.deleteFolder(t, folder.id));
       await load();
     });
+
+  if (authLoading || !user) {
+    return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
+  }
 
   const onLogout = async () => {
     await logout();
     router.replace("/login");
   };
 
-  if (authLoading || !user) {
-    return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
-  }
+  const initials = (user.display_name?.trim()?.[0] ?? "U").toUpperCase();
+  const typeLabel = CATEGORIES.find((c) => c.key === typeFilter)?.label ?? "All types";
 
-  const shownFiles = searchActive ? (results ?? []) : files;
-  const shownFolders = searchActive ? [] : folders;
+  const rawFiles = searchActive ? (results ?? []) : files;
+  const shownFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
+  const shownFolders =
+    searchActive || (typeFilter !== "all" && typeFilter !== "folder") ? [] : folders;
 
-  const actionButton = (label: string, onClick: () => void, tone = "text-zinc-600") => (
-    <button onClick={onClick} className={`text-xs font-medium ${tone} hover:underline`}>
-      {label}
-    </button>
+  const fileMenu = (file: FileItem) => (
+    <Menu
+      trigger={() => (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
+          ⋮
+        </span>
+      )}
+    >
+      {(close) => (
+        <>
+          <MenuItem icon="👁" label="Preview" onClick={() => { close(); setPreview(file); }} />
+          <MenuItem icon="⬇️" label="Download" onClick={() => { close(); download(file); }} />
+          <MenuItem icon="🔗" label="Get link" onClick={() => { close(); setAliasFor(file); }} />
+          <MenuItem icon="🕘" label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
+          <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFile(file); }} />
+        </>
+      )}
+    </Menu>
   );
 
-  const fileActions = (file: FileItem) => (
-    <div className="flex flex-wrap gap-x-3 gap-y-1">
-      {actionButton("Preview", () => setPreview(file))}
-      {actionButton("Download", () => download(file), "text-indigo-600")}
-      {actionButton("Link", () => setAliasFor(file))}
-      {actionButton("Delete", () => removeFile(file), "text-red-600")}
+  const folderMenu = (folder: FolderItem) => (
+    <Menu
+      trigger={() => (
+        <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
+          ⋮
+        </span>
+      )}
+    >
+      {(close) => (
+        <>
+          <MenuItem icon="📂" label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
+          <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFolder(folder); }} />
+        </>
+      )}
+    </Menu>
+  );
+
+  const emptyState = (
+    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 py-24 text-center">
+      <p className="text-base font-medium text-zinc-900">
+        {searchActive ? "No matching files" : "This folder is empty"}
+      </p>
+      <p className="mt-1 text-sm text-zinc-500">
+        {searchActive ? "Try a different search." : "Drop files here or use New to upload."}
+      </p>
+    </div>
+  );
+
+  const listView = (
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+      <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-100 px-4 py-2.5 text-xs font-medium text-zinc-500">
+        <span>Name</span>
+        <span>Modified</span>
+        <span>Size</span>
+        <span />
+      </div>
+      {shownFolders.map((folder) => (
+        <div
+          key={folder.id}
+          className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
+        >
+          <button
+            onClick={() => setFolderId(folder.id)}
+            className="flex min-w-0 items-center gap-3 text-left"
+          >
+            <span aria-hidden>📁</span>
+            <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
+          </button>
+          <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
+          <span className="text-sm text-zinc-400">—</span>
+          {folderMenu(folder)}
+        </div>
+      ))}
+      {shownFiles.map((file) => (
+        <div
+          key={file.id}
+          className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
+        >
+          <button
+            onClick={() => setPreview(file)}
+            className="flex min-w-0 items-center gap-3 text-left"
+          >
+            <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
+            <span className="truncate text-sm font-medium text-zinc-900">{file.name}</span>
+          </button>
+          <span className="text-sm text-zinc-500">{shortDate(file.modified_at)}</span>
+          <span className="text-sm text-zinc-500">{humanSize(file.size)}</span>
+          {fileMenu(file)}
+        </div>
+      ))}
+    </div>
+  );
+
+  const gridView = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {shownFolders.map((folder) => (
+        <div
+          key={folder.id}
+          className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
+        >
+          <button
+            onClick={() => setFolderId(folder.id)}
+            className="flex min-w-0 items-center gap-2 text-left"
+          >
+            <span className="text-2xl" aria-hidden>📁</span>
+            <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
+          </button>
+          {folderMenu(folder)}
+        </div>
+      ))}
+      {shownFiles.map((file) => (
+        <div
+          key={file.id}
+          className="rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
+        >
+          <div className="flex items-start justify-between">
+            <button onClick={() => setPreview(file)} className="text-3xl" aria-hidden>
+              {fileIcon(file.mime, file.ext)}
+            </button>
+            {fileMenu(file)}
+          </div>
+          <p className="mt-2 truncate text-sm font-medium text-zinc-900">{file.name}</p>
+          <p className="text-xs text-zinc-500">{humanSize(file.size)}</p>
+        </div>
+      ))}
     </div>
   );
 
   return (
-    <div className="flex h-screen bg-zinc-50">
-      <Sidebar view={view} onView={setView} />
+    <div className="flex h-screen bg-[#f7f8fb]">
+      <Sidebar
+        view={view}
+        onView={setView}
+        onNewFolder={() => {
+          setView("drive");
+          setNfOpen(true);
+        }}
+        onUpload={() => {
+          setView("drive");
+          inputRef.current?.click();
+        }}
+      />
+      <input ref={inputRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <header className="flex items-center gap-4 border-b border-zinc-200 bg-white px-6 py-3">
-          <Input
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search in BYOS…"
-            className="max-w-xl"
-          />
-          <div className="ml-auto flex items-center gap-3 text-sm">
-            <span className="text-zinc-500">{user.display_name ?? "Signed in"}</span>
-            <Button onClick={onLogout} className="bg-zinc-900 hover:bg-zinc-700">
-              Log out
-            </Button>
+        {/* Top bar */}
+        <header className="flex items-center gap-4 px-6 py-3">
+          <div className="flex-1">
+            <div className="flex max-w-2xl items-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5">
+              <span className="text-zinc-400" aria-hidden>
+                🔍
+              </span>
+              <input
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder="Search in BYOS"
+                className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
+              />
+            </div>
           </div>
+          <Menu
+            trigger={() => (
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-medium text-white">
+                {initials}
+              </span>
+            )}
+          >
+            {(close) => (
+              <>
+                <div className="border-b border-zinc-100 px-4 py-2 text-xs text-zinc-500">
+                  {user.display_name ?? "Signed in"}
+                </div>
+                <MenuItem label="Log out" onClick={() => { close(); void onLogout(); }} />
+              </>
+            )}
+          </Menu>
         </header>
 
         <main
-          className="flex-1 overflow-auto p-6"
+          className="flex-1 overflow-auto px-6 pb-8"
           onDragOver={(e) => {
             if (view === "drive" && !searchActive) {
               e.preventDefault();
@@ -234,87 +422,93 @@ export default function DashboardPage() {
           }}
         >
           {view === "links" ? (
-            <AliasesPanel refreshKey={aliasRefresh} />
+            <div className="pt-2">
+              <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>
+              <AliasesPanel refreshKey={aliasRefresh} />
+            </div>
           ) : (
-            <div className={dragging ? "rounded-xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
-              {/* Breadcrumb + toolbar */}
-              <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
-                {searchActive ? (
-                  <p className="text-sm text-zinc-500">
-                    Results for “{search.trim()}”
-                  </p>
-                ) : (
-                  <nav className="flex flex-wrap items-center gap-1 text-sm text-zinc-500">
-                    <button
-                      onClick={() => setFolderId(undefined)}
-                      className={folderId ? "hover:text-zinc-900" : "font-medium text-zinc-900"}
-                    >
-                      My Drive
-                    </button>
-                    {crumbs.map((c) => (
-                      <span key={c.id} className="flex items-center gap-1">
-                        <span className="text-zinc-300">/</span>
-                        <button
-                          onClick={() => setFolderId(c.id)}
-                          className={
-                            c.id === folderId ? "font-medium text-zinc-900" : "hover:text-zinc-900"
-                          }
-                        >
-                          {c.name}
-                        </button>
-                      </span>
-                    ))}
-                  </nav>
-                )}
-
-                {!searchActive && (
-                  <div className="flex items-center gap-2">
-                    {nfOpen ? (
-                      <div className="flex items-center gap-2">
-                        <Input
-                          autoFocus
-                          value={nfName}
-                          onChange={(e) => setNfName(e.target.value)}
-                          onKeyDown={(e) => e.key === "Enter" && createFolder()}
-                          placeholder="Folder name"
-                          className="h-9 w-40"
-                        />
-                        <Button onClick={createFolder} disabled={busy || !nfName.trim()}>
-                          Create
-                        </Button>
-                        <Button
-                          onClick={() => setNfOpen(false)}
-                          className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    ) : (
-                      <Button
-                        onClick={() => setNfOpen(true)}
-                        className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+            <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
+              {/* Title + view toggle */}
+              <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+                <nav className="flex flex-wrap items-center gap-2 text-2xl font-normal text-zinc-800">
+                  <button
+                    onClick={() => setFolderId(undefined)}
+                    className={folderId ? "text-zinc-500 hover:text-zinc-800" : ""}
+                  >
+                    My Drive
+                  </button>
+                  {crumbs.map((c) => (
+                    <span key={c.id} className="flex items-center gap-2">
+                      <span className="text-zinc-300">›</span>
+                      <button
+                        onClick={() => setFolderId(c.id)}
+                        className={c.id === folderId ? "" : "text-zinc-500 hover:text-zinc-800"}
                       >
-                        + New folder
-                      </Button>
-                    )}
-                    <Button onClick={() => inputRef.current?.click()} disabled={busy}>
-                      {busy ? "Working…" : "Upload"}
-                    </Button>
-                    <button
-                      onClick={() => setLayout((l) => (l === "grid" ? "list" : "grid"))}
-                      className="rounded-md border border-zinc-300 px-3 py-2 text-sm text-zinc-700 hover:bg-zinc-50"
-                    >
-                      {layout === "grid" ? "☰ List" : "▦ Grid"}
-                    </button>
-                    <input
-                      ref={inputRef}
-                      type="file"
-                      multiple
-                      hidden
-                      onChange={(e) => upload(e.target.files)}
+                        {c.name}
+                      </button>
+                    </span>
+                  ))}
+                </nav>
+                <div className="flex items-center rounded-full border border-zinc-200 bg-white p-0.5">
+                  <button
+                    onClick={() => setLayout("list")}
+                    className={`rounded-full px-3 py-1 text-sm ${layout === "list" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                  >
+                    ☰ List
+                  </button>
+                  <button
+                    onClick={() => setLayout("grid")}
+                    className={`rounded-full px-3 py-1 text-sm ${layout === "grid" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                  >
+                    ▦ Grid
+                  </button>
+                </div>
+              </div>
+
+              {/* Filter chips */}
+              <div className="flex flex-wrap items-center gap-2 pb-4">
+                <Menu
+                  align="left"
+                  trigger={() => (
+                    <span className="flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50">
+                      {typeLabel} ▾
+                    </span>
+                  )}
+                >
+                  {(close) =>
+                    CATEGORIES.map((c) => (
+                      <MenuItem
+                        key={c.key}
+                        label={c.label}
+                        onClick={() => {
+                          close();
+                          setTypeFilter(c.key);
+                        }}
+                      />
+                    ))
+                  }
+                </Menu>
+                {nfOpen ? (
+                  <div className="flex items-center gap-2">
+                    <Input
+                      autoFocus
+                      value={nfName}
+                      onChange={(e) => setNfName(e.target.value)}
+                      onKeyDown={(e) => e.key === "Enter" && createFolder()}
+                      placeholder="Folder name"
+                      className="h-9 w-44"
                     />
+                    <Button onClick={createFolder} disabled={busy || !nfName.trim()}>
+                      Create
+                    </Button>
+                    <Button
+                      onClick={() => setNfOpen(false)}
+                      className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                    >
+                      Cancel
+                    </Button>
                   </div>
-                )}
+                ) : null}
               </div>
 
               {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
@@ -322,79 +516,11 @@ export default function DashboardPage() {
               {loading && !searchActive ? (
                 <p className="text-sm text-zinc-500">Loading…</p>
               ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
-                <p className="text-sm text-zinc-500">
-                  {searchActive ? "No matching files." : "This folder is empty — upload or drop files here."}
-                </p>
-              ) : layout === "grid" ? (
-                <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
-                  {shownFolders.map((folder) => (
-                    <div
-                      key={folder.id}
-                      className="group rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
-                    >
-                      <button
-                        onClick={() => setFolderId(folder.id)}
-                        className="flex w-full items-center gap-2 text-left"
-                      >
-                        <span className="text-2xl" aria-hidden>📁</span>
-                        <span className="truncate text-sm font-medium text-zinc-900">
-                          {folder.name}
-                        </span>
-                      </button>
-                      <div className="mt-3 opacity-0 transition group-hover:opacity-100">
-                        {actionButton("Delete", () => removeFolder(folder), "text-red-600")}
-                      </div>
-                    </div>
-                  ))}
-                  {shownFiles.map((file) => (
-                    <div
-                      key={file.id}
-                      className="group rounded-xl border border-zinc-200 bg-white p-4 transition hover:border-indigo-300 hover:shadow-sm"
-                    >
-                      <div className="flex items-center gap-2">
-                        <span className="text-2xl" aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
-                          <p className="text-xs text-zinc-500">{humanSize(file.size)}</p>
-                        </div>
-                      </div>
-                      <div className="mt-3 opacity-0 transition group-hover:opacity-100">
-                        {fileActions(file)}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+                emptyState
+              ) : layout === "list" ? (
+                listView
               ) : (
-                <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200 bg-white">
-                  {shownFolders.map((folder) => (
-                    <li key={folder.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                      <button
-                        onClick={() => setFolderId(folder.id)}
-                        className="flex min-w-0 items-center gap-2 text-left"
-                      >
-                        <span aria-hidden>📁</span>
-                        <span className="truncate text-sm font-medium text-zinc-900">
-                          {folder.name}
-                        </span>
-                      </button>
-                      {actionButton("Delete", () => removeFolder(folder), "text-red-600")}
-                    </li>
-                  ))}
-                  {shownFiles.map((file) => (
-                    <li key={file.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                      <div className="flex min-w-0 items-center gap-2">
-                        <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
-                          <p className="text-xs text-zinc-500">
-                            {humanSize(file.size)} · {file.provider}
-                          </p>
-                        </div>
-                      </div>
-                      {fileActions(file)}
-                    </li>
-                  ))}
-                </ul>
+                gridView
               )}
             </div>
           )}
@@ -407,6 +533,13 @@ export default function DashboardPage() {
           file={aliasFor}
           onClose={() => setAliasFor(null)}
           onCreated={() => setAliasRefresh((v) => v + 1)}
+        />
+      ) : null}
+      {versionsFor ? (
+        <VersionsModal
+          file={versionsFor}
+          onClose={() => setVersionsFor(null)}
+          onChanged={() => load()}
         />
       ) : null}
     </div>

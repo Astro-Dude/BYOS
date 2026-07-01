@@ -74,6 +74,15 @@ export interface AliasItem {
   created_at: string;
 }
 
+export interface VersionItem {
+  id: string;
+  version_no: number;
+  size: number;
+  hash: string | null;
+  created_at: string;
+  is_current: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -236,6 +245,44 @@ export class ByosClient {
 
   async downloadBlob(token: string, id: string): Promise<Blob> {
     const res = await fetch(`${this.baseUrl}/files/${id}/content`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    return res.blob();
+  }
+
+  // ── Versions ────────────────────────────────────────────────────────────
+  replaceFile(token: string, fileId: string, file: File): Promise<FileItem> {
+    const form = new FormData();
+    form.append("file", file);
+    return this.request<FileItem>(`/files/${fileId}/replace`, {
+      method: "POST",
+      token,
+      body: form,
+    });
+  }
+
+  listVersions(token: string, fileId: string): Promise<VersionItem[]> {
+    return this.request<VersionItem[]>(`/files/${fileId}/versions`, { token });
+  }
+
+  restoreVersion(token: string, fileId: string, versionId: string): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${fileId}/versions/${versionId}/restore`, {
+      method: "POST",
+      token,
+    });
+  }
+
+  deleteVersion(token: string, fileId: string, versionId: string): Promise<void> {
+    return this.request<void>(`/files/${fileId}/versions/${versionId}`, {
+      method: "DELETE",
+      token,
+    });
+  }
+
+  async downloadVersionBlob(token: string, fileId: string, versionId: string): Promise<Blob> {
+    const res = await fetch(`${this.baseUrl}/files/${fileId}/versions/${versionId}/content`, {
       credentials: "include",
       headers: { Authorization: `Bearer ${token}` },
     });

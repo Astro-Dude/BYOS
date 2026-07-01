@@ -18,3 +18,12 @@ class FileOut(BaseModel):
     folder_id: uuid.UUID | None = None
     created_at: datetime
     modified_at: datetime
+
+
+class VersionOut(BaseModel):
+    id: uuid.UUID
+    version_no: int
+    size: int
+    hash: str | None = None
+    created_at: datetime
+    is_current: bool = False
