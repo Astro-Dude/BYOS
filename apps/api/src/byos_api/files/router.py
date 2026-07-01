@@ -114,10 +114,14 @@ async def upload_file(
 async def list_files(
     user: CurrentUser, db: DbDep, folder_id: uuid.UUID | None = None
 ) -> list[FileOut]:
-    stmt = select(File).where(File.owner_id == user.id).order_by(File.created_at.desc())
-    if folder_id is not None:
-        stmt = stmt.where(File.folder_id == folder_id)
-    result = await db.execute(stmt)
+    stmt = select(File).where(File.owner_id == user.id)
+    # Scope to a folder; absence means the root (files with no folder).
+    stmt = (
+        stmt.where(File.folder_id == folder_id)
+        if folder_id is not None
+        else stmt.where(File.folder_id.is_(None))
+    )
+    result = await db.execute(stmt.order_by(File.created_at.desc()))
     return [FileOut.model_validate(f) for f in result.scalars()]
 
 

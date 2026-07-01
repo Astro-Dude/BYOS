@@ -1,9 +1,10 @@
 "use client";
 
-import { ApiError, type FileItem } from "@byos/api-client";
+import { ApiError, type Breadcrumb, type FileItem, type FolderItem } from "@byos/api-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -21,48 +22,75 @@ function humanSize(bytes: number): string {
 
 export function FilesPanel() {
   const authed = useAuthed();
+  const [folderId, setFolderId] = useState<string | undefined>(undefined); // undefined = root
+  const [crumbs, setCrumbs] = useState<Breadcrumb[]>([]);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [dragging, setDragging] = useState(false);
+  const [newFolder, setNewFolder] = useState("");
   const [error, setError] = useState<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
+    setError(null);
     try {
-      setFiles(await authed((t) => api.listFiles(t)));
+      const [fld, fls, bc] = await Promise.all([
+        authed((t) => api.listFolders(t, folderId)),
+        authed((t) => api.listFiles(t, folderId)),
+        folderId ? authed((t) => api.folderBreadcrumb(t, folderId)) : Promise.resolve([]),
+      ]);
+      setFolders(fld);
+      setFiles(fls);
+      setCrumbs(bc);
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Failed to load files");
+      setError(err instanceof ApiError ? err.detail : "Failed to load");
     } finally {
       setLoading(false);
     }
-  }, [authed]);
+  }, [authed, folderId]);
 
   useEffect(() => {
     void load();
   }, [load]);
 
-  const upload = async (fileList: FileList | null) => {
-    if (!fileList || fileList.length === 0) return;
+  const run = async (fn: () => Promise<void>) => {
     setError(null);
     setBusy(true);
     try {
-      for (const file of Array.from(fileList)) {
-        await authed((t) => api.uploadFile(t, file));
-      }
-      await load();
+      await fn();
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Upload failed");
+      setError(err instanceof ApiError ? err.detail : "Something went wrong");
     } finally {
       setBusy(false);
-      if (inputRef.current) inputRef.current.value = "";
     }
   };
 
-  const download = async (file: FileItem) => {
-    setError(null);
-    try {
+  const upload = (fileList: FileList | null) => {
+    if (!fileList || fileList.length === 0) return;
+    void run(async () => {
+      for (const file of Array.from(fileList)) {
+        await authed((t) => api.uploadFile(t, file, folderId));
+      }
+      await load();
+      if (inputRef.current) inputRef.current.value = "";
+    });
+  };
+
+  const createFolder = () => {
+    const name = newFolder.trim();
+    if (!name) return;
+    void run(async () => {
+      await authed((t) => api.createFolder(t, name, folderId));
+      setNewFolder("");
+      await load();
+    });
+  };
+
+  const download = (file: FileItem) =>
+    void run(async () => {
       const blob = await authed((t) => api.downloadBlob(t, file.id));
       const url = URL.createObjectURL(blob);
       const anchor = document.createElement("a");
@@ -71,26 +99,60 @@ export function FilesPanel() {
       document.body.appendChild(anchor);
       anchor.click();
       anchor.remove();
-      // Defer revoke so the browser can start reading the blob first
-      // (synchronous revoke breaks downloads in Firefox/Safari).
       setTimeout(() => URL.revokeObjectURL(url), 10_000);
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Download failed");
-    }
-  };
+    });
 
-  const remove = async (file: FileItem) => {
-    setError(null);
-    try {
+  const removeFile = (file: FileItem) =>
+    void run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
       await load();
-    } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Delete failed");
-    }
-  };
+    });
+
+  const removeFolder = (folder: FolderItem) =>
+    void run(async () => {
+      await authed((t) => api.deleteFolder(t, folder.id));
+      await load();
+    });
 
   return (
     <section>
+      {/* Breadcrumb */}
+      <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-zinc-500">
+        <button
+          onClick={() => setFolderId(undefined)}
+          className={folderId ? "hover:text-zinc-900" : "font-medium text-zinc-900"}
+        >
+          Home
+        </button>
+        {crumbs.map((c) => (
+          <span key={c.id} className="flex items-center gap-1">
+            <span className="text-zinc-300">/</span>
+            <button
+              onClick={() => setFolderId(c.id)}
+              className={
+                c.id === folderId ? "font-medium text-zinc-900" : "hover:text-zinc-900"
+              }
+            >
+              {c.name}
+            </button>
+          </span>
+        ))}
+      </nav>
+
+      {/* New folder + upload */}
+      <div className="mb-4 flex flex-wrap items-center gap-2">
+        <Input
+          value={newFolder}
+          onChange={(e) => setNewFolder(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && createFolder()}
+          placeholder="New folder name"
+          className="max-w-xs"
+        />
+        <Button onClick={createFolder} disabled={busy || !newFolder.trim()}>
+          New folder
+        </Button>
+      </div>
+
       <div
         onDragOver={(e) => {
           e.preventDefault();
@@ -100,20 +162,14 @@ export function FilesPanel() {
         onDrop={(e) => {
           e.preventDefault();
           setDragging(false);
-          void upload(e.dataTransfer.files);
+          upload(e.dataTransfer.files);
         }}
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-12 text-center transition ${
+        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-10 text-center transition ${
           dragging ? "border-indigo-500 bg-indigo-50" : "border-zinc-200"
         }`}
       >
-        <p className="text-sm text-zinc-600">
-          {busy ? "Uploading…" : "Drag & drop files here, or"}
-        </p>
-        <Button
-          className="mt-3"
-          disabled={busy}
-          onClick={() => inputRef.current?.click()}
-        >
+        <p className="text-sm text-zinc-600">{busy ? "Working…" : "Drag & drop files here, or"}</p>
+        <Button className="mt-3" disabled={busy} onClick={() => inputRef.current?.click()}>
           Choose files
         </Button>
         <input
@@ -121,7 +177,7 @@ export function FilesPanel() {
           type="file"
           multiple
           hidden
-          onChange={(e) => void upload(e.target.files)}
+          onChange={(e) => upload(e.target.files)}
         />
       </div>
 
@@ -129,29 +185,49 @@ export function FilesPanel() {
 
       <div className="mt-6">
         {loading ? (
-          <p className="text-sm text-zinc-500">Loading files…</p>
-        ) : files.length === 0 ? (
-          <p className="text-sm text-zinc-500">No files yet — upload something above.</p>
+          <p className="text-sm text-zinc-500">Loading…</p>
+        ) : folders.length === 0 && files.length === 0 ? (
+          <p className="text-sm text-zinc-500">This folder is empty.</p>
         ) : (
           <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+            {folders.map((folder) => (
+              <li key={folder.id} className="flex items-center justify-between gap-4 px-4 py-3">
+                <button
+                  onClick={() => setFolderId(folder.id)}
+                  className="flex min-w-0 items-center gap-2 text-left"
+                >
+                  <span aria-hidden>📁</span>
+                  <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
+                </button>
+                <button
+                  onClick={() => removeFolder(folder)}
+                  className="shrink-0 text-sm font-medium text-red-600 hover:text-red-500"
+                >
+                  Delete
+                </button>
+              </li>
+            ))}
             {files.map((file) => (
               <li key={file.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
-                  <p className="text-xs text-zinc-500">
-                    {humanSize(file.size)} · {file.provider}
-                    {file.mime ? ` · ${file.mime}` : ""}
-                  </p>
+                <div className="flex min-w-0 items-center gap-2">
+                  <span aria-hidden>📄</span>
+                  <div className="min-w-0">
+                    <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
+                    <p className="text-xs text-zinc-500">
+                      {humanSize(file.size)} · {file.provider}
+                      {file.mime ? ` · ${file.mime}` : ""}
+                    </p>
+                  </div>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 gap-3">
                   <button
-                    onClick={() => void download(file)}
+                    onClick={() => download(file)}
                     className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
                   >
                     Download
                   </button>
                   <button
-                    onClick={() => void remove(file)}
+                    onClick={() => removeFile(file)}
                     className="text-sm font-medium text-red-600 hover:text-red-500"
                   >
                     Delete

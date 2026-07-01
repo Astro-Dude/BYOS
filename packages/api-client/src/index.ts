@@ -57,6 +57,18 @@ export interface FileItem {
   modified_at: string;
 }
 
+export interface FolderItem {
+  id: string;
+  name: string;
+  parent_id: string | null;
+  created_at: string;
+}
+
+export interface Breadcrumb {
+  id: string;
+  name: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -164,9 +176,48 @@ export class ByosClient {
     return this.request<void>("/providers/telegram", { method: "DELETE", token });
   }
 
+  // ── Folders ───────────────────────────────────────────────────────────────
+  listFolders(token: string, parentId?: string): Promise<FolderItem[]> {
+    const qs = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : "";
+    return this.request<FolderItem[]>(`/folders${qs}`, { token });
+  }
+
+  createFolder(token: string, name: string, parentId?: string): Promise<FolderItem> {
+    return this.request<FolderItem>("/folders", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ name, parent_id: parentId ?? null }),
+    });
+  }
+
+  folderBreadcrumb(token: string, folderId: string): Promise<Breadcrumb[]> {
+    return this.request<Breadcrumb[]>(`/folders/${folderId}/breadcrumb`, { token });
+  }
+
+  renameFolder(token: string, id: string, name: string): Promise<FolderItem> {
+    return this.request<FolderItem>(`/folders/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ name }),
+    });
+  }
+
+  moveFolder(token: string, id: string, parentId: string | null): Promise<FolderItem> {
+    return this.request<FolderItem>(`/folders/${id}/move`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ parent_id: parentId }),
+    });
+  }
+
+  deleteFolder(token: string, id: string): Promise<void> {
+    return this.request<void>(`/folders/${id}`, { method: "DELETE", token });
+  }
+
   // ── Files ─────────────────────────────────────────────────────────────────
-  listFiles(token: string): Promise<FileItem[]> {
-    return this.request<FileItem[]>("/files", { token });
+  listFiles(token: string, folderId?: string): Promise<FileItem[]> {
+    const qs = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
+    return this.request<FileItem[]>(`/files${qs}`, { token });
   }
 
   uploadFile(token: string, file: File, folderId?: string): Promise<FileItem> {

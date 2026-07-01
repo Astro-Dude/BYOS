@@ -12,6 +12,7 @@ from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
 from byos_api.files.router import router as files_router
+from byos_api.folders.router import router as folders_router
 from byos_api.providers.router import router as providers_router
 from byos_api.storage import (
     available_providers,
@@ -60,6 +61,7 @@ def create_app() -> FastAPI:
 
     app.include_router(auth_router)
     app.include_router(providers_router)
+    app.include_router(folders_router)
     app.include_router(files_router)
     return app
 
