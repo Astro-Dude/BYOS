@@ -46,9 +46,12 @@ async def shutdown_providers() -> None:
 
 def register_default_providers() -> None:
     """Register the providers available in this deployment. Called on API startup."""
-    register_provider(LocalStorageProvider())
-
     settings = get_settings()
+    # Local disk storage is opt-in (tests only); by default nothing is stored
+    # locally — files go to the user's own Telegram storage.
+    if settings.enable_local_storage:
+        register_provider(LocalStorageProvider())
+
     if settings.telegram_api_id and settings.telegram_api_hash:
         # Imported lazily so Telethon is only loaded when Telegram is configured.
         from byos_api.storage.telegram import TelegramClientPool, TelegramStorageProvider

@@ -50,6 +50,11 @@ class Settings(BaseSettings):
     # AI: heuristic auto-tagging of uploads by type (Phase 15).
     auto_tagging: bool = True
 
+    # Storage: files live in the user's own provider (Telegram), never on the
+    # app's disk. The local provider stays available for tests but is NOT
+    # registered unless explicitly enabled.
+    enable_local_storage: bool = False
+
     @property
     def blocked_extensions_set(self) -> set[str]:
         return {

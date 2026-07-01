@@ -32,6 +32,12 @@ class CannotDeleteCurrentVersion(Exception):
     pass
 
 
+class NoStorageConnected(Exception):
+    """Raised when a user tries to upload without connected Telegram storage."""
+
+    pass
+
+
 async def get_owned_file(db: AsyncSession, user: User, file_id: uuid.UUID) -> File:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
@@ -113,11 +119,14 @@ def _account_to_provider_account(account: StorageAccount) -> ProviderAccount:
 async def resolve_upload_target(
     db: AsyncSession, user: User
 ) -> tuple[str, ProviderAccount, uuid.UUID | None]:
-    """Route uploads to Telegram when connected, otherwise the Local provider."""
+    """Uploads always go to the user's connected Telegram storage — never local.
+
+    Raises NoStorageConnected if Telegram isn't linked, so we never silently fall
+    back to storing bytes on the app's own disk."""
     account = await providers_service.get_telegram_account(db, user)
     if account and account.status == "connected" and account.encrypted_credentials:
         return "telegram", _account_to_provider_account(account), account.id
-    return "local", ProviderAccount(provider="local"), None
+    raise NoStorageConnected
 
 
 async def search_files(

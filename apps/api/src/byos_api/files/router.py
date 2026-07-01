@@ -84,7 +84,12 @@ async def upload_file(
     filename = file.filename or "upload.bin"
     await _validate_upload(file, filename)
 
-    provider_name, account, storage_account_id = await service.resolve_upload_target(db, user)
+    try:
+        provider_name, account, storage_account_id = await service.resolve_upload_target(db, user)
+    except service.NoStorageConnected:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "Connect your Telegram storage before uploading"
+        ) from None
     provider = get_provider(provider_name)
 
     async def _stream():
