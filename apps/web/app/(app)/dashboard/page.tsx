@@ -13,6 +13,8 @@ import { AliasModal } from "@/components/dashboard/alias-modal";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
+import { ShareModal } from "@/components/dashboard/share-modal";
+import { SharesPanel } from "@/components/dashboard/shares-panel";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Button } from "@/components/ui/button";
@@ -103,6 +105,8 @@ export default function DashboardPage() {
   const [preview, setPreview] = useState<FileItem | null>(null);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
   const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
+  const [shareFor, setShareFor] = useState<FileItem | null>(null);
+  const [shareRefresh, setShareRefresh] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
   const searchActive = search.trim().length > 0;
@@ -239,6 +243,7 @@ export default function DashboardPage() {
           <MenuItem icon="👁" label="Preview" onClick={() => { close(); setPreview(file); }} />
           <MenuItem icon="⬇️" label="Download" onClick={() => { close(); download(file); }} />
           <MenuItem icon="🔗" label="Get link" onClick={() => { close(); setAliasFor(file); }} />
+          <MenuItem icon="🌐" label="Share" onClick={() => { close(); setShareFor(file); }} />
           <MenuItem icon="🕘" label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFile(file); }} />
         </>
@@ -425,6 +430,7 @@ export default function DashboardPage() {
             <div className="pt-2">
               <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>
               <AliasesPanel refreshKey={aliasRefresh} />
+              <SharesPanel refreshKey={shareRefresh} />
             </div>
           ) : (
             <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
@@ -540,6 +546,13 @@ export default function DashboardPage() {
           file={versionsFor}
           onClose={() => setVersionsFor(null)}
           onChanged={() => load()}
+        />
+      ) : null}
+      {shareFor ? (
+        <ShareModal
+          file={shareFor}
+          onClose={() => setShareFor(null)}
+          onCreated={() => setShareRefresh((v) => v + 1)}
         />
       ) : null}
     </div>

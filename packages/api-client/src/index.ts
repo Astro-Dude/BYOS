@@ -83,6 +83,27 @@ export interface VersionItem {
   is_current: boolean;
 }
 
+export interface ShareItem {
+  id: string;
+  file_id: string;
+  token: string;
+  visibility: string;
+  has_password: boolean;
+  expires_at: string | null;
+  max_downloads: number | null;
+  download_count: number;
+  view_only: boolean;
+  created_at: string;
+}
+
+export interface ShareInput {
+  file_id: string;
+  password?: string;
+  expires_in_days?: number;
+  max_downloads?: number;
+  view_only?: boolean;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -315,5 +336,26 @@ export class ByosClient {
   /** Public, permanent URL for an alias (never changes even when the file is replaced). */
   aliasUrl(slug: string): string {
     return `${this.baseUrl}/a/${slug}`;
+  }
+
+  // ── Shares (links with access controls) ───────────────────────────────────
+  createShare(token: string, input: ShareInput): Promise<ShareItem> {
+    return this.request<ShareItem>("/shares", {
+      method: "POST",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  listShares(token: string): Promise<ShareItem[]> {
+    return this.request<ShareItem[]>("/shares", { token });
+  }
+
+  deleteShare(token: string, id: string): Promise<void> {
+    return this.request<void>(`/shares/${id}`, { method: "DELETE", token });
+  }
+
+  shareUrl(shareToken: string): string {
+    return `${this.baseUrl}/s/${shareToken}`;
   }
 }

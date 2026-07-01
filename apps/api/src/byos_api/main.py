@@ -16,6 +16,8 @@ from byos_api.core.errors import CatchUnhandledErrorsMiddleware
 from byos_api.files.router import router as files_router
 from byos_api.folders.router import router as folders_router
 from byos_api.providers.router import router as providers_router
+from byos_api.shares.router import public_router as share_public_router
+from byos_api.shares.router import router as shares_router
 from byos_api.storage import (
     available_providers,
     register_default_providers,
@@ -67,6 +69,8 @@ def create_app() -> FastAPI:
     app.include_router(files_router)
     app.include_router(aliases_router)
     app.include_router(alias_public_router)
+    app.include_router(shares_router)
+    app.include_router(share_public_router)
     return app
 
 
