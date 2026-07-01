@@ -1,9 +1,9 @@
 // BYOS API client.
 //
-// Phase 0: a small, dependency-free typed wrapper around fetch covering the
-// auth surface. `pnpm codegen` generates a full typed client from the live
-// OpenAPI schema into ./generated/ (git-ignored); later phases re-export from
-// there. App code should import only from "@byos/api-client".
+// Phase 0–2: a small, dependency-free typed wrapper around fetch covering auth,
+// storage providers (Telegram connect flow), and the file pipeline. `pnpm
+// codegen` generates a full typed client from the live OpenAPI schema into
+// ./generated/ (git-ignored). App code imports only from "@byos/api-client".
 
 export interface User {
   id: string;
@@ -35,6 +35,28 @@ export interface HealthResponse {
   providers: string[];
 }
 
+export interface ProviderStatus {
+  provider: string;
+  status: string;
+  label: string | null;
+}
+
+export interface ConnectResult {
+  status: string; // "code_sent" | "password_needed" | "connected"
+}
+
+export interface FileItem {
+  id: string;
+  name: string;
+  ext: string | null;
+  mime: string | null;
+  size: number;
+  provider: string;
+  folder_id: string | null;
+  created_at: string;
+  modified_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -54,10 +76,12 @@ export class ByosClient {
 
   private async request<T>(path: string, init: RequestInitWithToken = {}): Promise<T> {
     const { token, headers, ...rest } = init;
+    const isForm = rest.body instanceof FormData;
     const res = await fetch(`${this.baseUrl}${path}`, {
       credentials: "include", // send/receive the httpOnly refresh cookie
       headers: {
-        "Content-Type": "application/json",
+        // Let the browser set the multipart boundary for FormData.
+        ...(isForm ? {} : { "Content-Type": "application/json" }),
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...headers,
       },
@@ -79,6 +103,7 @@ export class ByosClient {
     return (await res.json()) as T;
   }
 
+  // ── Auth ────────────────────────────────────────────────────────────────
   register(input: RegisterInput): Promise<User> {
     return this.request<User>("/auth/register", { method: "POST", body: JSON.stringify(input) });
   }
@@ -104,5 +129,63 @@ export class ByosClient {
 
   health(): Promise<HealthResponse> {
     return this.request<HealthResponse>("/health");
+  }
+
+  // ── Storage providers (Telegram) ─────────────────────────────────────────
+  listProviders(token: string): Promise<ProviderStatus[]> {
+    return this.request<ProviderStatus[]>("/providers", { token });
+  }
+
+  connectTelegram(token: string, phone: string): Promise<ConnectResult> {
+    return this.request<ConnectResult>("/providers/telegram/connect", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ phone }),
+    });
+  }
+
+  verifyTelegramCode(token: string, code: string): Promise<ConnectResult> {
+    return this.request<ConnectResult>("/providers/telegram/verify", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ code }),
+    });
+  }
+
+  verifyTelegramPassword(token: string, password: string): Promise<ConnectResult> {
+    return this.request<ConnectResult>("/providers/telegram/password", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  disconnectTelegram(token: string): Promise<void> {
+    return this.request<void>("/providers/telegram", { method: "DELETE", token });
+  }
+
+  // ── Files ─────────────────────────────────────────────────────────────────
+  listFiles(token: string): Promise<FileItem[]> {
+    return this.request<FileItem[]>("/files", { token });
+  }
+
+  uploadFile(token: string, file: File, folderId?: string): Promise<FileItem> {
+    const form = new FormData();
+    form.append("file", file);
+    if (folderId) form.append("folder_id", folderId);
+    return this.request<FileItem>("/files", { method: "POST", token, body: form });
+  }
+
+  deleteFile(token: string, id: string): Promise<void> {
+    return this.request<void>(`/files/${id}`, { method: "DELETE", token });
+  }
+
+  async downloadBlob(token: string, id: string): Promise<Blob> {
+    const res = await fetch(`${this.baseUrl}/files/${id}/content`, {
+      credentials: "include",
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    return res.blob();
   }
 }

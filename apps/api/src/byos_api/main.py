@@ -11,7 +11,13 @@ from fastapi.middleware.cors import CORSMiddleware
 from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
-from byos_api.storage import available_providers, register_default_providers
+from byos_api.files.router import router as files_router
+from byos_api.providers.router import router as providers_router
+from byos_api.storage import (
+    available_providers,
+    register_default_providers,
+    shutdown_providers,
+)
 
 settings = get_settings()
 
@@ -19,7 +25,10 @@ settings = get_settings()
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     register_default_providers()
-    yield
+    try:
+        yield
+    finally:
+        await shutdown_providers()
 
 
 def create_app() -> FastAPI:
@@ -50,6 +59,8 @@ def create_app() -> FastAPI:
         }
 
     app.include_router(auth_router)
+    app.include_router(providers_router)
+    app.include_router(files_router)
     return app
 
 

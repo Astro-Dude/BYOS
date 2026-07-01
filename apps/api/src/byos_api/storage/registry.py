@@ -20,3 +20,7 @@ def get_provider(name: str) -> StorageProvider:
 
 def available_providers() -> list[str]:
     return sorted(_registry)
+
+
+def providers() -> list[StorageProvider]:
+    return list(_registry.values())
