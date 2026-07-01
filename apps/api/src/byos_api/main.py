@@ -12,6 +12,7 @@ from byos_api.aliases.router import public_router as alias_public_router
 from byos_api.aliases.router import router as aliases_router
 from byos_api.analytics.router import router as analytics_router
 from byos_api.apikeys.router import router as apikeys_router
+from byos_api.audit.router import router as audit_router
 from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
@@ -77,6 +78,7 @@ def create_app() -> FastAPI:
     app.include_router(analytics_router)
     app.include_router(apikeys_router)
     app.include_router(webhooks_router)
+    app.include_router(audit_router)
     return app
 
 

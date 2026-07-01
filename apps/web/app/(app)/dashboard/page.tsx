@@ -10,6 +10,7 @@ import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { AliasModal } from "@/components/dashboard/alias-modal";
+import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
@@ -142,7 +143,7 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
-    if (view === "links" || view === "insights" || view === "developer") return;
+    if (["links", "insights", "developer", "activity"].includes(view)) return;
     setLoading(true);
     setError(null);
     try {
@@ -546,6 +547,8 @@ export default function DashboardPage() {
             <InsightsPanel />
           ) : view === "developer" ? (
             <DeveloperPanel />
+          ) : view === "activity" ? (
+            <ActivityPanel />
           ) : view === "links" ? (
             <div className="pt-2">
               <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>

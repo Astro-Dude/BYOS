@@ -8,8 +8,11 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.analytics.recorder import record_event
+from byos_api.audit import recorder as audit
 from byos_api.auth.dependencies import CurrentUser
+from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
+from byos_api.core.ratelimit import limit
 from byos_api.files import service as files_service
 from byos_api.shares import service
 from byos_api.shares.schemas import ShareCreate, ShareOut
@@ -20,6 +23,9 @@ router = APIRouter(prefix="/shares", tags=["shares"])
 public_router = APIRouter(tags=["shares"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+_settings = get_settings()
+_public_limit = limit("share", _settings.public_rate_limit, _settings.public_rate_window)
 
 
 def _out(share) -> ShareOut:
@@ -38,7 +44,9 @@ def _out(share) -> ShareOut:
 
 
 @router.post("", response_model=ShareOut, status_code=status.HTTP_201_CREATED)
-async def create_share(payload: ShareCreate, user: CurrentUser, db: DbDep) -> ShareOut:
+async def create_share(
+    payload: ShareCreate, request: Request, user: CurrentUser, db: DbDep
+) -> ShareOut:
     try:
         share = await service.create_share(
             db,
@@ -51,6 +59,9 @@ async def create_share(payload: ShareCreate, user: CurrentUser, db: DbDep) -> Sh
         )
     except service.FileNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    await audit.record(
+        user.id, "share.create", request=request, target_type="share", target_id=str(share.id)
+    )
     return _out(share)
 
 
@@ -64,7 +75,7 @@ async def revoke_share(share_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
     await service.revoke_share(db, user, share_id)
 
 
-@public_router.get("/s/{token}")
+@public_router.get("/s/{token}", dependencies=[Depends(_public_limit)])
 async def open_share(
     token: str, request: Request, db: DbDep, pw: str | None = None
 ) -> Response:

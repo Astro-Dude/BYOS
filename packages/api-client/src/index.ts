@@ -153,6 +153,14 @@ export interface WebhookItem {
   created_at: string;
 }
 
+export interface AuditItem {
+  id: string;
+  action: string;
+  target_type: string | null;
+  target_id: string | null;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -505,5 +513,14 @@ export class ByosClient {
 
   deleteWebhook(token: string, id: string): Promise<void> {
     return this.request<void>(`/webhooks/${id}`, { method: "DELETE", token });
+  }
+
+  // ── Activity (audit log) ──────────────────────────────────────────────────
+  getAuditLog(token: string, opts?: { limit?: number; offset?: number }): Promise<AuditItem[]> {
+    const params = new URLSearchParams();
+    if (opts?.limit != null) params.set("limit", String(opts.limit));
+    if (opts?.offset != null) params.set("offset", String(opts.offset));
+    const qs = params.toString();
+    return this.request<AuditItem[]>(`/audit${qs ? `?${qs}` : ""}`, { token });
   }
 }

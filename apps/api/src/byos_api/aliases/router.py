@@ -11,7 +11,9 @@ from byos_api.aliases import service
 from byos_api.aliases.schemas import AliasCreate, AliasOut, AliasUpdate
 from byos_api.analytics.recorder import record_event
 from byos_api.auth.dependencies import CurrentUser
+from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
+from byos_api.core.ratelimit import limit
 from byos_api.files import service as files_service
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
@@ -20,6 +22,9 @@ router = APIRouter(prefix="/aliases", tags=["aliases"])
 public_router = APIRouter(tags=["aliases"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+_settings = get_settings()
+_public_limit = limit("alias", _settings.public_rate_limit, _settings.public_rate_window)
 
 
 @router.post("", response_model=AliasOut, status_code=status.HTTP_201_CREATED)
@@ -68,7 +73,7 @@ async def delete_alias(alias_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
         return  # idempotent
 
 
-@public_router.get("/a/{slug}")
+@public_router.get("/a/{slug}", dependencies=[Depends(_public_limit)])
 async def resolve_alias(slug: str, request: Request, db: DbDep) -> Response:
     """PUBLIC (unauthenticated): stream the current version of the aliased file."""
     try:

@@ -11,11 +11,14 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
 
 from byos_api.analytics.recorder import record_event
+from byos_api.audit import recorder as audit
 from byos_api.auth.dependencies import CurrentUser
+from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
 from byos_api.files.schemas import FavoriteRequest, FileOut, TagRequest, VersionOut
+from byos_api.security.scanning import scan_upload
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
 from byos_api.webhooks import dispatcher
@@ -25,6 +28,25 @@ router = APIRouter(prefix="/files", tags=["files"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 _UPLOAD_CHUNK = 1024 * 1024
+
+
+async def _validate_upload(file: UploadFile, filename: str) -> None:
+    """Enforce size / extension policy and run the scan hook BEFORE storing
+    bytes, so rejected uploads never touch the provider."""
+    settings = get_settings()
+    if file.size is not None and file.size > settings.max_upload_bytes:
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            f"File exceeds the {settings.max_upload_bytes}-byte limit",
+        )
+    _, ext = service.split_filename(filename)
+    if ext and ext.lower() in settings.blocked_extensions_set:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, f".{ext} files are not allowed")
+    result = await scan_upload(filename=filename, size=file.size or 0, mime=file.content_type)
+    if not result.clean:
+        raise HTTPException(
+            status.HTTP_422_UNPROCESSABLE_ENTITY, result.reason or "File failed a security scan"
+        )
 
 
 def _file_event_payload(record: File) -> dict[str, object]:
@@ -57,9 +79,11 @@ async def upload_file(
         if folder is None or folder.owner_id != user.id:
             raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
 
+    filename = file.filename or "upload.bin"
+    await _validate_upload(file, filename)
+
     provider_name, account, storage_account_id = await service.resolve_upload_target(db, user)
     provider = get_provider(provider_name)
-    filename = file.filename or "upload.bin"
 
     async def _stream():
         while chunk := await file.read(_UPLOAD_CHUNK):
@@ -232,7 +256,9 @@ async def download_file(
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
+async def delete_file(
+    file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep
+) -> None:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
         return  # idempotent: nothing to delete for this user
@@ -265,6 +291,9 @@ async def delete_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
     await db.delete(record)  # cascades to file_versions
     await db.commit()
     dispatcher.emit(user.id, "file.deleted", payload)
+    await audit.record(
+        user.id, "file.delete", request=request, target_type="file", target_id=str(file_id)
+    )
 
 
 @router.post("/{file_id}/replace", response_model=FileOut)
@@ -281,6 +310,7 @@ async def replace_file(
         raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")
     provider = get_provider(record.provider)
     filename = file.filename or record.name
+    await _validate_upload(file, filename)
 
     async def _stream():
         while chunk := await file.read(_UPLOAD_CHUNK):

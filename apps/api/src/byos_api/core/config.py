@@ -37,6 +37,24 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000"
 
+    # Security / upload validation. Defaults are permissive (this is your own
+    # storage); tighten via env for shared or hardened deployments.
+    max_upload_bytes: int = 5 * 1024 * 1024 * 1024  # 5 GiB
+    blocked_extensions: str = ""  # comma-separated, e.g. "exe,bat,scr" (empty = allow all)
+    # Rate limits (requests per window, seconds). Fail open if Redis is down.
+    auth_rate_limit: int = 20
+    auth_rate_window: int = 60
+    public_rate_limit: int = 120
+    public_rate_window: int = 60
+
+    @property
+    def blocked_extensions_set(self) -> set[str]:
+        return {
+            e.strip().lower().lstrip(".")
+            for e in self.blocked_extensions.split(",")
+            if e.strip()
+        }
+
     @field_validator("telegram_api_id", "telegram_api_hash", mode="before")
     @classmethod
     def _blank_to_none(cls, value: object) -> object:

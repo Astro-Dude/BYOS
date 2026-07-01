@@ -6,6 +6,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
 
+from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.auth.schemas import (
@@ -18,6 +19,7 @@ from byos_api.auth.schemas import (
 )
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
+from byos_api.core.ratelimit import limit
 from byos_api.core.security import create_access_token
 from byos_api.db.models import User
 
@@ -25,6 +27,9 @@ _settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
+
+# Throttle the login flow per IP to blunt brute-force / code-guessing.
+_auth_limit = limit("auth", _settings.auth_rate_limit, _settings.auth_rate_window)
 
 
 def _set_refresh_cookie(response: Response, raw: str) -> None:
@@ -46,9 +51,12 @@ def _access_response(user_id: str) -> TokenResponse:
     )
 
 
-async def _issue_session(db: AsyncSession, user: User, response: Response) -> TelegramLoginResult:
+async def _issue_session(
+    db: AsyncSession, user: User, response: Response, request: Request
+) -> TelegramLoginResult:
     raw = await service.issue_refresh_token(db, user)
     _set_refresh_cookie(response, raw)
+    await audit.record(user.id, "login", request=request)
     return TelegramLoginResult(
         status="connected",
         access_token=create_access_token(str(user.id)),
@@ -63,7 +71,9 @@ def _flood(exc: FloodWaitError) -> HTTPException:
     )
 
 
-@router.post("/telegram/start", response_model=TelegramLoginResult)
+@router.post(
+    "/telegram/start", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
 async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResult:
     try:
         ticket = await telegram.start_login(payload.phone)
@@ -76,9 +86,11 @@ async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResul
     return TelegramLoginResult(status="code_sent", ticket=ticket)
 
 
-@router.post("/telegram/verify", response_model=TelegramLoginResult)
+@router.post(
+    "/telegram/verify", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
 async def telegram_verify(
-    payload: TicketCodeRequest, response: Response, db: DbDep
+    payload: TicketCodeRequest, request: Request, response: Response, db: DbDep
 ) -> TelegramLoginResult:
     try:
         result, ticket, user = await telegram.verify_code(db, payload.ticket, payload.code)
@@ -93,12 +105,14 @@ async def telegram_verify(
     if result == "password_needed":
         return TelegramLoginResult(status="password_needed", ticket=ticket)
     assert user is not None
-    return await _issue_session(db, user, response)
+    return await _issue_session(db, user, response, request)
 
 
-@router.post("/telegram/password", response_model=TelegramLoginResult)
+@router.post(
+    "/telegram/password", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
 async def telegram_password(
-    payload: TicketPasswordRequest, response: Response, db: DbDep
+    payload: TicketPasswordRequest, request: Request, response: Response, db: DbDep
 ) -> TelegramLoginResult:
     try:
         _, _, user = await telegram.verify_password(db, payload.ticket, payload.password)
@@ -111,7 +125,7 @@ async def telegram_password(
     except FloodWaitError as exc:
         raise _flood(exc) from exc
     assert user is not None
-    return await _issue_session(db, user, response)
+    return await _issue_session(db, user, response, request)
 
 
 @router.post("/refresh", response_model=TokenResponse)
