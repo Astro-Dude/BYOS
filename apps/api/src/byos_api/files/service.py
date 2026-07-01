@@ -90,3 +90,24 @@ async def account_for_file(db: AsyncSession, user: User, record: File) -> Provid
     if account is None or not account.encrypted_credentials:
         return None
     return _account_to_provider_account(account)
+
+
+async def account_for_file_public(db: AsyncSession, record: File) -> ProviderAccount | None:
+    """Resolve the storage account for a file by its OWNER (no request user) —
+    used by public alias resolution."""
+    if record.provider != "telegram":
+        return ProviderAccount(provider="local")
+
+    account: StorageAccount | None = None
+    if record.storage_account_id is not None:
+        account = await db.get(StorageAccount, record.storage_account_id)
+    if account is None:
+        result = await db.execute(
+            select(StorageAccount).where(
+                StorageAccount.user_id == record.owner_id, StorageAccount.provider == "telegram"
+            )
+        )
+        account = result.scalar_one_or_none()
+    if account is None or not account.encrypted_credentials:
+        return None
+    return _account_to_provider_account(account)

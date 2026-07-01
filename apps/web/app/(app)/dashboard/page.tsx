@@ -1,8 +1,9 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 
+import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { FilesPanel } from "@/components/dashboard/files-panel";
 import { TelegramPanel } from "@/components/dashboard/telegram-panel";
 import { Button } from "@/components/ui/button";
@@ -11,6 +12,7 @@ import { useAuth } from "@/lib/auth-context";
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading, logout } = useAuth();
+  const [aliasRefresh, setAliasRefresh] = useState(0);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -46,7 +48,8 @@ export default function DashboardPage() {
         </div>
 
         <TelegramPanel />
-        <FilesPanel />
+        <FilesPanel onAliasCreated={() => setAliasRefresh((v) => v + 1)} />
+        <AliasesPanel refreshKey={aliasRefresh} />
       </main>
     </div>
   );

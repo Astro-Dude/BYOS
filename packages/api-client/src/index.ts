@@ -69,6 +69,14 @@ export interface Breadcrumb {
   name: string;
 }
 
+export interface AliasItem {
+  id: string;
+  slug: string;
+  file_id: string;
+  description: string | null;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -250,5 +258,32 @@ export class ByosClient {
     });
     if (!res.ok) throw new ApiError(res.status, res.statusText);
     return res.blob();
+  }
+
+  // ── Aliases (permanent links) ─────────────────────────────────────────────
+  listAliases(token: string): Promise<AliasItem[]> {
+    return this.request<AliasItem[]>("/aliases", { token });
+  }
+
+  createAlias(
+    token: string,
+    slug: string,
+    fileId: string,
+    description?: string,
+  ): Promise<AliasItem> {
+    return this.request<AliasItem>("/aliases", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ slug, file_id: fileId, description: description ?? null }),
+    });
+  }
+
+  deleteAlias(token: string, id: string): Promise<void> {
+    return this.request<void>(`/aliases/${id}`, { method: "DELETE", token });
+  }
+
+  /** Public, permanent URL for an alias (never changes even when the file is replaced). */
+  aliasUrl(slug: string): string {
+    return `${this.baseUrl}/a/${slug}`;
   }
 }

@@ -8,6 +8,8 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from byos_api.aliases.router import public_router as alias_public_router
+from byos_api.aliases.router import router as aliases_router
 from byos_api.auth.router import router as auth_router
 from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
@@ -63,6 +65,8 @@ def create_app() -> FastAPI:
     app.include_router(providers_router)
     app.include_router(folders_router)
     app.include_router(files_router)
+    app.include_router(aliases_router)
+    app.include_router(alias_public_router)
     return app
 
 

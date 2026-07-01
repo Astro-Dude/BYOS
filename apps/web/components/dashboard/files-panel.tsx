@@ -3,6 +3,7 @@
 import { ApiError, type Breadcrumb, type FileItem, type FolderItem } from "@byos/api-client";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { AliasModal } from "@/components/dashboard/alias-modal";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,7 +22,7 @@ function humanSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
-export function FilesPanel() {
+export function FilesPanel({ onAliasCreated }: { onAliasCreated?: () => void }) {
   const authed = useAuthed();
   const [folderId, setFolderId] = useState<string | undefined>(undefined); // undefined = root
   const [crumbs, setCrumbs] = useState<Breadcrumb[]>([]);
@@ -36,6 +37,7 @@ export function FilesPanel() {
   const [results, setResults] = useState<FileItem[] | null>(null);
   const [searching, setSearching] = useState(false);
   const [preview, setPreview] = useState<FileItem | null>(null);
+  const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const searchActive = search.trim().length > 0;
 
@@ -161,6 +163,12 @@ export function FilesPanel() {
         </div>
       </div>
       <div className="flex shrink-0 gap-3">
+        <button
+          onClick={() => setAliasFor(file)}
+          className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
+        >
+          Link
+        </button>
         <button
           onClick={() => setPreview(file)}
           className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
@@ -313,6 +321,13 @@ export function FilesPanel() {
       )}
       </section>
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
+      {aliasFor ? (
+        <AliasModal
+          file={aliasFor}
+          onClose={() => setAliasFor(null)}
+          onCreated={() => onAliasCreated?.()}
+        />
+      ) : null}
     </>
   );
 }
