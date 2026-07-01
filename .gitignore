@@ -26,6 +26,7 @@ venv/
 .env
 .env.*
 !.env.example
+!.env.*.example
 
 # Generated API artifacts (regenerate with `pnpm codegen`)
 packages/api-client/openapi.json
