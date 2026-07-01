@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import uuid
 
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core import crypto
@@ -39,6 +40,40 @@ async def resolve_upload_target(
     if account and account.status == "connected" and account.encrypted_credentials:
         return "telegram", _account_to_provider_account(account), account.id
     return "local", ProviderAccount(provider="local"), None
+
+
+async def search_files(
+    db: AsyncSession,
+    user: User,
+    query: str,
+    *,
+    ext: str | None = None,
+    mime: str | None = None,
+    folder_id: uuid.UUID | None = None,
+    limit: int = 50,
+) -> list[File]:
+    """Full-text (search_vector) OR substring (pg_trgm-backed ILIKE) match on a
+    user's files, ranked by ts_rank then recency, with optional filters."""
+    stmt = select(File).where(File.owner_id == user.id)
+    stmt = stmt.where(
+        text(
+            "(search_vector @@ websearch_to_tsquery('english', :q) OR name ILIKE :like)"
+        ).bindparams(q=query, like=f"%{query}%")
+    )
+    if ext:
+        stmt = stmt.where(File.ext == ext.lower())
+    if mime:
+        stmt = stmt.where(File.mime.ilike(f"{mime}%"))
+    if folder_id is not None:
+        stmt = stmt.where(File.folder_id == folder_id)
+    stmt = stmt.order_by(
+        text(
+            "ts_rank(search_vector, websearch_to_tsquery('english', :rank_q)) DESC"
+        ).bindparams(rank_q=query),
+        File.created_at.desc(),
+    ).limit(limit)
+    result = await db.execute(stmt)
+    return list(result.scalars())
 
 
 async def account_for_file(db: AsyncSession, user: User, record: File) -> ProviderAccount | None:

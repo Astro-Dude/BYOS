@@ -31,7 +31,11 @@ export function FilesPanel() {
   const [dragging, setDragging] = useState(false);
   const [newFolder, setNewFolder] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [results, setResults] = useState<FileItem[] | null>(null);
+  const [searching, setSearching] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+  const searchActive = search.trim().length > 0;
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -55,6 +59,34 @@ export function FilesPanel() {
   useEffect(() => {
     void load();
   }, [load]);
+
+  const runSearch = useCallback(
+    async (query: string) => {
+      if (!query.trim()) {
+        setResults(null);
+        return;
+      }
+      setSearching(true);
+      try {
+        setResults(await authed((t) => api.searchFiles(t, query)));
+      } catch {
+        setResults([]);
+      } finally {
+        setSearching(false);
+      }
+    },
+    [authed],
+  );
+
+  useEffect(() => {
+    const id = setTimeout(() => void runSearch(search), 300);
+    return () => clearTimeout(id);
+  }, [search, runSearch]);
+
+  const refresh = useCallback(async () => {
+    if (searchActive) await runSearch(search);
+    else await load();
+  }, [searchActive, runSearch, search, load]);
 
   const run = async (fn: () => Promise<void>) => {
     setError(null);
@@ -105,7 +137,7 @@ export function FilesPanel() {
   const removeFile = (file: FileItem) =>
     void run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
-      await load();
+      await refresh();
     });
 
   const removeFolder = (folder: FolderItem) =>
@@ -114,130 +146,162 @@ export function FilesPanel() {
       await load();
     });
 
+  const fileRow = (file: FileItem) => (
+    <li key={file.id} className="flex items-center justify-between gap-4 px-4 py-3">
+      <div className="flex min-w-0 items-center gap-2">
+        <span aria-hidden>📄</span>
+        <div className="min-w-0">
+          <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
+          <p className="text-xs text-zinc-500">
+            {humanSize(file.size)} · {file.provider}
+            {file.mime ? ` · ${file.mime}` : ""}
+          </p>
+        </div>
+      </div>
+      <div className="flex shrink-0 gap-3">
+        <button
+          onClick={() => download(file)}
+          className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+        >
+          Download
+        </button>
+        <button
+          onClick={() => removeFile(file)}
+          className="text-sm font-medium text-red-600 hover:text-red-500"
+        >
+          Delete
+        </button>
+      </div>
+    </li>
+  );
+
   return (
     <section>
-      {/* Breadcrumb */}
-      <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-zinc-500">
-        <button
-          onClick={() => setFolderId(undefined)}
-          className={folderId ? "hover:text-zinc-900" : "font-medium text-zinc-900"}
-        >
-          Home
-        </button>
-        {crumbs.map((c) => (
-          <span key={c.id} className="flex items-center gap-1">
-            <span className="text-zinc-300">/</span>
+      <Input
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+        placeholder="Search files by name, extension, or type…"
+        className="mb-4"
+      />
+
+      {searchActive ? (
+        <div>
+          <p className="mb-2 text-sm text-zinc-500">
+            {searching ? "Searching…" : `Results for “${search.trim()}”`}
+          </p>
+          {results && results.length > 0 ? (
+            <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+              {results.map(fileRow)}
+            </ul>
+          ) : (
+            !searching && <p className="text-sm text-zinc-500">No matching files.</p>
+          )}
+          {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+        </div>
+      ) : (
+        <div>
+          <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-zinc-500">
             <button
-              onClick={() => setFolderId(c.id)}
-              className={
-                c.id === folderId ? "font-medium text-zinc-900" : "hover:text-zinc-900"
-              }
+              onClick={() => setFolderId(undefined)}
+              className={folderId ? "hover:text-zinc-900" : "font-medium text-zinc-900"}
             >
-              {c.name}
+              Home
             </button>
-          </span>
-        ))}
-      </nav>
-
-      {/* New folder + upload */}
-      <div className="mb-4 flex flex-wrap items-center gap-2">
-        <Input
-          value={newFolder}
-          onChange={(e) => setNewFolder(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && createFolder()}
-          placeholder="New folder name"
-          className="max-w-xs"
-        />
-        <Button onClick={createFolder} disabled={busy || !newFolder.trim()}>
-          New folder
-        </Button>
-      </div>
-
-      <div
-        onDragOver={(e) => {
-          e.preventDefault();
-          setDragging(true);
-        }}
-        onDragLeave={() => setDragging(false)}
-        onDrop={(e) => {
-          e.preventDefault();
-          setDragging(false);
-          upload(e.dataTransfer.files);
-        }}
-        className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-10 text-center transition ${
-          dragging ? "border-indigo-500 bg-indigo-50" : "border-zinc-200"
-        }`}
-      >
-        <p className="text-sm text-zinc-600">{busy ? "Working…" : "Drag & drop files here, or"}</p>
-        <Button className="mt-3" disabled={busy} onClick={() => inputRef.current?.click()}>
-          Choose files
-        </Button>
-        <input
-          ref={inputRef}
-          type="file"
-          multiple
-          hidden
-          onChange={(e) => upload(e.target.files)}
-        />
-      </div>
-
-      {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
-
-      <div className="mt-6">
-        {loading ? (
-          <p className="text-sm text-zinc-500">Loading…</p>
-        ) : folders.length === 0 && files.length === 0 ? (
-          <p className="text-sm text-zinc-500">This folder is empty.</p>
-        ) : (
-          <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
-            {folders.map((folder) => (
-              <li key={folder.id} className="flex items-center justify-between gap-4 px-4 py-3">
+            {crumbs.map((c) => (
+              <span key={c.id} className="flex items-center gap-1">
+                <span className="text-zinc-300">/</span>
                 <button
-                  onClick={() => setFolderId(folder.id)}
-                  className="flex min-w-0 items-center gap-2 text-left"
+                  onClick={() => setFolderId(c.id)}
+                  className={
+                    c.id === folderId ? "font-medium text-zinc-900" : "hover:text-zinc-900"
+                  }
                 >
-                  <span aria-hidden>📁</span>
-                  <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
+                  {c.name}
                 </button>
-                <button
-                  onClick={() => removeFolder(folder)}
-                  className="shrink-0 text-sm font-medium text-red-600 hover:text-red-500"
-                >
-                  Delete
-                </button>
-              </li>
+              </span>
             ))}
-            {files.map((file) => (
-              <li key={file.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="flex min-w-0 items-center gap-2">
-                  <span aria-hidden>📄</span>
-                  <div className="min-w-0">
-                    <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
-                    <p className="text-xs text-zinc-500">
-                      {humanSize(file.size)} · {file.provider}
-                      {file.mime ? ` · ${file.mime}` : ""}
-                    </p>
-                  </div>
-                </div>
-                <div className="flex shrink-0 gap-3">
-                  <button
-                    onClick={() => download(file)}
-                    className="text-sm font-medium text-indigo-600 hover:text-indigo-500"
+          </nav>
+
+          <div className="mb-4 flex flex-wrap items-center gap-2">
+            <Input
+              value={newFolder}
+              onChange={(e) => setNewFolder(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && createFolder()}
+              placeholder="New folder name"
+              className="max-w-xs"
+            />
+            <Button onClick={createFolder} disabled={busy || !newFolder.trim()}>
+              New folder
+            </Button>
+          </div>
+
+          <div
+            onDragOver={(e) => {
+              e.preventDefault();
+              setDragging(true);
+            }}
+            onDragLeave={() => setDragging(false)}
+            onDrop={(e) => {
+              e.preventDefault();
+              setDragging(false);
+              upload(e.dataTransfer.files);
+            }}
+            className={`flex flex-col items-center justify-center rounded-lg border-2 border-dashed py-10 text-center transition ${
+              dragging ? "border-indigo-500 bg-indigo-50" : "border-zinc-200"
+            }`}
+          >
+            <p className="text-sm text-zinc-600">
+              {busy ? "Working…" : "Drag & drop files here, or"}
+            </p>
+            <Button className="mt-3" disabled={busy} onClick={() => inputRef.current?.click()}>
+              Choose files
+            </Button>
+            <input
+              ref={inputRef}
+              type="file"
+              multiple
+              hidden
+              onChange={(e) => upload(e.target.files)}
+            />
+          </div>
+
+          {error ? <p className="mt-3 text-sm text-red-600">{error}</p> : null}
+
+          <div className="mt-6">
+            {loading ? (
+              <p className="text-sm text-zinc-500">Loading…</p>
+            ) : folders.length === 0 && files.length === 0 ? (
+              <p className="text-sm text-zinc-500">This folder is empty.</p>
+            ) : (
+              <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+                {folders.map((folder) => (
+                  <li
+                    key={folder.id}
+                    className="flex items-center justify-between gap-4 px-4 py-3"
                   >
-                    Download
-                  </button>
-                  <button
-                    onClick={() => removeFile(file)}
-                    className="text-sm font-medium text-red-600 hover:text-red-500"
-                  >
-                    Delete
-                  </button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
-      </div>
+                    <button
+                      onClick={() => setFolderId(folder.id)}
+                      className="flex min-w-0 items-center gap-2 text-left"
+                    >
+                      <span aria-hidden>📁</span>
+                      <span className="truncate text-sm font-medium text-zinc-900">
+                        {folder.name}
+                      </span>
+                    </button>
+                    <button
+                      onClick={() => removeFolder(folder)}
+                      className="shrink-0 text-sm font-medium text-red-600 hover:text-red-500"
+                    >
+                      Delete
+                    </button>
+                  </li>
+                ))}
+                {files.map(fileRow)}
+              </ul>
+            )}
+          </div>
+        </div>
+      )}
     </section>
   );
 }

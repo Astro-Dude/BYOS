@@ -220,6 +220,18 @@ export class ByosClient {
     return this.request<FileItem[]>(`/files${qs}`, { token });
   }
 
+  searchFiles(
+    token: string,
+    query: string,
+    opts?: { ext?: string; mime?: string; folderId?: string },
+  ): Promise<FileItem[]> {
+    const params = new URLSearchParams({ q: query });
+    if (opts?.ext) params.set("ext", opts.ext);
+    if (opts?.mime) params.set("mime", opts.mime);
+    if (opts?.folderId) params.set("folder_id", opts.folderId);
+    return this.request<FileItem[]>(`/files/search?${params.toString()}`, { token });
+  }
+
   uploadFile(token: string, file: File, folderId?: string): Promise<FileItem> {
     const form = new FormData();
     form.append("file", file);

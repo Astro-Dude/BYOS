@@ -110,6 +110,25 @@ async def upload_file(
     return FileOut.model_validate(record)
 
 
+@router.get("/search", response_model=list[FileOut])
+async def search_files(
+    user: CurrentUser,
+    db: DbDep,
+    q: str,
+    ext: str | None = None,
+    mime: str | None = None,
+    folder_id: uuid.UUID | None = None,
+    limit: int = 50,
+) -> list[FileOut]:
+    query = q.strip()
+    if not query:
+        return []
+    files = await service.search_files(
+        db, user, query, ext=ext, mime=mime, folder_id=folder_id, limit=min(max(limit, 1), 100)
+    )
+    return [FileOut.model_validate(f) for f in files]
+
+
 @router.get("", response_model=list[FileOut])
 async def list_files(
     user: CurrentUser, db: DbDep, folder_id: uuid.UUID | None = None
