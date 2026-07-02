@@ -3,7 +3,7 @@
  *  by default). Set `markOnly` for a favicon-style square mark. */
 export function LogoMark({ className = "h-7 w-7" }: { className?: string }) {
   // eslint-disable-next-line @next/next/no-img-element
-  return <img src="/byos-logo.png" alt="BYOS" className={`${className} rounded-lg object-cover`} />;
+  return <img src="/byos-logo.png" alt="BYOS" className={`${className} object-contain`} />;
 }
 
 export function Logo({
