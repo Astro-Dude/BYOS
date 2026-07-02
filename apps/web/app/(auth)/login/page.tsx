@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
+import { Logo } from "@/components/logo";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -80,6 +81,7 @@ export default function LoginPage() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+      <Logo className="mb-8 text-indigo-700" markClassName="h-8 w-8" wordClassName="text-2xl" />
       <h1 className="text-2xl font-semibold tracking-tight">Sign in with Telegram</h1>
       <p className="mt-1 text-sm text-zinc-500">
         {step === "phone" && "Your Telegram account is your BYOS account and your storage."}

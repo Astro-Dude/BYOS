@@ -8,6 +8,9 @@ export default {
   ],
   theme: {
     extend: {
+      fontFamily: {
+        brand: ["var(--font-brand)", "ui-sans-serif", "system-ui", "sans-serif"],
+      },
       colors: {
         // Premium neutral base — warm greige, not cold gray. Page bg = zinc-50,
         // cards stay white for quiet contrast; ink = zinc-900.

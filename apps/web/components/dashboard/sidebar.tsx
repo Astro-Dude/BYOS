@@ -15,6 +15,7 @@ import {
 import { type ReactNode, useEffect, useState } from "react";
 
 import { Menu, MenuItem } from "@/components/dashboard/menu";
+import { Logo } from "@/components/logo";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -78,7 +79,9 @@ export function Sidebar({
 
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-4 pr-2 pt-4">
-      <div className="px-6 pb-2 text-xl font-semibold tracking-tight text-indigo-700">BYOS</div>
+      <div className="px-5 pb-2">
+        <Logo markClassName="h-7 w-7" wordClassName="text-xl" />
+      </div>
 
       <div className="px-4 pb-2">
         <Menu
