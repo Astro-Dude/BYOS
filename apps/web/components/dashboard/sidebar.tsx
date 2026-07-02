@@ -1,7 +1,18 @@
 "use client";
 
 import type { ProviderStatus } from "@byos/api-client";
-import { useEffect, useState } from "react";
+import {
+  BarChart3,
+  Code2,
+  FolderPlus,
+  HardDrive,
+  Link2,
+  Plus,
+  ShieldCheck,
+  Star,
+  Upload,
+} from "lucide-react";
+import { type ReactNode, useEffect, useState } from "react";
 
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { api } from "@/lib/api";
@@ -51,17 +62,19 @@ export function Sidebar({
       .catch(() => setUsed(null));
   }, [authed]);
 
-  const navItem = (id: DriveView, label: string, icon: string) => (
+  const navItem = (id: DriveView, label: string, icon: ReactNode) => (
     <button
       onClick={() => onView(id)}
       className={`flex w-full items-center gap-3 rounded-r-full px-6 py-2.5 text-sm font-medium transition ${
         view === id ? "bg-indigo-100 text-indigo-800" : "text-zinc-700 hover:bg-zinc-100"
       }`}
     >
-      <span aria-hidden>{icon}</span>
+      {icon}
       {label}
     </button>
   );
+
+  const iconClass = "h-[18px] w-[18px] shrink-0";
 
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-4 pr-2 pt-4">
@@ -72,9 +85,7 @@ export function Sidebar({
           align="left"
           trigger={() => (
             <span className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:shadow-md">
-              <span className="text-lg leading-none text-indigo-600" aria-hidden>
-                +
-              </span>
+              <Plus className="h-4 w-4 text-indigo-600" />
               New
             </span>
           )}
@@ -82,7 +93,7 @@ export function Sidebar({
           {(close) => (
             <>
               <MenuItem
-                icon="📁"
+                icon={<FolderPlus className="h-4 w-4" />}
                 label="New folder"
                 onClick={() => {
                   close();
@@ -90,7 +101,7 @@ export function Sidebar({
                 }}
               />
               <MenuItem
-                icon="⬆️"
+                icon={<Upload className="h-4 w-4" />}
                 label="Upload files"
                 onClick={() => {
                   close();
@@ -103,12 +114,12 @@ export function Sidebar({
       </div>
 
       <nav className="space-y-1">
-        {navItem("drive", "My Drive", "🗂️")}
-        {navItem("starred", "Starred", "⭐")}
-        {navItem("links", "Links", "🔗")}
-        {navItem("insights", "Insights", "📊")}
-        {navItem("developer", "Developer", "🔑")}
-        {navItem("activity", "Activity", "🛡️")}
+        {navItem("drive", "My Drive", <HardDrive className={iconClass} />)}
+        {navItem("starred", "Starred", <Star className={iconClass} />)}
+        {navItem("links", "Links", <Link2 className={iconClass} />)}
+        {navItem("insights", "Insights", <BarChart3 className={iconClass} />)}
+        {navItem("developer", "Developer", <Code2 className={iconClass} />)}
+        {navItem("activity", "Activity", <ShieldCheck className={iconClass} />)}
       </nav>
 
       <div className="mt-auto mx-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">

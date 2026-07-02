@@ -6,6 +6,28 @@ import {
   type FileItem,
   type FolderItem,
 } from "@byos/api-client";
+import {
+  Download,
+  Eye,
+  File as FileIcon,
+  FileArchive,
+  FileText,
+  Folder,
+  FolderOpen,
+  Globe,
+  History,
+  Image as ImageIcon,
+  LayoutGrid,
+  Link2,
+  List,
+  MoreVertical,
+  Music,
+  Search,
+  Star,
+  Tag,
+  Trash2,
+  Video,
+} from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
@@ -48,14 +70,14 @@ function humanSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
-function fileIcon(mime: string | null, ext: string | null): string {
+function fileIcon(mime: string | null, ext: string | null, className = "h-5 w-5 text-zinc-500") {
   const m = mime ?? "";
-  if (m.startsWith("image/")) return "🖼️";
-  if (m.startsWith("video/")) return "🎬";
-  if (m.startsWith("audio/")) return "🎵";
-  if (m === "application/pdf" || ext === "pdf") return "📕";
-  if (["zip", "tar", "gz", "rar", "7z"].includes(ext ?? "")) return "🗜️";
-  return "📄";
+  if (m.startsWith("image/")) return <ImageIcon className={className} />;
+  if (m.startsWith("video/")) return <Video className={className} />;
+  if (m.startsWith("audio/")) return <Music className={className} />;
+  if (m === "application/pdf" || ext === "pdf") return <FileText className={className} />;
+  if (["zip", "tar", "gz", "rar", "7z"].includes(ext ?? "")) return <FileArchive className={className} />;
+  return <FileIcon className={className} />;
 }
 
 function matchesType(file: FileItem, cat: Category): boolean {
@@ -317,40 +339,34 @@ export default function DashboardPage() {
   const shownFolders =
     plainDrive && (typeFilter === "all" || typeFilter === "folder") ? folders : [];
 
+  const menuTrigger = (
+    <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
+      <MoreVertical className="h-4 w-4" />
+    </span>
+  );
+
   const fileMenu = (file: FileItem) => (
-    <Menu
-      trigger={() => (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
-          ⋮
-        </span>
-      )}
-    >
+    <Menu trigger={() => menuTrigger}>
       {(close) => (
         <>
-          <MenuItem icon="👁" label="Preview" onClick={() => { close(); setPreview(file); }} />
-          <MenuItem icon="⬇️" label="Download" onClick={() => { close(); download(file); }} />
-          <MenuItem icon="🔗" label="Get link" onClick={() => { close(); setAliasFor(file); }} />
-          <MenuItem icon="🌐" label="Share" onClick={() => { close(); setShareFor(file); }} />
-          <MenuItem icon="🕘" label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
-          <MenuItem icon="🏷" label="Tags" onClick={() => { close(); setTagsFor(file); }} />
-          <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFile(file); }} />
+          <MenuItem icon={<Eye className="h-4 w-4" />} label="Preview" onClick={() => { close(); setPreview(file); }} />
+          <MenuItem icon={<Download className="h-4 w-4" />} label="Download" onClick={() => { close(); download(file); }} />
+          <MenuItem icon={<Link2 className="h-4 w-4" />} label="Get link" onClick={() => { close(); setAliasFor(file); }} />
+          <MenuItem icon={<Globe className="h-4 w-4" />} label="Share" onClick={() => { close(); setShareFor(file); }} />
+          <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
+          <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFile(file); }} />
         </>
       )}
     </Menu>
   );
 
   const folderMenu = (folder: FolderItem) => (
-    <Menu
-      trigger={() => (
-        <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
-          ⋮
-        </span>
-      )}
-    >
+    <Menu trigger={() => menuTrigger}>
       {(close) => (
         <>
-          <MenuItem icon="📂" label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
-          <MenuItem icon="🗑" label="Delete" danger onClick={() => { close(); removeFolder(folder); }} />
+          <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFolder(folder); }} />
         </>
       )}
     </Menu>
@@ -384,7 +400,7 @@ export default function DashboardPage() {
             onClick={() => setFolderId(folder.id)}
             className="flex min-w-0 items-center gap-3 text-left"
           >
-            <span aria-hidden>📁</span>
+            <Folder className="h-5 w-5 shrink-0 text-indigo-500" />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
           </button>
           <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
@@ -398,12 +414,10 @@ export default function DashboardPage() {
           className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <button
-              onClick={() => toggleFavorite(file)}
-              className={file.is_favorite ? "text-amber-400" : "text-zinc-300 hover:text-amber-400"}
-              aria-label="Star"
-            >
-              {file.is_favorite ? "★" : "☆"}
+            <button onClick={() => toggleFavorite(file)} aria-label="Star" className="shrink-0">
+              <Star
+                className={`h-4 w-4 ${file.is_favorite ? "fill-amber-400 text-amber-400" : "text-zinc-300 hover:text-amber-400"}`}
+              />
             </button>
             <button
               onClick={() => setPreview(file)}
@@ -441,7 +455,7 @@ export default function DashboardPage() {
             onClick={() => setFolderId(folder.id)}
             className="flex min-w-0 items-center gap-2 text-left"
           >
-            <span className="text-2xl" aria-hidden>📁</span>
+            <Folder className="h-6 w-6 shrink-0 text-indigo-500" />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
           </button>
           {folderMenu(folder)}
@@ -453,16 +467,14 @@ export default function DashboardPage() {
           className="rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
         >
           <div className="flex items-start justify-between">
-            <button onClick={() => setPreview(file)} className="text-3xl" aria-hidden>
-              {fileIcon(file.mime, file.ext)}
+            <button onClick={() => setPreview(file)} aria-label="Preview">
+              {fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}
             </button>
             <div className="flex items-center gap-1">
-              <button
-                onClick={() => toggleFavorite(file)}
-                className={file.is_favorite ? "text-amber-400" : "text-zinc-300 hover:text-amber-400"}
-                aria-label="Star"
-              >
-                {file.is_favorite ? "★" : "☆"}
+              <button onClick={() => toggleFavorite(file)} aria-label="Star">
+                <Star
+                  className={`h-4 w-4 ${file.is_favorite ? "fill-amber-400 text-amber-400" : "text-zinc-300 hover:text-amber-400"}`}
+                />
               </button>
               {fileMenu(file)}
             </div>
@@ -497,9 +509,7 @@ export default function DashboardPage() {
         <header className="flex items-center gap-4 px-6 py-3">
           <div className="flex-1">
             <div className="flex max-w-2xl items-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5">
-              <span className="text-zinc-400" aria-hidden>
-                🔍
-              </span>
+              <Search className="h-4 w-4 shrink-0 text-zinc-400" />
               <input
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
@@ -597,15 +607,17 @@ export default function DashboardPage() {
                 <div className="flex items-center rounded-full border border-zinc-200 bg-white p-0.5">
                   <button
                     onClick={() => setLayout("list")}
-                    className={`rounded-full px-3 py-1 text-sm ${layout === "list" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                    aria-label="List view"
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${layout === "list" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
                   >
-                    ☰ List
+                    <List className="h-4 w-4" /> List
                   </button>
                   <button
                     onClick={() => setLayout("grid")}
-                    className={`rounded-full px-3 py-1 text-sm ${layout === "grid" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                    aria-label="Grid view"
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${layout === "grid" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
                   >
-                    ▦ Grid
+                    <LayoutGrid className="h-4 w-4" /> Grid
                   </button>
                 </div>
               </div>

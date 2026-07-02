@@ -8,7 +8,7 @@ import { useAuthed } from "@/lib/auth-context";
 
 function summary(share: ShareItem): string {
   const parts: string[] = [];
-  if (share.has_password) parts.push("🔒 password");
+  if (share.has_password) parts.push("password");
   if (share.view_only) parts.push("view-only");
   if (share.expires_at) parts.push(`expires ${new Date(share.expires_at).toLocaleDateString()}`);
   if (share.max_downloads) parts.push(`${share.download_count}/${share.max_downloads} downloads`);

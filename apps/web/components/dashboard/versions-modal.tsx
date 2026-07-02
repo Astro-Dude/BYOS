@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError, type FileItem, type VersionItem } from "@byos/api-client";
+import { X } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -106,7 +107,7 @@ export function VersionsModal({
             <p className="text-xs text-zinc-500">Replacing keeps the same links; they serve the latest.</p>
           </div>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700" aria-label="Close">
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </div>
 

@@ -7,7 +7,8 @@ import {
   type AnalyticsTopItem,
   type DuplicateGroup,
 } from "@byos/api-client";
-import { useCallback, useEffect, useState } from "react";
+import { FileText, Globe, Link2 } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
@@ -79,7 +80,11 @@ function ActivityChart({ points }: { points: AnalyticsDayPoint[] }) {
   );
 }
 
-const TARGET_ICON: Record<string, string> = { file: "📄", alias: "🔗", share: "🌐" };
+const TARGET_ICON: Record<string, ReactNode> = {
+  file: <FileText className="h-4 w-4 text-zinc-500" />,
+  alias: <Link2 className="h-4 w-4 text-zinc-500" />,
+  share: <Globe className="h-4 w-4 text-zinc-500" />,
+};
 
 export function InsightsPanel() {
   const authed = useAuthed();
@@ -167,7 +172,7 @@ export function InsightsPanel() {
                 className="flex items-center justify-between gap-4 py-2.5"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <span aria-hidden>{TARGET_ICON[item.target_type] ?? "•"}</span>
+                  {TARGET_ICON[item.target_type] ?? <span aria-hidden>•</span>}
                   <span className="truncate text-sm text-zinc-800">{item.label}</span>
                 </span>
                 <span className="shrink-0 text-sm font-medium text-zinc-500">
@@ -194,7 +199,7 @@ export function InsightsPanel() {
                 <ul className="space-y-1">
                   {group.files.map((file) => (
                     <li key={file.id} className="flex items-center gap-2 text-sm text-zinc-700">
-                      <span aria-hidden>📄</span>
+                      <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
                       <span className="truncate">{file.name}</span>
                     </li>
                   ))}

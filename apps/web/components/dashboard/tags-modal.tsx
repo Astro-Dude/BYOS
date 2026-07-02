@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError, type FileItem } from "@byos/api-client";
+import { X } from "lucide-react";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -71,7 +72,7 @@ export function TagsModal({
                   className="text-indigo-400 hover:text-indigo-700"
                   aria-label={`Remove ${tag}`}
                 >
-                  ✕
+                  <X className="h-3 w-3" />
                 </button>
               </span>
             ))

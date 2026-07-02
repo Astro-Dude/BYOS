@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError, type FileItem } from "@byos/api-client";
+import { X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
@@ -84,7 +85,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
         <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
           <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
           <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700" aria-label="Close">
-            ✕
+            <X className="h-5 w-5" />
           </button>
         </div>
         <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">

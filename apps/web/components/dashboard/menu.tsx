@@ -62,7 +62,7 @@ export function MenuItem({
   label: string;
   onClick: () => void;
   danger?: boolean;
-  icon?: string;
+  icon?: ReactNode;
 }) {
   return (
     <button
@@ -75,7 +75,7 @@ export function MenuItem({
         danger ? "text-red-600" : "text-zinc-700"
       }`}
     >
-      {icon ? <span aria-hidden>{icon}</span> : null}
+      {icon}
       {label}
     </button>
   );

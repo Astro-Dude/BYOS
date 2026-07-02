@@ -1,21 +1,23 @@
 "use client";
 
 import { ApiError, type AuditItem } from "@byos/api-client";
-import { useCallback, useEffect, useState } from "react";
+import { Ban, Dot, Globe, KeyRound, LogIn, Trash2 } from "lucide-react";
+import { type ReactNode, useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
-const ACTION_META: Record<string, { icon: string; label: string }> = {
-  login: { icon: "🔓", label: "Signed in" },
-  "file.delete": { icon: "🗑", label: "Deleted a file" },
-  "share.create": { icon: "🌐", label: "Created a share link" },
-  "api_key.create": { icon: "🔑", label: "Created an API key" },
-  "api_key.revoke": { icon: "🚫", label: "Revoked an API key" },
+const ICON = "h-4 w-4 shrink-0 text-zinc-500";
+const ACTION_META: Record<string, { icon: ReactNode; label: string }> = {
+  login: { icon: <LogIn className={ICON} />, label: "Signed in" },
+  "file.delete": { icon: <Trash2 className={ICON} />, label: "Deleted a file" },
+  "share.create": { icon: <Globe className={ICON} />, label: "Created a share link" },
+  "api_key.create": { icon: <KeyRound className={ICON} />, label: "Created an API key" },
+  "api_key.revoke": { icon: <Ban className={ICON} />, label: "Revoked an API key" },
 };
 
-function describe(action: string): { icon: string; label: string } {
-  return ACTION_META[action] ?? { icon: "•", label: action };
+function describe(action: string): { icon: ReactNode; label: string } {
+  return ACTION_META[action] ?? { icon: <Dot className={ICON} />, label: action };
 }
 
 function when(iso: string): string {
@@ -70,7 +72,7 @@ export function ActivityPanel() {
             return (
               <li key={item.id} className="flex items-center justify-between gap-4 px-4 py-3">
                 <span className="flex min-w-0 items-center gap-3">
-                  <span aria-hidden>{meta.icon}</span>
+                  {meta.icon}
                   <span className="truncate text-sm text-zinc-800">{meta.label}</span>
                 </span>
                 <span className="shrink-0 text-xs text-zinc-400">{when(item.created_at)}</span>
