@@ -1,5 +1,7 @@
 import Link from "next/link";
 
+import { RedirectIfAuthed } from "@/components/redirect-if-authed";
+
 const features = [
   ["Bring your own storage", "Your files stay in your Telegram, Drive, S3 — BYOS never holds the bytes."],
   ["Permanent dynamic aliases", "Share /resume once. Replace the file forever. The link never changes."],
@@ -10,6 +12,7 @@ const features = [
 export default function LandingPage() {
   return (
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col px-6">
+      <RedirectIfAuthed />
       <header className="flex items-center justify-between py-6">
         <span className="text-lg font-semibold tracking-tight">BYOS</span>
         <nav className="flex items-center gap-4 text-sm">

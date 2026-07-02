@@ -3,7 +3,7 @@
 import { ApiError } from "@byos/api-client";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,7 +14,7 @@ type Step = "phone" | "code" | "password";
 
 export default function LoginPage() {
   const router = useRouter();
-  const { establishSession } = useAuth();
+  const { establishSession, user, loading: authLoading } = useAuth();
   const [step, setStep] = useState<Step>("phone");
   const [phone, setPhone] = useState("");
   const [code, setCode] = useState("");
@@ -34,6 +34,11 @@ export default function LoginPage() {
       setBusy(false);
     }
   };
+
+  // Already signed in (persisted session) — go straight to the dashboard.
+  useEffect(() => {
+    if (!authLoading && user) router.replace("/dashboard");
+  }, [authLoading, user, router]);
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -64,6 +69,14 @@ export default function LoginPage() {
       });
     }
   };
+
+  if (authLoading || user) {
+    return (
+      <main className="flex min-h-screen items-center justify-center text-sm text-zinc-500">
+        Loading…
+      </main>
+    );
+  }
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
