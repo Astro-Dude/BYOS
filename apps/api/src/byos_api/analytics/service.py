@@ -21,25 +21,28 @@ from byos_api.db.models import Alias, AnalyticsEvent, File, Share, User
 async def overview(db: AsyncSession, user: User) -> AnalyticsOverview:
     since = datetime.now(UTC) - timedelta(days=30)
 
-    counts = await db.execute(
-        select(
-            func.coalesce(func.sum(File.size), 0),
-            func.count(File.id.distinct()),
-        ).where(File.owner_id == user.id)
+    # All four counts in ONE round trip via correlated scalar subqueries, so a
+    # distant DB (Neon) isn't hit four times sequentially.
+    owner = user.id
+    bytes_sq = (
+        select(func.coalesce(func.sum(File.size), 0))
+        .where(File.owner_id == owner)
+        .scalar_subquery()
     )
-    storage_bytes_raw, file_count = counts.one()
-    storage_bytes = int(storage_bytes_raw or 0)
-
-    alias_count = (
-        await db.execute(
-            select(func.count()).select_from(Alias).where(Alias.owner_id == user.id)
-        )
-    ).scalar_one()
-    share_count = (
-        await db.execute(
-            select(func.count()).select_from(Share).where(Share.owner_id == user.id)
-        )
-    ).scalar_one()
+    files_sq = (
+        select(func.count()).select_from(File).where(File.owner_id == owner).scalar_subquery()
+    )
+    aliases_sq = (
+        select(func.count()).select_from(Alias).where(Alias.owner_id == owner).scalar_subquery()
+    )
+    shares_sq = (
+        select(func.count()).select_from(Share).where(Share.owner_id == owner).scalar_subquery()
+    )
+    row = (await db.execute(select(bytes_sq, files_sq, aliases_sq, shares_sq))).one()
+    storage_bytes = int(row[0] or 0)
+    file_count = int(row[1])
+    alias_count = int(row[2])
+    share_count = int(row[3])
 
     tally = (
         await db.execute(

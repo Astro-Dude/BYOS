@@ -83,8 +83,9 @@ export function Sidebar({
       <div className="px-4 pb-2">
         <Menu
           align="left"
+          className="w-full"
           trigger={() => (
-            <span className="flex items-center gap-3 rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:shadow-md">
+            <span className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:shadow-md">
               <Plus className="h-4 w-4 text-indigo-600" />
               New
             </span>

@@ -7,10 +7,12 @@ export function Menu({
   trigger,
   children,
   align = "right",
+  className = "",
 }: {
   trigger: (open: boolean) => ReactNode;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
+  className?: string;
 }) {
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
@@ -30,9 +32,10 @@ export function Menu({
   }, [open]);
 
   return (
-    <div className="relative" ref={ref}>
+    <div className={`relative ${className}`} ref={ref}>
       <button
         type="button"
+        className={className.includes("w-full") ? "w-full" : undefined}
         onClick={(e) => {
           e.stopPropagation();
           setOpen((o) => !o);
@@ -44,7 +47,7 @@ export function Menu({
         <div
           className={`absolute ${
             align === "right" ? "right-0" : "left-0"
-          } z-30 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg`}
+          } z-50 mt-1 min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg`}
         >
           {children(() => setOpen(false))}
         </div>
