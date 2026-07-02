@@ -15,7 +15,7 @@ export default function LandingPage() {
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col px-6">
       <RedirectIfAuthed />
       <header className="flex items-center justify-between py-6">
-        <Logo markClassName="h-7 w-7" wordClassName="text-lg" />
+        <Logo markClassName="h-9 w-9" wordClassName="text-lg" />
         <nav className="flex items-center gap-4 text-sm">
           <Link href="/login" className="text-zinc-600 hover:text-zinc-900">
             Log in

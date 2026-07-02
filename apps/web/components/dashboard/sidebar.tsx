@@ -80,7 +80,7 @@ export function Sidebar({
   return (
     <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-4 pr-2 pt-4">
       <div className="px-5 pb-2">
-        <Logo markClassName="h-7 w-7" wordClassName="text-xl" />
+        <Logo markClassName="h-10 w-10" wordClassName="text-xl" />
       </div>
 
       <div className="px-4 pb-2">
