@@ -4,31 +4,33 @@
 export function LogoMark({ className = "h-7 w-7" }: { className?: string }) {
   return (
     <svg
-      viewBox="0 0 48 48"
+      viewBox="0 0 512 512"
       className={className}
       fill="none"
       stroke="currentColor"
-      strokeWidth={3.2}
-      strokeLinejoin="round"
+      strokeWidth={18}
       strokeLinecap="round"
+      strokeLinejoin="round"
       aria-hidden
     >
-      {/* rounded-square frame */}
-      <rect x="3" y="3" width="42" height="42" rx="12" />
-      {/* diagonal accent (top-left) */}
-      <path d="M9.5 23 L14 17.5" />
-      {/* stem */}
-      <path d="M16 13 V35" />
-      {/* top bowl — chamfered block */}
-      <path d="M16 13 H26 L30 17 V20 L26 24 H16" />
-      {/* bottom bowl — chamfered block */}
-      <path d="M16 24 H28 L32 28 V31 L28 35 H16" />
+      {/* outer frame */}
+      <rect x="58" y="58" width="396" height="396" rx="56" />
+      {/* diagonal accent */}
+      <path d="M150 145 L205 90" />
+      {/* top module */}
+      <path d="M185 145 L315 145 L365 195 L315 245 L220 245 L185 280 L185 145 Z" />
+      {/* lower module */}
+      <path d="M220 280 L320 280 L355 315 L355 365 L315 405 L185 405 L185 330 L220 295 Z" />
+      {/* inner cut top */}
+      <path d="M230 190 L300 190 L325 215 L300 240 L230 240" />
+      {/* inner cut bottom */}
+      <path d="M230 325 L300 325 L325 350 L300 375 L230 375" />
     </svg>
   );
 }
 
 export function Logo({
-  className = "text-indigo-700",
+  className = "text-indigo-600",
   markClassName = "h-8 w-8",
   wordClassName = "text-2xl",
   markOnly = false,
