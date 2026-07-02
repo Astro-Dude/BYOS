@@ -475,7 +475,7 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="flex h-screen bg-[#f7f8fb]">
+    <div className="flex h-screen bg-zinc-50">
       <Sidebar
         view={view}
         onView={setView}

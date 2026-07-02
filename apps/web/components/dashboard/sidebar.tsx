@@ -7,6 +7,18 @@ import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
+function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return `${value.toFixed(1)} ${units[i]}`;
+}
+
 export type DriveView =
   | "drive"
   | "starred"
@@ -28,11 +40,15 @@ export function Sidebar({
 }) {
   const authed = useAuthed();
   const [telegram, setTelegram] = useState<ProviderStatus | null>(null);
+  const [used, setUsed] = useState<number | null>(null);
 
   useEffect(() => {
     authed((t) => api.listProviders(t))
       .then((ps) => setTelegram(ps.find((p) => p.provider === "telegram") ?? null))
       .catch(() => setTelegram(null));
+    authed((t) => api.getAnalyticsOverview(t))
+      .then((o) => setUsed(o.storage_bytes))
+      .catch(() => setUsed(null));
   }, [authed]);
 
   const navItem = (id: DriveView, label: string, icon: string) => (
@@ -95,8 +111,13 @@ export function Sidebar({
         {navItem("activity", "Activity", "🛡️")}
       </nav>
 
-      <div className="mt-auto mx-4 rounded-xl bg-zinc-50 p-3 text-xs">
-        <div className="font-medium text-zinc-700">Storage</div>
+      <div className="mt-auto mx-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">
+        <div className="flex items-baseline justify-between">
+          <span className="font-medium text-zinc-700">
+            {used != null ? `${formatBytes(used)} used` : "Storage"}
+          </span>
+          <span className="font-medium text-indigo-700">Unlimited</span>
+        </div>
         <div className="mt-1 text-zinc-500">
           {telegram
             ? `Telegram${telegram.label ? ` · ${telegram.label}` : ""}`

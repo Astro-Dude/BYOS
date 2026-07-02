@@ -7,5 +7,5 @@
 }
 
 body {
-  @apply bg-white text-zinc-900 antialiased;
+  @apply bg-zinc-50 text-zinc-900 antialiased;
 }

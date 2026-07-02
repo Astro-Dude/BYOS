@@ -60,7 +60,7 @@ function ActivityChart({ points }: { points: AnalyticsDayPoint[] }) {
                 className="flex w-full max-w-[24px] flex-col justify-end overflow-hidden rounded-t"
                 style={{ height: `${Math.max(heightPct, 4)}%` }}
               >
-                <div className="w-full bg-emerald-400" style={{ height: `${dlPct}%` }} />
+                <div className="w-full bg-indigo-300" style={{ height: `${dlPct}%` }} />
                 <div className="w-full flex-1 bg-indigo-400" />
               </div>
             </div>
@@ -72,7 +72,7 @@ function ActivityChart({ points }: { points: AnalyticsDayPoint[] }) {
           <span className="h-2.5 w-2.5 rounded-sm bg-indigo-400" /> Views
         </span>
         <span className="flex items-center gap-1.5">
-          <span className="h-2.5 w-2.5 rounded-sm bg-emerald-400" /> Downloads
+          <span className="h-2.5 w-2.5 rounded-sm bg-indigo-300" /> Downloads
         </span>
       </div>
     </div>
@@ -130,7 +130,11 @@ export function InsightsPanel() {
       <h1 className="text-2xl font-normal text-zinc-800">Insights</h1>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-        <StatCard label="Storage used" value={formatBytes(overview.storage_bytes)} />
+        <StatCard
+          label="Storage used"
+          value={formatBytes(overview.storage_bytes)}
+          sub={`across ${overview.file_count.toLocaleString()} files · unlimited`}
+        />
         <StatCard label="Files" value={overview.file_count.toLocaleString()} />
         <StatCard
           label="Views"
