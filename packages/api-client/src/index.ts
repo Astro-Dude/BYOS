@@ -356,11 +356,41 @@ export class ByosClient {
     return this.request<DuplicateGroup[]>("/files/duplicates", { token });
   }
 
-  uploadFile(token: string, file: File, folderId?: string): Promise<FileItem> {
-    const form = new FormData();
-    form.append("file", file);
-    if (folderId) form.append("folder_id", folderId);
-    return this.request<FileItem>("/files", { method: "POST", token, body: form });
+  /** Upload a file. Uses XHR so real byte-progress (0–100) is reported via
+   *  onProgress; falls back gracefully if the size isn't known. */
+  uploadFile(
+    token: string,
+    file: File,
+    folderId?: string,
+    onProgress?: (pct: number) => void,
+  ): Promise<FileItem> {
+    return new Promise<FileItem>((resolve, reject) => {
+      const form = new FormData();
+      form.append("file", file);
+      if (folderId) form.append("folder_id", folderId);
+      const xhr = new XMLHttpRequest();
+      xhr.open("POST", `${this.baseUrl}/files`);
+      xhr.withCredentials = true;
+      xhr.setRequestHeader("Authorization", `Bearer ${token}`);
+      xhr.upload.onprogress = (e) => {
+        if (e.lengthComputable && onProgress) onProgress(Math.round((e.loaded / e.total) * 100));
+      };
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          resolve(JSON.parse(xhr.responseText) as FileItem);
+        } else {
+          let detail = xhr.statusText;
+          try {
+            detail = (JSON.parse(xhr.responseText) as { detail?: string }).detail ?? detail;
+          } catch {
+            // non-JSON error body
+          }
+          reject(new ApiError(xhr.status, detail));
+        }
+      };
+      xhr.onerror = () => reject(new ApiError(0, "Network error during upload"));
+      xhr.send(form);
+    });
   }
 
   deleteFile(token: string, id: string): Promise<void> {

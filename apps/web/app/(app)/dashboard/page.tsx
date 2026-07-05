@@ -148,7 +148,7 @@ export default function DashboardPage() {
   const [movingFile, setMovingFile] = useState<FileItem | null>(null);
   const [dragFolder, setDragFolder] = useState<string | null>(null);
   const [uploads, setUploads] = useState<
-    { id: number; name: string; status: "uploading" | "done" | "error" }[]
+    { id: number; name: string; status: "uploading" | "done" | "error"; progress: number }[]
   >([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -279,13 +279,19 @@ export default function DashboardPage() {
     }));
     setUploads((prev) => [
       ...prev,
-      ...jobs.map((j) => ({ id: j.id, name: j.name, status: "uploading" as const })),
+      ...jobs.map((j) => ({ id: j.id, name: j.name, status: "uploading" as const, progress: 0 })),
     ]);
     (async () => {
       for (const job of jobs) {
         try {
-          await authed((t) => api.uploadFile(t, job.file, folderId));
-          setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "done" } : u)));
+          await authed((t) =>
+            api.uploadFile(t, job.file, folderId, (pct) =>
+              setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
+            ),
+          );
+          setUploads((p) =>
+            p.map((u) => (u.id === job.id ? { ...u, status: "done", progress: 100 } : u)),
+          );
         } catch {
           setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error" } : u)));
         }
@@ -885,15 +891,28 @@ export default function DashboardPage() {
           </div>
           <ul className="max-h-56 divide-y divide-zinc-50 overflow-auto">
             {uploads.map((u) => (
-              <li key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+              <li key={u.id} className="px-3 py-2 text-sm">
+                <div className="flex items-center gap-2">
+                  {u.status === "uploading" ? (
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" />
+                  ) : u.status === "done" ? (
+                    <Check className="h-4 w-4 shrink-0 text-indigo-600" />
+                  ) : (
+                    <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                  )}
+                  <span className="min-w-0 flex-1 truncate text-zinc-700">{u.name}</span>
+                  {u.status === "uploading" ? (
+                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">{u.progress}%</span>
+                  ) : null}
+                </div>
                 {u.status === "uploading" ? (
-                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" />
-                ) : u.status === "done" ? (
-                  <Check className="h-4 w-4 shrink-0 text-indigo-600" />
-                ) : (
-                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
-                )}
-                <span className="truncate text-zinc-700">{u.name}</span>
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
+                    <div
+                      className="h-full rounded-full bg-indigo-600 transition-all duration-200"
+                      style={{ width: `${u.progress}%` }}
+                    />
+                  </div>
+                ) : null}
               </li>
             ))}
           </ul>
