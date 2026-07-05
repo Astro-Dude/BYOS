@@ -34,6 +34,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AliasModal } from "@/components/dashboard/alias-modal";
 import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
+import { ConfirmModal } from "@/components/dashboard/confirm-modal";
 import { CreateFolderModal } from "@/components/dashboard/create-folder-modal";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { fileIcon } from "@/components/dashboard/file-icon";
@@ -52,6 +53,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { FOLDER_COLORS } from "@/lib/folder-colors";
+import { addRecentFile, addRecentFolder } from "@/lib/recents";
 import { useToast } from "@/lib/toast";
 
 type Category = "all" | "folder" | "image" | "pdf" | "doc" | "video";
@@ -90,9 +92,10 @@ const SORT_OPTIONS: { field: SortField; dir: SortDir; label: string }[] = [
 
 function sortItems<T extends { name: string; size?: number; created_at: string; modified_at?: string }>(
   items: T[],
-  field: SortField,
+  field: SortField | null,
   dir: SortDir,
 ): T[] {
+  if (!field) return items; // default: natural order (as returned by the API)
   const factor = dir === "asc" ? 1 : -1;
   return [...items].sort((a, b) => {
     let r = 0;
@@ -153,7 +156,7 @@ export default function DashboardPage() {
   const [results, setResults] = useState<FileItem[] | null>(null);
   const [folderResults, setFolderResults] = useState<FolderItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<Category>("all");
-  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortField, setSortField] = useState<SortField | null>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const [nfOpen, setNfOpen] = useState(false);
@@ -164,6 +167,9 @@ export default function DashboardPage() {
   const [sharingFolder, setSharingFolder] = useState<FolderItem | null>(null);
   const [renamingFile, setRenamingFile] = useState<FileItem | null>(null);
   const [renamingFolder, setRenamingFolder] = useState<FolderItem | null>(null);
+  const [confirming, setConfirming] = useState<
+    { kind: "file"; file: FileItem } | { kind: "folder"; folder: FolderItem } | null
+  >(null);
   const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
   const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -406,6 +412,20 @@ export default function DashboardPage() {
     setFolderId(id);
   };
 
+  // Column-header sorting: default → asc → desc → default.
+  const cycleSort = (field: SortField) => {
+    if (sortField !== field) {
+      setSortField(field);
+      setSortDir("asc");
+    } else if (sortDir === "asc") {
+      setSortDir("desc");
+    } else {
+      setSortField(null);
+    }
+  };
+  const sortArrow = (field: SortField) =>
+    sortField !== field ? "" : sortDir === "asc" ? " ↑" : " ↓";
+
   const moveFileToFolder = (fileId: string, folderId: string | null) => {
     setDragFolder(null);
     // Optimistic: it leaves the current folder view; a failed move resyncs on reload.
@@ -522,7 +542,7 @@ export default function DashboardPage() {
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />
-          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFile(file); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); setConfirming({ kind: "file", file }); }} />
         </>
       )}
     </Menu>
@@ -554,7 +574,7 @@ export default function DashboardPage() {
               />
             ))}
           </div>
-          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFolder(folder); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); setConfirming({ kind: "folder", folder }); }} />
         </>
       )}
     </Menu>
@@ -599,9 +619,24 @@ export default function DashboardPage() {
   const listView = (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
       <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-100 px-4 py-2.5 text-xs font-medium text-zinc-500">
-        <span>Name</span>
-        <span>Modified</span>
-        <span>Size</span>
+        <button
+          onClick={() => cycleSort("name")}
+          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "name" ? "text-indigo-600" : ""}`}
+        >
+          Name{sortArrow("name")}
+        </button>
+        <button
+          onClick={() => cycleSort("modified")}
+          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "modified" ? "text-indigo-600" : ""}`}
+        >
+          Modified{sortArrow("modified")}
+        </button>
+        <button
+          onClick={() => cycleSort("size")}
+          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "size" ? "text-indigo-600" : ""}`}
+        >
+          Size{sortArrow("size")}
+        </button>
         <span />
       </div>
       {shownFolders.map((folder) => (
@@ -633,7 +668,7 @@ export default function DashboardPage() {
               moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          onClick={() => openFolder(folder.id)}
+          onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
           className={`grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 ${
             dragFolder === folder.id ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400" : "hover:bg-zinc-50"
           }`}
@@ -659,7 +694,7 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
             e.dataTransfer.effectAllowed = "move";
           }}
-          onClick={() => setPreview(file)}
+          onClick={() => { addRecentFile(file); setPreview(file); }}
           className="grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -723,7 +758,7 @@ export default function DashboardPage() {
               moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          onClick={() => openFolder(folder.id)}
+          onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
           className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
             dragFolder === folder.id
               ? "border-indigo-400 ring-2 ring-indigo-400"
@@ -756,7 +791,7 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
             e.dataTransfer.effectAllowed = "move";
           }}
-          onClick={() => setPreview(file)}
+          onClick={() => { addRecentFile(file); setPreview(file); }}
           className="cursor-pointer rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
         >
           <div className="flex items-start justify-between">
@@ -945,28 +980,30 @@ export default function DashboardPage() {
                     ))
                   }
                 </Menu>
-                <Menu
-                  align="left"
-                  trigger={() => (
-                    <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50">
-                      <ArrowUpDown className="h-3.5 w-3.5" /> {sortLabel} ▾
-                    </span>
-                  )}
-                >
-                  {(close) =>
-                    SORT_OPTIONS.map((o) => (
-                      <MenuItem
-                        key={o.label}
-                        label={o.label}
-                        onClick={() => {
-                          close();
-                          setSortField(o.field);
-                          setSortDir(o.dir);
-                        }}
-                      />
-                    ))
-                  }
-                </Menu>
+                {layout === "grid" ? (
+                  <Menu
+                    align="left"
+                    trigger={() => (
+                      <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                        <ArrowUpDown className="h-3.5 w-3.5" /> {sortLabel} ▾
+                      </span>
+                    )}
+                  >
+                    {(close) =>
+                      SORT_OPTIONS.map((o) => (
+                        <MenuItem
+                          key={o.label}
+                          label={o.label}
+                          onClick={() => {
+                            close();
+                            setSortField(o.field);
+                            setSortDir(o.dir);
+                          }}
+                        />
+                      ))
+                    }
+                  </Menu>
+                ) : null}
               </div>
 
               {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
@@ -1008,6 +1045,11 @@ export default function DashboardPage() {
           setTagFilter(null);
           setSearch(q);
         }}
+        onNavigate={(v) => {
+          setView(v);
+          setTagFilter(null);
+          setSearch("");
+        }}
       />
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
       {aliasFor ? (
@@ -1026,6 +1068,22 @@ export default function DashboardPage() {
       ) : null}
       {nfOpen ? (
         <CreateFolderModal onClose={() => setNfOpen(false)} onCreate={createFolder} />
+      ) : null}
+      {confirming ? (
+        <ConfirmModal
+          title={confirming.kind === "file" ? "Delete file?" : "Delete folder?"}
+          message={
+            confirming.kind === "file"
+              ? `“${confirming.file.name}” will be permanently removed from your drive.`
+              : `“${confirming.folder.name}” and its subfolders will be removed. Files inside move to the root — they aren't deleted.`
+          }
+          onCancel={() => setConfirming(null)}
+          onConfirm={() => {
+            if (confirming.kind === "file") removeFile(confirming.file);
+            else removeFolder(confirming.folder);
+            setConfirming(null);
+          }}
+        />
       ) : null}
       {renamingFile ? (
         <RenameModal
