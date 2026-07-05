@@ -63,6 +63,7 @@ export interface FolderItem {
   parent_id: string | null;
   color: string | null;
   created_at: string;
+  size: number; // total bytes contained, including nested subfolders
 }
 
 export interface Breadcrumb {

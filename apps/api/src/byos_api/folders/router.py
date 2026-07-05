@@ -9,6 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from byos_api.ai import nl_search
 from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.db import get_db
+from byos_api.db.models import Folder
 from byos_api.folders import service
 from byos_api.folders.schemas import (
     BreadcrumbItem,
@@ -51,7 +52,19 @@ async def search_folders(
     only the free-text part matches folder names."""
     query_text = nl_search.parse(q).text
     folders = await service.search_folders(db, user, query_text, limit)
-    return [FolderOut.model_validate(f) for f in folders]
+    sizes = await service.subtree_sizes(db, user)
+    return [_folder_out(f, sizes) for f in folders]
+
+
+def _folder_out(folder: Folder, sizes: dict[uuid.UUID, int]) -> FolderOut:
+    return FolderOut(
+        id=folder.id,
+        name=folder.name,
+        parent_id=folder.parent_id,
+        color=folder.color,
+        created_at=folder.created_at,
+        size=sizes.get(folder.id, 0),
+    )
 
 
 @router.get("", response_model=list[FolderOut])
@@ -59,7 +72,8 @@ async def list_folders(
     user: CurrentUser, db: DbDep, parent_id: uuid.UUID | None = None
 ) -> list[FolderOut]:
     folders = await service.list_children(db, user, parent_id)
-    return [FolderOut.model_validate(f) for f in folders]
+    sizes = await service.subtree_sizes(db, user)
+    return [_folder_out(f, sizes) for f in folders]
 
 
 @router.get("/{folder_id}/breadcrumb", response_model=list[BreadcrumbItem])

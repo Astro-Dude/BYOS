@@ -8,6 +8,7 @@ import {
 } from "@byos/api-client";
 import {
   AlertCircle,
+  ArrowUpDown,
   Check,
   Download,
   Eye,
@@ -75,6 +76,33 @@ function humanSize(bytes: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
+type SortField = "name" | "modified" | "size";
+type SortDir = "asc" | "desc";
+
+const SORT_OPTIONS: { field: SortField; dir: SortDir; label: string }[] = [
+  { field: "name", dir: "asc", label: "Name (A–Z)" },
+  { field: "name", dir: "desc", label: "Name (Z–A)" },
+  { field: "modified", dir: "desc", label: "Newest first" },
+  { field: "modified", dir: "asc", label: "Oldest first" },
+  { field: "size", dir: "desc", label: "Largest first" },
+  { field: "size", dir: "asc", label: "Smallest first" },
+];
+
+function sortItems<T extends { name: string; size?: number; created_at: string; modified_at?: string }>(
+  items: T[],
+  field: SortField,
+  dir: SortDir,
+): T[] {
+  const factor = dir === "asc" ? 1 : -1;
+  return [...items].sort((a, b) => {
+    let r = 0;
+    if (field === "name") r = a.name.localeCompare(b.name);
+    else if (field === "size") r = (a.size ?? 0) - (b.size ?? 0);
+    else r = new Date(a.modified_at ?? a.created_at).getTime() - new Date(b.modified_at ?? b.created_at).getTime();
+    return r * factor;
+  });
+}
+
 function matchesType(file: FileItem, cat: Category): boolean {
   const m = (file.mime ?? "").toLowerCase();
   const ext = (file.ext ?? "").toLowerCase();
@@ -125,6 +153,8 @@ export default function DashboardPage() {
   const [results, setResults] = useState<FileItem[] | null>(null);
   const [folderResults, setFolderResults] = useState<FolderItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<Category>("all");
+  const [sortField, setSortField] = useState<SortField>("name");
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
 
   const [nfOpen, setNfOpen] = useState(false);
   const [aliasRefresh, setAliasRefresh] = useState(0);
@@ -461,15 +491,19 @@ export default function DashboardPage() {
 
   const plainDrive = view === "drive" && !tagFilter && !searchActive;
   const rawFiles = searchActive ? (results ?? []) : files;
-  const shownFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
+  const filteredFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
   const allowFolders = typeFilter === "all" || typeFilter === "folder";
-  const shownFolders = searchActive
+  const rawFolders = searchActive
     ? allowFolders
       ? folderResults
       : []
     : plainDrive && allowFolders
       ? folders
       : [];
+  const shownFiles = sortItems(filteredFiles, sortField, sortDir);
+  const shownFolders = sortItems(rawFolders, sortField, sortDir);
+  const sortLabel =
+    SORT_OPTIONS.find((o) => o.field === sortField && o.dir === sortDir)?.label ?? "Sort";
 
   const menuTrigger = (
     <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
@@ -613,7 +647,7 @@ export default function DashboardPage() {
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
           </div>
           <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
-          <span className="text-sm text-zinc-400">—</span>
+          <span className="text-sm text-zinc-500">{folder.size ? humanSize(folder.size) : "—"}</span>
           {folderMenu(folder)}
         </div>
       ))}
@@ -702,7 +736,14 @@ export default function DashboardPage() {
               fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
-            <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
+            <div className="min-w-0">
+              <span className="block truncate text-sm font-medium text-zinc-900">
+                {folder.name}
+              </span>
+              {folder.size ? (
+                <span className="text-xs text-zinc-400">{humanSize(folder.size)}</span>
+              ) : null}
+            </div>
           </div>
           {folderMenu(folder)}
         </div>
@@ -899,6 +940,28 @@ export default function DashboardPage() {
                         onClick={() => {
                           close();
                           setTypeFilter(c.key);
+                        }}
+                      />
+                    ))
+                  }
+                </Menu>
+                <Menu
+                  align="left"
+                  trigger={() => (
+                    <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50">
+                      <ArrowUpDown className="h-3.5 w-3.5" /> {sortLabel} ▾
+                    </span>
+                  )}
+                >
+                  {(close) =>
+                    SORT_OPTIONS.map((o) => (
+                      <MenuItem
+                        key={o.label}
+                        label={o.label}
+                        onClick={() => {
+                          close();
+                          setSortField(o.field);
+                          setSortDir(o.dir);
                         }}
                       />
                     ))

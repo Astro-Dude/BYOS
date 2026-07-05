@@ -29,6 +29,7 @@ class FolderOut(BaseModel):
     parent_id: uuid.UUID | None = None
     color: str | None = None
     created_at: datetime
+    size: int = 0  # total bytes contained, including nested subfolders
 
 
 class BreadcrumbItem(BaseModel):

@@ -4,11 +4,49 @@ and subtree (cycle-check) queries use recursive CTEs, all owner-scoped."""
 from __future__ import annotations
 
 import uuid
+from collections import defaultdict
 
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.db.models import Folder, User
+from byos_api.db.models import File, Folder, User
+
+
+async def subtree_sizes(db: AsyncSession, user: User) -> dict[uuid.UUID, int]:
+    """Total bytes contained in each folder, including all nested subfolders.
+    Two queries + an in-memory roll-up (folder/file counts per user are small)."""
+    rows = (
+        await db.execute(
+            select(File.folder_id, func.coalesce(func.sum(File.size), 0))
+            .where(File.owner_id == user.id, File.folder_id.is_not(None))
+            .group_by(File.folder_id)
+        )
+    ).all()
+    direct = {fid: int(total) for fid, total in rows}
+
+    folder_rows = (
+        await db.execute(
+            select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id)
+        )
+    ).all()
+    children: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
+    for fid, pid in folder_rows:
+        children[pid].append(fid)
+
+    sizes: dict[uuid.UUID, int] = {}
+
+    def roll_up(fid: uuid.UUID) -> int:
+        total = direct.get(fid, 0)
+        for child in children.get(fid, []):
+            total += roll_up(child)
+        sizes[fid] = total
+        return total
+
+    all_ids = {fid for fid, _ in folder_rows}
+    for fid, pid in folder_rows:
+        if pid is None or pid not in all_ids:  # start from roots
+            roll_up(fid)
+    return sizes
 
 
 class FolderNotFound(Exception):
