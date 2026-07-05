@@ -24,6 +24,7 @@ from byos_api.files.schemas import (
     FavoriteRequest,
     FileOut,
     MoveRequest,
+    RenameRequest,
     TagRequest,
     VersionOut,
 )
@@ -501,6 +502,25 @@ async def download_version(
         etag=version.hash,
         request=request,
     )
+
+
+@router.patch("/{file_id}", response_model=FileOut)
+async def rename_file(
+    file_id: uuid.UUID, payload: RenameRequest, user: CurrentUser, db: DbDep
+) -> FileOut:
+    record = await db.get(File, file_id)
+    if record is None or record.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+    name = payload.name.strip()
+    if not name:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name cannot be empty")
+    record.name = name
+    # Keep ext in sync with the (possibly new) extension in the display name.
+    if "." in name:
+        record.ext = name.rpartition(".")[2].lower()
+    await db.commit()
+    await db.refresh(record)
+    return FileOut.model_validate(record)
 
 
 @router.post("/{file_id}/move", response_model=FileOut)

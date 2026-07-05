@@ -73,11 +73,44 @@ export interface Breadcrumb {
 export interface AliasItem {
   id: string;
   slug: string;
-  file_id: string;
+  target_type: "file" | "folder";
+  file_id: string | null;
+  folder_id: string | null;
   description: string | null;
   created_at: string;
-  folder_id: string | null;
-  file_name: string | null;
+  // File links: the folder the file lives in (go-to-file). Folder links: the
+  // shared folder's own id.
+  parent_folder_id: string | null;
+  target_name: string | null;
+}
+
+export interface PublicMeta {
+  type: "file" | "folder";
+  name: string;
+  owner_username: string;
+}
+
+export interface PublicEntry {
+  id: string;
+  name: string;
+  type: "folder" | "file";
+  size: number | null;
+  mime: string | null;
+  ext: string | null;
+}
+
+export interface PublicCrumb {
+  id: string | null;
+  name: string;
+}
+
+export interface PublicFolderView {
+  slug: string;
+  owner_username: string;
+  root_name: string;
+  breadcrumb: PublicCrumb[];
+  folders: PublicEntry[];
+  files: PublicEntry[];
 }
 
 export interface VersionItem {
@@ -418,6 +451,14 @@ export class ByosClient {
     });
   }
 
+  renameFile(token: string, id: string, name: string): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ name }),
+    });
+  }
+
   listFavorites(token: string, opts?: { limit?: number; offset?: number }): Promise<FileItem[]> {
     const params = new URLSearchParams({ favorite: "true" });
     if (opts?.limit != null) params.set("limit", String(opts.limit));
@@ -528,6 +569,15 @@ export class ByosClient {
     });
   }
 
+  /** Create a permanent link that points at a folder (a browsable public page). */
+  createFolderAlias(token: string, slug: string, folderId: string): Promise<AliasItem> {
+    return this.request<AliasItem>("/aliases", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ slug, folder_id: folderId }),
+    });
+  }
+
   updateAlias(
     token: string,
     id: string,
@@ -544,9 +594,40 @@ export class ByosClient {
     return this.request<void>(`/aliases/${id}`, { method: "DELETE", token });
   }
 
-  /** Public, permanent URL for an alias: /{username}/{slug} (never changes). */
+  /** Public, permanent URL for a FILE alias: /{username}/{slug} (streams the file). */
   aliasUrl(username: string, slug: string): string {
     return `${this.baseUrl}/${username}/${slug}`;
+  }
+
+  // ── Public folder browsing (unauthenticated) ──────────────────────────────
+  publicMeta(username: string, slug: string): Promise<PublicMeta> {
+    return this.request<PublicMeta>(
+      `/public/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`,
+    );
+  }
+
+  publicFolderList(
+    username: string,
+    slug: string,
+    folderId?: string,
+  ): Promise<PublicFolderView> {
+    const q = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
+    return this.request<PublicFolderView>(
+      `/public/${encodeURIComponent(username)}/${encodeURIComponent(slug)}/list${q}`,
+    );
+  }
+
+  /** Direct URL to stream/download a file inside a shared folder. */
+  publicFolderFileUrl(
+    username: string,
+    slug: string,
+    fileId: string,
+    download = false,
+  ): string {
+    const dl = download ? "?dl=1" : "";
+    return `${this.baseUrl}/public/${encodeURIComponent(username)}/${encodeURIComponent(
+      slug,
+    )}/file/${fileId}${dl}`;
   }
 
   // ── Shares (links with access controls) ───────────────────────────────────

@@ -37,6 +37,10 @@ class Settings(BaseSettings):
     # CORS
     cors_origins: str = "http://localhost:3000"
 
+    # Public web app origin. Folder-share links are browsable pages served by
+    # the web app, so the API redirects folder aliases here.
+    web_base_url: str = "http://localhost:3000"
+
     # Security / upload validation. Defaults are permissive (this is your own
     # storage); tighten via env for shared or hardened deployments.
     max_upload_bytes: int = 5 * 1024 * 1024 * 1024  # 5 GiB

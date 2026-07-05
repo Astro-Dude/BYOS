@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
 class FileOut(BaseModel):
@@ -42,6 +42,10 @@ class VersionOut(BaseModel):
 class DuplicateGroup(BaseModel):
     hash: str
     files: list[FileOut]
+
+
+class RenameRequest(BaseModel):
+    name: str = Field(min_length=1, max_length=255)
 
 
 class MoveRequest(BaseModel):

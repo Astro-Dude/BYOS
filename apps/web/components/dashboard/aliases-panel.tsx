@@ -50,9 +50,14 @@ export function AliasesPanel({
     }
   };
 
-  const copy = async (slug: string) => {
-    await navigator.clipboard.writeText(api.aliasUrl(username, slug));
-    setCopied(slug);
+  const linkUrl = (alias: AliasItem) =>
+    alias.target_type === "folder"
+      ? `${window.location.origin}/${username}/${alias.slug}` // browsable web page
+      : api.aliasUrl(username, alias.slug); // API streams the file
+
+  const copy = async (alias: AliasItem) => {
+    await navigator.clipboard.writeText(linkUrl(alias));
+    setCopied(alias.slug);
     toast("Link copied");
     setTimeout(() => setCopied(null), 1500);
   };
@@ -71,19 +76,19 @@ export function AliasesPanel({
           <li key={alias.id} className="flex items-center justify-between gap-4 py-2">
             <div className="min-w-0">
               <code className="block truncate text-sm text-indigo-600">/{username}/{alias.slug}</code>
-              {alias.file_name ? (
+              {alias.target_name ? (
                 <button
-                  onClick={() => onOpenLocation(alias.folder_id)}
+                  onClick={() => onOpenLocation(alias.parent_folder_id)}
                   className="mt-0.5 truncate text-xs text-zinc-500 hover:text-zinc-800 hover:underline"
-                  title="Go to file location"
+                  title={alias.target_type === "folder" ? "Open folder" : "Go to file location"}
                 >
-                  → {alias.file_name}
+                  {alias.target_type === "folder" ? "📁" : "→"} {alias.target_name}
                 </button>
               ) : null}
             </div>
             <div className="flex shrink-0 gap-3">
               <button
-                onClick={() => copy(alias.slug)}
+                onClick={() => copy(alias)}
                 className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
               >
                 {copied === alias.slug ? "Copied" : "Copy URL"}

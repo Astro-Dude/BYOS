@@ -24,6 +24,7 @@ import {
   Loader2,
   MoreVertical,
   Music,
+  Pencil,
   Search,
   Share2,
   Star,
@@ -39,8 +40,10 @@ import { AliasModal } from "@/components/dashboard/alias-modal";
 import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
+import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
+import { RenameModal } from "@/components/dashboard/rename-modal";
 import { UsernameSetup } from "@/components/dashboard/username-setup";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
@@ -142,6 +145,9 @@ export default function DashboardPage() {
   const [aliasRefresh, setAliasRefresh] = useState(0);
   const [preview, setPreview] = useState<FileItem | null>(null);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
+  const [sharingFolder, setSharingFolder] = useState<FolderItem | null>(null);
+  const [renamingFile, setRenamingFile] = useState<FileItem | null>(null);
+  const [renamingFolder, setRenamingFolder] = useState<FolderItem | null>(null);
   const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
   const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
@@ -292,11 +298,13 @@ export default function DashboardPage() {
           setUploads((p) =>
             p.map((u) => (u.id === job.id ? { ...u, status: "done", progress: 100 } : u)),
           );
+          // Refresh as each file lands so it shows up immediately, not only
+          // once the whole batch is done.
+          await load();
         } catch {
           setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error" } : u)));
         }
       }
-      await load();
       if (inputRef.current) inputRef.current.value = "";
       // Auto-dismiss the finished panel a few seconds after everything settles.
       setTimeout(() => setUploads((p) => p.filter((u) => u.status === "uploading")), 4000);
@@ -386,6 +394,21 @@ export default function DashboardPage() {
     }, "Folder color updated");
   };
 
+  const renameFileTo = (file: FileItem, name: string) =>
+    run(async () => {
+      const updated = await authed((t) => api.renameFile(t, file.id, name));
+      const patch = (arr: FileItem[]) => arr.map((f) => (f.id === file.id ? updated : f));
+      if (searchActive) setResults((r) => (r ? patch(r) : r));
+      else setFiles(patch);
+    }, "File renamed");
+
+  const renameFolderTo = (folder: FolderItem, name: string) => {
+    setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, name } : f)));
+    run(async () => {
+      await authed((t) => api.renameFolder(t, folder.id, name));
+    }, "Folder renamed");
+  };
+
   if (authLoading || !user) {
     return (
       <div className="flex h-screen bg-zinc-50">
@@ -447,6 +470,7 @@ export default function DashboardPage() {
           <MenuItem icon={<Eye className="h-4 w-4" />} label="Preview" onClick={() => { close(); setPreview(file); }} />
           <MenuItem icon={<Download className="h-4 w-4" />} label="Download" onClick={() => { close(); download(file); }} />
           <MenuItem icon={<Share2 className="h-4 w-4" />} label="Share" onClick={() => { close(); setAliasFor(file); }} />
+          <MenuItem icon={<Pencil className="h-4 w-4" />} label="Rename" onClick={() => { close(); setRenamingFile(file); }} />
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />
@@ -461,6 +485,8 @@ export default function DashboardPage() {
       {(close) => (
         <>
           <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
+          <MenuItem icon={<Share2 className="h-4 w-4" />} label="Share" onClick={() => { close(); setSharingFolder(folder); }} />
+          <MenuItem icon={<Pencil className="h-4 w-4" />} label="Rename" onClick={() => { close(); setRenamingFolder(folder); }} />
           <div className="flex items-center gap-1.5 px-4 py-2">
             <button
               onClick={() => applyFolderColor(folder, null)}
@@ -913,6 +939,29 @@ export default function DashboardPage() {
           file={aliasFor}
           onClose={() => setAliasFor(null)}
           onCreated={() => setAliasRefresh((v) => v + 1)}
+        />
+      ) : null}
+      {sharingFolder ? (
+        <FolderShareModal
+          folder={sharingFolder}
+          onClose={() => setSharingFolder(null)}
+          onCreated={() => setAliasRefresh((v) => v + 1)}
+        />
+      ) : null}
+      {renamingFile ? (
+        <RenameModal
+          title="Rename file"
+          initial={renamingFile.name}
+          onClose={() => setRenamingFile(null)}
+          onSubmit={(name) => renameFileTo(renamingFile, name)}
+        />
+      ) : null}
+      {renamingFolder ? (
+        <RenameModal
+          title="Rename folder"
+          initial={renamingFolder.name}
+          onClose={() => setRenamingFolder(null)}
+          onSubmit={(name) => renameFolderTo(renamingFolder, name)}
         />
       ) : null}
       {versionsFor ? (

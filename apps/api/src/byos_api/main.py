@@ -8,6 +8,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from byos_api.aliases.router import public_api_router as alias_public_api_router
 from byos_api.aliases.router import public_router as alias_public_router
 from byos_api.aliases.router import router as aliases_router
 from byos_api.analytics.router import router as analytics_router
@@ -78,6 +79,7 @@ def create_app() -> FastAPI:
     app.include_router(apikeys_router)
     app.include_router(webhooks_router)
     app.include_router(audit_router)
+    app.include_router(alias_public_api_router)  # /public/... folder browsing (JSON)
     # MUST be last: the public "/{username}/{slug}" catch-all would otherwise
     # shadow two-segment API paths (e.g. /analytics/overview).
     app.include_router(alias_public_router)
