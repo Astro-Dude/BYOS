@@ -122,21 +122,24 @@ export function Sidebar({
         {navItem("starred", "Starred", <Star className={iconClass} />)}
         {navItem("links", "Links", <Link2 className={iconClass} />)}
         {navItem("insights", "Insights", <BarChart3 className={iconClass} />)}
-        {navItem("developer", "Developer", <Code2 className={iconClass} />)}
         {navItem("activity", "Activity", <ShieldCheck className={iconClass} />)}
       </nav>
 
-      <div className="mt-auto mx-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">
-        <div className="flex items-baseline justify-between">
-          <span className="font-medium text-zinc-700">
-            {used != null ? `${formatBytes(used)} used` : "Storage"}
-          </span>
-          <span className="font-medium text-indigo-700">Unlimited</span>
-        </div>
-        <div className="mt-1 text-zinc-500">
-          {telegram
-            ? `Telegram${telegram.label ? ` · ${telegram.label}` : ""}`
-            : "Connecting…"}
+      {/* Developer + storage pinned to the bottom. */}
+      <div className="mt-auto space-y-2">
+        <nav>{navItem("developer", "Developer", <Code2 className={iconClass} />)}</nav>
+        <div className="mx-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs">
+          <div className="flex items-baseline justify-between">
+            <span className="font-medium text-zinc-700">
+              {used != null ? `${formatBytes(used)} used` : "Storage"}
+            </span>
+            <span className="font-medium text-indigo-700">Unlimited</span>
+          </div>
+          <div className="mt-1 text-zinc-500">
+            {telegram
+              ? `Telegram${telegram.label ? ` · ${telegram.label}` : ""}`
+              : "Connecting…"}
+          </div>
         </div>
       </div>
     </aside>
