@@ -630,14 +630,15 @@ export default function DashboardPage() {
         <main
           className="flex-1 overflow-auto px-6 pb-8"
           onDragOver={(e) => {
-            if (plainDrive) {
+            // Only highlight for external file uploads, not internal move-drags.
+            if (plainDrive && e.dataTransfer.types.includes("Files")) {
               e.preventDefault();
               setDragging(true);
             }
           }}
           onDragLeave={() => setDragging(false)}
           onDrop={(e) => {
-            if (plainDrive) {
+            if (plainDrive && e.dataTransfer.types.includes("Files")) {
               e.preventDefault();
               setDragging(false);
               upload(e.dataTransfer.files);
