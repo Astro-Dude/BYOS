@@ -47,6 +47,7 @@ import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -371,7 +372,11 @@ export default function DashboardPage() {
   };
 
   if (authLoading || !user) {
-    return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
+    return (
+      <div className="flex h-screen items-center justify-center bg-zinc-50">
+        <BrandLoader />
+      </div>
+    );
   }
 
   if (!user.username) {

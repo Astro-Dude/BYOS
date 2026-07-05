@@ -4,6 +4,7 @@ import { ApiError, type AuditItem } from "@byos/api-client";
 import { Ban, Dot, Globe, KeyRound, LogIn, Trash2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -60,7 +61,7 @@ export function ActivityPanel() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {loading ? (
-        <p className="text-sm text-zinc-400">Loading…</p>
+        <BrandLoader className="py-16" />
       ) : items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 py-16 text-center text-sm text-zinc-400">
           No activity recorded yet.

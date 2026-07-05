@@ -6,6 +6,7 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/logo";
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
@@ -73,8 +74,8 @@ export default function LoginPage() {
 
   if (authLoading || user) {
     return (
-      <main className="flex min-h-screen items-center justify-center text-sm text-zinc-500">
-        Loading…
+      <main className="flex min-h-screen items-center justify-center">
+        <BrandLoader />
       </main>
     );
   }

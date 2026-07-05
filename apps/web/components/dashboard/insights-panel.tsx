@@ -10,6 +10,7 @@ import {
 import { FileText, Globe, Link2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
+import { BrandLoader } from "@/components/ui/brand-loader";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -123,7 +124,7 @@ export function InsightsPanel() {
   }, [load]);
 
   if (loading && !overview) {
-    return <p className="py-10 text-center text-sm text-zinc-400">Loading insights…</p>;
+    return <BrandLoader className="py-24" label="Loading insights…" />;
   }
   if (error) {
     return <p className="py-10 text-center text-sm text-red-600">{error}</p>;

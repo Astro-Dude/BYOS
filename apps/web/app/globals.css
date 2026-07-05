@@ -9,3 +9,19 @@
 body {
   @apply bg-zinc-50 text-zinc-900 antialiased;
 }
+
+/* Gentle "breathing" for the brand loader — subtle, premium. */
+@keyframes byos-breathe {
+  0%,
+  100% {
+    transform: scale(0.94);
+    opacity: 0.55;
+  }
+  50% {
+    transform: scale(1);
+    opacity: 1;
+  }
+}
+.animate-breathe {
+  animation: byos-breathe 1.6s ease-in-out infinite;
+}
