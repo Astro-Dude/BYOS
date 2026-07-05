@@ -76,6 +76,8 @@ export interface AliasItem {
   file_id: string;
   description: string | null;
   created_at: string;
+  folder_id: string | null;
+  file_name: string | null;
 }
 
 export interface VersionItem {
@@ -258,6 +260,16 @@ export class ByosClient {
 
   health(): Promise<HealthResponse> {
     return this.request<HealthResponse>("/health");
+  }
+
+  /** Public base URL of the API (e.g. for docs/examples). */
+  get apiBase(): string {
+    return this.baseUrl;
+  }
+
+  /** Interactive API docs (OpenAPI/Swagger UI) served by the API. */
+  docsUrl(): string {
+    return `${this.baseUrl}/docs`;
   }
 
   // ── Storage providers (Telegram) ─────────────────────────────────────────
@@ -513,6 +525,18 @@ export class ByosClient {
       method: "POST",
       token,
       body: JSON.stringify({ slug, file_id: fileId, description: description ?? null }),
+    });
+  }
+
+  updateAlias(
+    token: string,
+    id: string,
+    patch: { slug?: string; description?: string; file_id?: string },
+  ): Promise<AliasItem> {
+    return this.request<AliasItem>(`/aliases/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(patch),
     });
   }
 

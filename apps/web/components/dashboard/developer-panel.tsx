@@ -263,10 +263,141 @@ function WebhooksSection() {
   );
 }
 
+function CodeBlock({ children }: { children: string }) {
+  return (
+    <pre className="mt-2 overflow-x-auto rounded-md bg-zinc-900 p-3 text-xs leading-relaxed text-zinc-100">
+      <code>{children}</code>
+    </pre>
+  );
+}
+
+function DocsSection() {
+  const [open, setOpen] = useState(false);
+  const base = api.apiBase;
+  return (
+    <section className="rounded-lg border border-zinc-200 p-5">
+      <div className="flex items-center justify-between gap-4">
+        <div>
+          <h2 className="font-semibold text-zinc-900">Documentation</h2>
+          <p className="text-sm text-zinc-500">
+            Everything you need to build against the BYOS API.
+          </p>
+        </div>
+        <div className="flex shrink-0 gap-2">
+          <a
+            href={api.docsUrl()}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+          >
+            Interactive API reference ↗
+          </a>
+          <Button onClick={() => setOpen((v) => !v)}>
+            {open ? "Hide guide" : "Show guide"}
+          </Button>
+        </div>
+      </div>
+
+      {open ? (
+        <div className="mt-5 space-y-6 text-sm text-zinc-700">
+          <div>
+            <h3 className="font-semibold text-zinc-900">Authentication</h3>
+            <p className="mt-1 text-zinc-600">
+              Create an API key above, then send it as a Bearer token on every request.
+              Keys carry your account&apos;s permissions and are shown only once.
+            </p>
+            <CodeBlock>{`curl ${base}/files \\
+  -H "Authorization: Bearer byosk_your_key_here"`}</CodeBlock>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Core endpoints</h3>
+            <div className="mt-2 overflow-x-auto">
+              <table className="w-full text-left text-xs">
+                <thead className="text-zinc-500">
+                  <tr>
+                    <th className="py-1 pr-4 font-medium">Method</th>
+                    <th className="py-1 pr-4 font-medium">Path</th>
+                    <th className="py-1 font-medium">Description</th>
+                  </tr>
+                </thead>
+                <tbody className="font-mono text-zinc-700">
+                  {[
+                    ["GET", "/files", "List files (paginated, filterable)"],
+                    ["POST", "/files", "Upload a file"],
+                    ["PUT", "/files/{id}", "Replace a file (new version)"],
+                    ["GET", "/files/{id}/download", "Stream file bytes"],
+                    ["GET", "/search?q=", "Full-text + fuzzy search"],
+                    ["POST", "/aliases", "Create a permanent link"],
+                    ["PATCH", "/aliases/{id}", "Rename or repoint a link"],
+                    ["GET", "/aliases", "List your links"],
+                  ].map(([m, p, d]) => (
+                    <tr key={p} className="border-t border-zinc-100">
+                      <td className="py-1 pr-4 text-indigo-600">{m}</td>
+                      <td className="py-1 pr-4">{p}</td>
+                      <td className="py-1 font-sans text-zinc-600">{d}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Upload &amp; replace</h3>
+            <p className="mt-1 text-zinc-600">
+              Uploads are multipart. Replacing a file keeps its permanent link and every
+              existing version — the alias simply serves the newest one.
+            </p>
+            <CodeBlock>{`# Upload
+curl -X POST ${base}/files \\
+  -H "Authorization: Bearer byosk_..." \\
+  -F "file=@report.pdf"
+
+# Replace (link stays identical, version bumps)
+curl -X PUT ${base}/files/FILE_ID \\
+  -H "Authorization: Bearer byosk_..." \\
+  -F "file=@report-v2.pdf"`}</CodeBlock>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Webhooks</h3>
+            <p className="mt-1 text-zinc-600">
+              Register an endpoint below to receive <code>file.created</code>,{" "}
+              <code>file.replaced</code>, and <code>file.deleted</code> events. Each
+              delivery is signed with your webhook secret in the{" "}
+              <code>X-BYOS-Signature</code> header (HMAC-SHA256 of the raw body) — verify it
+              before trusting the payload.
+            </p>
+            <CodeBlock>{`POST https://your-app.com/webhook
+X-BYOS-Signature: sha256=...
+
+{
+  "event": "file.replaced",
+  "file_id": "…",
+  "version_no": 3,
+  "occurred_at": "2026-07-06T10:00:00Z"
+}`}</CodeBlock>
+          </div>
+
+          <p className="text-xs text-zinc-400">
+            Full schemas, response bodies, and every parameter are in the{" "}
+            <a href={api.docsUrl()} target="_blank" rel="noreferrer" className="underline">
+              interactive API reference
+            </a>
+            .
+          </p>
+        </div>
+      ) : null}
+    </section>
+  );
+}
+
 export function DeveloperPanel() {
   return (
     <div className="space-y-6 pt-2">
       <h1 className="text-2xl font-normal text-zinc-800">Developer</h1>
+      <DocsSection />
       <ApiKeysSection />
       <WebhooksSection />
     </div>

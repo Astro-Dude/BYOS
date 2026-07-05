@@ -73,23 +73,41 @@ async def create_alias(
     return alias
 
 
-async def list_aliases(db: AsyncSession, user: User) -> list[Alias]:
+async def list_aliases(
+    db: AsyncSession, user: User
+) -> list[tuple[Alias, uuid.UUID | None, str | None]]:
+    """Each alias with its linked file's folder_id + name (for 'go to file')."""
     result = await db.execute(
-        select(Alias).where(Alias.owner_id == user.id).order_by(Alias.created_at.desc())
+        select(Alias, File.folder_id, File.name)
+        .join(File, File.id == Alias.file_id)
+        .where(Alias.owner_id == user.id)
+        .order_by(Alias.created_at.desc())
     )
-    return list(result.scalars())
+    return [(row[0], row[1], row[2]) for row in result.all()]
 
 
 async def update_alias(
     db: AsyncSession,
     user: User,
     alias_id: uuid.UUID,
+    slug: str | None,
     file_id: uuid.UUID | None,
     description: str | None,
 ) -> Alias:
     alias = await db.get(Alias, alias_id)
     if alias is None or alias.owner_id != user.id:
         raise AliasNotFound
+    if slug is not None and slug != alias.slug:
+        if not SLUG_RE.match(slug):
+            raise InvalidSlug
+        clash = (
+            await db.execute(
+                select(Alias).where(Alias.owner_id == user.id, Alias.slug == slug)
+            )
+        ).scalar_one_or_none()
+        if clash is not None and clash.id != alias.id:
+            raise SlugTaken
+        alias.slug = slug
     if file_id is not None:
         await _owned_file(db, user, file_id)  # repoint only to a file you own
         alias.file_id = file_id

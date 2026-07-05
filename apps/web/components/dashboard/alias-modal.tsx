@@ -1,6 +1,6 @@
 "use client";
 
-import { ApiError, type FileItem } from "@byos/api-client";
+import { ApiError, type AliasItem, type FileItem } from "@byos/api-client";
 import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -23,35 +23,45 @@ export function AliasModal({
   const toast = useToast();
   const { user } = useAuth();
   const username = user?.username ?? "";
+  const [existing, setExisting] = useState<AliasItem | null>(null);
   const [slug, setSlug] = useState("");
-  const [busy, setBusy] = useState(false);
+  const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [linkUrl, setLinkUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
 
-  // A file can have only one link — if it already has one, show it.
   useEffect(() => {
     authed((t) => api.listAliases(t))
       .then((aliases) => {
         const found = aliases.find((a) => a.file_id === file.id);
-        if (found) setLinkUrl(api.aliasUrl(username, found.slug));
+        if (found) setExisting(found);
       })
       .catch(() => undefined)
       .finally(() => setLoading(false));
-  }, [authed, file.id, username]);
+  }, [authed, file.id]);
+
+  const linkUrl = existing ? api.aliasUrl(username, existing.slug) : null;
 
   const submit = async () => {
-    if (!slug.trim()) return;
+    const clean = slug.trim();
+    if (!clean) return;
     setError(null);
     setBusy(true);
     try {
-      const alias = await authed((t) => api.createAlias(t, slug.trim(), file.id));
-      setLinkUrl(api.aliasUrl(username, alias.slug));
-      toast("Link created");
+      if (editing && existing) {
+        const updated = await authed((t) => api.updateAlias(t, existing.id, { slug: clean }));
+        setExisting(updated);
+        setEditing(false);
+        toast("Link updated");
+      } else {
+        const created = await authed((t) => api.createAlias(t, clean, file.id));
+        setExisting(created);
+        toast("Link created");
+      }
       onCreated();
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Could not create link");
+      setError(err instanceof ApiError ? err.detail : "Something went wrong");
     } finally {
       setBusy(false);
     }
@@ -64,6 +74,8 @@ export function AliasModal({
     toast("Link copied");
     setTimeout(() => setCopied(false), 1500);
   };
+
+  const showEditor = editing || !existing;
 
   return (
     <div
@@ -79,25 +91,11 @@ export function AliasModal({
             <Skeleton className="h-4 w-3/4" />
             <Skeleton className="h-10 w-full rounded-md" />
           </div>
-        ) : linkUrl ? (
+        ) : showEditor ? (
           <div className="mt-4">
-            <p className="text-sm text-zinc-600">
-              This is the file&apos;s permanent link. It always opens the current version —
-              replace the file or restore a version (⋮ → Versions) to change what it serves.
-            </p>
-            <div className="mt-2 flex gap-2">
-              <Input readOnly value={linkUrl} onFocus={(e) => e.currentTarget.select()} />
-              <Button onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
-            </div>
-            <div className="mt-4 flex justify-end">
-              <Button onClick={onClose} className="bg-zinc-900 hover:bg-zinc-700">
-                Done
-              </Button>
-            </div>
-          </div>
-        ) : (
-          <div className="mt-4">
-            <label className="text-sm font-medium text-zinc-700">Choose a link name</label>
+            <label className="text-sm font-medium text-zinc-700">
+              {editing ? "Rename link" : "Choose a link name"}
+            </label>
             <div className="mt-1 flex items-center gap-2">
               <span className="text-sm text-zinc-400">/{username}/</span>
               <Input
@@ -112,13 +110,39 @@ export function AliasModal({
             {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
             <div className="mt-4 flex justify-end gap-2">
               <Button
-                onClick={onClose}
+                onClick={() => (editing ? setEditing(false) : onClose())}
                 className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
               >
                 Cancel
               </Button>
               <Button onClick={submit} disabled={busy || !slug.trim()}>
-                {busy ? "Creating…" : "Create link"}
+                {busy ? "Saving…" : editing ? "Save" : "Create link"}
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <div className="mt-4">
+            <p className="text-sm text-zinc-600">
+              This is the file&apos;s permanent link. It always opens the current version —
+              replace the file or restore a version (⋮ → Versions) to change what it serves.
+            </p>
+            <div className="mt-2 flex gap-2">
+              <Input readOnly value={linkUrl ?? ""} onFocus={(e) => e.currentTarget.select()} />
+              <Button onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
+            </div>
+            <div className="mt-4 flex justify-between">
+              <Button
+                onClick={() => {
+                  setSlug(existing?.slug ?? "");
+                  setError(null);
+                  setEditing(true);
+                }}
+                className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+              >
+                Rename
+              </Button>
+              <Button onClick={onClose} className="bg-zinc-900 hover:bg-zinc-700">
+                Done
               </Button>
             </div>
           </div>

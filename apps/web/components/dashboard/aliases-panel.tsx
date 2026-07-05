@@ -7,7 +7,13 @@ import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 
-export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
+export function AliasesPanel({
+  refreshKey,
+  onOpenLocation,
+}: {
+  refreshKey: number;
+  onOpenLocation: (folderId: string | null) => void;
+}) {
   const authed = useAuthed();
   const toast = useToast();
   const { user } = useAuth();
@@ -63,7 +69,18 @@ export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
       <ul className="mt-4 divide-y divide-zinc-100">
         {aliases.map((alias) => (
           <li key={alias.id} className="flex items-center justify-between gap-4 py-2">
-            <code className="truncate text-sm text-indigo-600">/{username}/{alias.slug}</code>
+            <div className="min-w-0">
+              <code className="block truncate text-sm text-indigo-600">/{username}/{alias.slug}</code>
+              {alias.file_name ? (
+                <button
+                  onClick={() => onOpenLocation(alias.folder_id)}
+                  className="mt-0.5 truncate text-xs text-zinc-500 hover:text-zinc-800 hover:underline"
+                  title="Go to file location"
+                >
+                  → {alias.file_name}
+                </button>
+              ) : null}
+            </div>
             <div className="flex shrink-0 gap-3">
               <button
                 onClick={() => copy(alias.slug)}

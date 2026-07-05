@@ -114,6 +114,7 @@ function shortDate(iso: string): string {
 const PAGE_SIZE = 100;
 const FOLDER_COLORS = ["#3C6E66", "#B5892E", "#B23A2E", "#3B6FA0", "#4C7A34", "#6B5B95", "#8B867D"];
 const FILE_DRAG_TYPE = "application/byos-file-id";
+const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -369,6 +370,15 @@ export default function DashboardPage() {
     }, "File moved");
   };
 
+  const moveFolderIntoFolder = (folderId: string, targetId: string) => {
+    setDragFolder(null);
+    if (folderId === targetId) return; // can't drop a folder onto itself
+    setFolders((prev) => prev.filter((f) => f.id !== folderId));
+    run(async () => {
+      await authed((t) => api.moveFolder(t, folderId, targetId));
+    }, "Folder moved");
+  };
+
   const applyFolderColor = (folder: FolderItem, color: string | null) => {
     setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, color } : f)));
     run(async () => {
@@ -520,35 +530,44 @@ export default function DashboardPage() {
       {shownFolders.map((folder) => (
         <div
           key={folder.id}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
           onDragOver={(e) => {
-            if (e.dataTransfer.types.includes(FILE_DRAG_TYPE)) {
+            const t = e.dataTransfer.types;
+            if (t.includes(FILE_DRAG_TYPE) || t.includes(FOLDER_DRAG_TYPE)) {
               e.preventDefault();
               setDragFolder(folder.id);
             }
           }}
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
-            const id = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            if (id) {
+            const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            const folderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (fileId) {
               e.preventDefault();
               e.stopPropagation();
-              moveFileToFolder(id, folder.id);
+              moveFileToFolder(fileId, folder.id);
+            } else if (folderId) {
+              e.preventDefault();
+              e.stopPropagation();
+              moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          className={`grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 ${
+          onClick={() => setFolderId(folder.id)}
+          className={`grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 ${
             dragFolder === folder.id ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400" : "hover:bg-zinc-50"
           }`}
         >
-          <button
-            onClick={() => setFolderId(folder.id)}
-            className="flex min-w-0 items-center gap-3 text-left"
-          >
+          <div className="flex min-w-0 items-center gap-3">
             <Folder
               className="h-5 w-5 shrink-0 text-indigo-500"
               style={folder.color ? { color: folder.color } : undefined}
             />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
-          </button>
+          </div>
           <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
           <span className="text-sm text-zinc-400">—</span>
           {folderMenu(folder)}
@@ -562,25 +581,25 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
             e.dataTransfer.effectAllowed = "move";
           }}
-          className="grid cursor-grab grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50 active:cursor-grabbing"
+          onClick={() => setPreview(file)}
+          className="grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
         >
           <div className="flex min-w-0 items-center gap-2">
-            <button onClick={() => toggleFavorite(file)} aria-label="Star" className="shrink-0">
+            <button
+              onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }}
+              aria-label="Star"
+              className="shrink-0"
+            >
               <Star
                 className={`h-4 w-4 ${file.is_favorite ? "fill-amber-400 text-amber-400" : "text-zinc-300 hover:text-amber-400"}`}
               />
             </button>
-            <button
-              onClick={() => setPreview(file)}
-              className="flex min-w-0 items-center gap-2 text-left"
-            >
-              <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-              <span className="truncate text-sm font-medium text-zinc-900">{file.name}</span>
-            </button>
+            <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
+            <span className="truncate text-sm font-medium text-zinc-900">{file.name}</span>
             {file.tags.slice(0, 3).map((tag) => (
               <button
                 key={tag}
-                onClick={() => openTag(tag)}
+                onClick={(e) => { e.stopPropagation(); openTag(tag); }}
                 className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 sm:inline"
               >
                 {tag}
@@ -600,37 +619,46 @@ export default function DashboardPage() {
       {shownFolders.map((folder) => (
         <div
           key={folder.id}
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
           onDragOver={(e) => {
-            if (e.dataTransfer.types.includes(FILE_DRAG_TYPE)) {
+            const t = e.dataTransfer.types;
+            if (t.includes(FILE_DRAG_TYPE) || t.includes(FOLDER_DRAG_TYPE)) {
               e.preventDefault();
               setDragFolder(folder.id);
             }
           }}
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
-            const id = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            if (id) {
+            const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            const folderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (fileId) {
               e.preventDefault();
               e.stopPropagation();
-              moveFileToFolder(id, folder.id);
+              moveFileToFolder(fileId, folder.id);
+            } else if (folderId) {
+              e.preventDefault();
+              e.stopPropagation();
+              moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          className={`flex items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
+          onClick={() => setFolderId(folder.id)}
+          className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
             dragFolder === folder.id
               ? "border-indigo-400 ring-2 ring-indigo-400"
               : "border-zinc-200 hover:border-indigo-300 hover:shadow-sm"
           }`}
         >
-          <button
-            onClick={() => setFolderId(folder.id)}
-            className="flex min-w-0 items-center gap-2 text-left"
-          >
+          <div className="flex min-w-0 items-center gap-2">
             <Folder
               className="h-6 w-6 shrink-0 text-indigo-500"
               style={folder.color ? { color: folder.color } : undefined}
             />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
-          </button>
+          </div>
           {folderMenu(folder)}
         </div>
       ))}
@@ -642,14 +670,13 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
             e.dataTransfer.effectAllowed = "move";
           }}
-          className="cursor-grab rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm active:cursor-grabbing"
+          onClick={() => setPreview(file)}
+          className="cursor-pointer rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
         >
           <div className="flex items-start justify-between">
-            <button onClick={() => setPreview(file)} aria-label="Preview">
-              {fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}
-            </button>
+            <span aria-hidden>{fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}</span>
             <div className="flex items-center gap-1">
-              <button onClick={() => toggleFavorite(file)} aria-label="Star">
+              <button onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }} aria-label="Star">
                 <Star
                   className={`h-4 w-4 ${file.is_favorite ? "fill-amber-400 text-amber-400" : "text-zinc-300 hover:text-amber-400"}`}
                 />
@@ -741,7 +768,15 @@ export default function DashboardPage() {
           ) : view === "links" ? (
             <div className="pt-2">
               <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>
-              <AliasesPanel refreshKey={aliasRefresh} />
+              <AliasesPanel
+                refreshKey={aliasRefresh}
+                onOpenLocation={(fid) => {
+                  setView("drive");
+                  setTagFilter(null);
+                  setSearch("");
+                  setFolderId(fid ?? undefined);
+                }}
+              />
             </div>
           ) : (
             <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>

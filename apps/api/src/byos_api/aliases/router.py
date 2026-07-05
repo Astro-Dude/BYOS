@@ -51,7 +51,18 @@ async def create_alias(payload: AliasCreate, user: CurrentUser, db: DbDep) -> Al
 
 @router.get("", response_model=list[AliasOut])
 async def list_aliases(user: CurrentUser, db: DbDep) -> list[AliasOut]:
-    return [AliasOut.model_validate(a) for a in await service.list_aliases(db, user)]
+    return [
+        AliasOut(
+            id=a.id,
+            slug=a.slug,
+            file_id=a.file_id,
+            description=a.description,
+            created_at=a.created_at,
+            folder_id=folder_id,
+            file_name=file_name,
+        )
+        for (a, folder_id, file_name) in await service.list_aliases(db, user)
+    ]
 
 
 @router.patch("/{alias_id}", response_model=AliasOut)
@@ -60,12 +71,18 @@ async def update_alias(
 ) -> AliasOut:
     try:
         alias = await service.update_alias(
-            db, user, alias_id, payload.file_id, payload.description
+            db, user, alias_id, payload.slug, payload.file_id, payload.description
         )
     except service.AliasNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alias not found") from None
     except service.FileNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    except service.InvalidSlug:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Slug must be lowercase letters, digits, and hyphens"
+        ) from None
+    except service.SlugTaken:
+        raise HTTPException(status.HTTP_409_CONFLICT, "That alias is already taken") from None
     return AliasOut.model_validate(alias)
 
 

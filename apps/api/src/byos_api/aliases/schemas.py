@@ -13,6 +13,7 @@ class AliasCreate(BaseModel):
 
 
 class AliasUpdate(BaseModel):
+    slug: str | None = Field(default=None, min_length=1, max_length=128)
     file_id: uuid.UUID | None = None
     description: str | None = None
 
@@ -25,3 +26,5 @@ class AliasOut(BaseModel):
     file_id: uuid.UUID
     description: str | None = None
     created_at: datetime
+    folder_id: uuid.UUID | None = None  # where the linked file lives (null = root)
+    file_name: str | None = None
