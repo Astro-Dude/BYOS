@@ -332,7 +332,7 @@ function DocsSection() {
                     ["PATCH", "/aliases/{id}", "Rename or repoint a link"],
                     ["GET", "/aliases", "List your links"],
                   ].map(([m, p, d]) => (
-                    <tr key={p} className="border-t border-zinc-100">
+                    <tr key={`${m} ${p}`} className="border-t border-zinc-100">
                       <td className="py-1 pr-4 text-indigo-600">{m}</td>
                       <td className="py-1 pr-4">{p}</td>
                       <td className="py-1 font-sans text-zinc-600">{d}</td>
