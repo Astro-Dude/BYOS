@@ -326,11 +326,16 @@ function DocsSection() {
                     ["GET", "/files", "List files (paginated, filterable)"],
                     ["POST", "/files", "Upload a file"],
                     ["PUT", "/files/{id}", "Replace a file (new version)"],
+                    ["PATCH", "/files/{id}", "Rename a file"],
+                    ["POST", "/files/{id}/move", "Move a file to a folder"],
                     ["GET", "/files/{id}/download", "Stream file bytes"],
                     ["GET", "/search?q=", "Full-text + fuzzy search"],
-                    ["POST", "/aliases", "Create a permanent link"],
+                    ["POST", "/folders", "Create a folder (name + color)"],
+                    ["PATCH", "/folders/{id}", "Rename / recolor a folder"],
+                    ["POST", "/aliases", "Create a link to a file OR folder"],
                     ["PATCH", "/aliases/{id}", "Rename or repoint a link"],
                     ["GET", "/aliases", "List your links"],
+                    ["GET", "/public/{user}/{slug}/list", "Browse a shared folder (public)"],
                   ].map(([m, p, d]) => (
                     <tr key={`${m} ${p}`} className="border-t border-zinc-100">
                       <td className="py-1 pr-4 text-indigo-600">{m}</td>
@@ -358,6 +363,30 @@ curl -X POST ${base}/files \\
 curl -X PUT ${base}/files/FILE_ID \\
   -H "Authorization: Bearer byosk_..." \\
   -F "file=@report-v2.pdf"`}</CodeBlock>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Links &amp; folder sharing</h3>
+            <p className="mt-1 text-zinc-600">
+              A link (alias) targets <em>either</em> a file or a folder. File links stream
+              the current version inline at <code>/{"{username}"}/{"{slug}"}</code>. Folder
+              links resolve to a browsable public page; its contents are readable
+              unauthenticated via the <code>/public</code> endpoints.
+            </p>
+            <CodeBlock>{`# Share a file (permanent link that survives replacement)
+curl -X POST ${base}/aliases \\
+  -H "Authorization: Bearer byosk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"slug": "resume", "file_id": "FILE_ID"}'
+
+# Share a folder (browsable page)
+curl -X POST ${base}/aliases \\
+  -H "Authorization: Bearer byosk_..." \\
+  -H "Content-Type: application/json" \\
+  -d '{"slug": "design-assets", "folder_id": "FOLDER_ID"}'
+
+# Browse a shared folder — no auth
+curl ${base}/public/USERNAME/design-assets/list`}</CodeBlock>
           </div>
 
           <div>

@@ -9,6 +9,7 @@ from pydantic import BaseModel, ConfigDict, Field
 class FolderCreate(BaseModel):
     name: str = Field(min_length=1, max_length=255)
     parent_id: uuid.UUID | None = None
+    color: str | None = None  # hex "#RRGGBB" from the palette, or null
 
 
 class FolderUpdate(BaseModel):

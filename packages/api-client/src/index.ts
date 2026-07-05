@@ -320,11 +320,16 @@ export class ByosClient {
     return this.request<FolderItem[]>(`/folders${qs}`, { token });
   }
 
-  createFolder(token: string, name: string, parentId?: string): Promise<FolderItem> {
+  createFolder(
+    token: string,
+    name: string,
+    parentId?: string,
+    color?: string | null,
+  ): Promise<FolderItem> {
     return this.request<FolderItem>("/folders", {
       method: "POST",
       token,
-      body: JSON.stringify({ name, parent_id: parentId ?? null }),
+      body: JSON.stringify({ name, parent_id: parentId ?? null, color: color ?? null }),
     });
   }
 

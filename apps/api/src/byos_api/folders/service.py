@@ -23,15 +23,17 @@ class InvalidColor(Exception):
     pass
 
 
-# Muted, theme-appropriate palette folders may be tagged with.
+# Vibrant, theme-matching palette folders may be tagged with. Keep in sync with
+# the web app's allow-list in apps/web/lib/folder-colors.ts.
 FOLDER_COLORS = {
-    "#3C6E66",  # teal (accent)
-    "#B5892E",  # amber
-    "#B23A2E",  # brick
-    "#3B6FA0",  # blue
-    "#4C7A34",  # green
-    "#6B5B95",  # purple
-    "#8B867D",  # gray
+    "#6366F1",  # indigo
+    "#3B82F6",  # blue
+    "#06B6D4",  # cyan
+    "#10B981",  # emerald
+    "#F59E0B",  # amber
+    "#F43F5E",  # rose
+    "#8B5CF6",  # violet
+    "#64748B",  # slate
 }
 
 
@@ -43,10 +45,16 @@ async def get_owned_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -
 
 
 async def create_folder(
-    db: AsyncSession, user: User, name: str, parent_id: uuid.UUID | None
+    db: AsyncSession,
+    user: User,
+    name: str,
+    parent_id: uuid.UUID | None,
+    color: str | None = None,
 ) -> Folder:
     if parent_id is not None:
         await get_owned_folder(db, user, parent_id)  # validates ownership + existence
+    if color is not None and color not in FOLDER_COLORS:
+        raise InvalidColor
     # Idempotency: a folder with the same name in the same parent already exists?
     existing = await db.execute(
         select(Folder).where(
@@ -58,7 +66,7 @@ async def create_folder(
     found = existing.scalar_one_or_none()
     if found is not None:
         return found
-    folder = Folder(owner_id=user.id, parent_id=parent_id, name=name)
+    folder = Folder(owner_id=user.id, parent_id=parent_id, name=name, color=color)
     db.add(folder)
     await db.commit()
     await db.refresh(folder)

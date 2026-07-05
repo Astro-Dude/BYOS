@@ -76,6 +76,7 @@ curl -H "Authorization: Bearer byosk_ab12cd34_…" http://localhost:8000/files
 | `GET /files?folder_id&favorite&tag&limit&offset` | List files (filter by folder / favorite / tag) |
 | `POST /files` (multipart: `file`, `folder_id?`) | Upload a file (goes to your Telegram) |
 | `GET /files/{id}/content` | Download / stream the current version (ETag/304) |
+| `PATCH /files/{id}` `{name}` | Rename a file (keeps `ext` in sync) |
 | `POST /files/{id}/move` `{folder_id}` | Move to a folder (`null` = root) |
 | `DELETE /files/{id}` | Delete (idempotent) |
 | `PUT /files/{id}/favorite` `{favorite}` | Star / unstar |
@@ -109,7 +110,7 @@ Replacing a file keeps history; the current version is what downloads/links serv
 | Method & path | Purpose |
 |---|---|
 | `GET /folders?parent_id` | List a folder's children (root if omitted) |
-| `POST /folders` `{name, parent_id?}` | Create (idempotent per name+parent) |
+| `POST /folders` `{name, parent_id?, color?}` | Create (idempotent per name+parent; color = hex from the palette) |
 | `GET /folders/{id}/breadcrumb` | Ancestor path |
 | `PATCH /folders/{id}` `{name?, color?}` | Rename and/or set color (color = hex from the palette, or `null`) |
 | `POST /folders/{id}/move` `{parent_id}` | Move (cycle‑safe; `null` = root) |
@@ -119,17 +120,33 @@ Replacing a file keeps history; the current version is what downloads/links serv
 
 ## Aliases (permanent links)
 
-A file has at most **one** alias. The public URL is `/{username}/{slug}` and always
-serves the file's **current** version — replace or restore a version to change what
-it points to, without the URL changing.
+An alias targets **either a file or a folder** (exactly one). Each file/folder has at
+most **one** alias. The public URL is `/{username}/{slug}`.
+
+- **File links** always serve the file's **current** version — replace or restore a
+  version to change what it points to, without the URL changing.
+- **Folder links** resolve to a browsable public page listing the folder's subtree;
+  hitting the API URL for a folder link redirects to that page (`WEB_BASE_URL`).
 
 | Method & path | Purpose |
 |---|---|
-| `POST /aliases` `{slug, file_id, description?}` | Create a link (409 if the file already has one) |
-| `GET /aliases` | List your aliases |
-| `PATCH /aliases/{id}` `{file_id?, description?}` | Repoint / edit |
+| `POST /aliases` `{slug, file_id, description?}` | Link a file (409 if it already has one) |
+| `POST /aliases` `{slug, folder_id}` | Share a folder (409 if it already has one) |
+| `GET /aliases` | List your aliases (each with `target_type`) |
+| `PATCH /aliases/{id}` `{slug?, file_id?, description?}` | Rename / repoint |
 | `DELETE /aliases/{id}` | Delete |
-| `GET /{username}/{slug}` | **Public** — stream the current version (rate‑limited) |
+| `GET /{username}/{slug}` | **Public** — file: stream current version; folder: redirect to page |
+
+### Public folder browsing (unauthenticated)
+
+| Method & path | Purpose |
+|---|---|
+| `GET /public/{username}/{slug}` | Metadata: `{type, name, owner_username}` |
+| `GET /public/{username}/{slug}/list?folder_id` | One level of the shared folder (subfolders + files) |
+| `GET /public/{username}/{slug}/file/{file_id}?dl` | Stream a file inside the share (`dl=1` to download) |
+
+Requests are subtree‑scoped: a folder link can only read files that live within the
+shared folder, and all `/public` routes are rate‑limited.
 
 ---
 

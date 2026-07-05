@@ -25,9 +25,13 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 @router.post("", response_model=FolderOut, status_code=status.HTTP_201_CREATED)
 async def create_folder(payload: FolderCreate, user: CurrentUser, db: DbDep) -> FolderOut:
     try:
-        folder = await service.create_folder(db, user, payload.name, payload.parent_id)
+        folder = await service.create_folder(
+            db, user, payload.name, payload.parent_id, payload.color
+        )
     except service.FolderNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Parent folder not found") from None
+    except service.InvalidColor:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid folder color") from None
     return FolderOut.model_validate(folder)
 
 

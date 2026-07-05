@@ -39,6 +39,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { AliasModal } from "@/components/dashboard/alias-modal";
 import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
+import { CreateFolderModal } from "@/components/dashboard/create-folder-modal";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
@@ -50,11 +51,10 @@ import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { FOLDER_COLORS } from "@/lib/folder-colors";
 import { useToast } from "@/lib/toast";
 
 type Category = "all" | "folder" | "image" | "pdf" | "doc" | "video";
@@ -115,7 +115,6 @@ function shortDate(iso: string): string {
 }
 
 const PAGE_SIZE = 100;
-const FOLDER_COLORS = ["#3C6E66", "#B5892E", "#B23A2E", "#3B6FA0", "#4C7A34", "#6B5B95", "#8B867D"];
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
@@ -141,7 +140,6 @@ export default function DashboardPage() {
   const [typeFilter, setTypeFilter] = useState<Category>("all");
 
   const [nfOpen, setNfOpen] = useState(false);
-  const [nfName, setNfName] = useState("");
   const [aliasRefresh, setAliasRefresh] = useState(0);
   const [preview, setPreview] = useState<FileItem | null>(null);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
@@ -311,16 +309,11 @@ export default function DashboardPage() {
     })();
   };
 
-  const createFolder = () => {
-    const name = nfName.trim();
-    if (!name) return;
+  const createFolder = (name: string, color: string | null) =>
     run(async () => {
-      await authed((t) => api.createFolder(t, name, folderId));
-      setNfName("");
-      setNfOpen(false);
+      await authed((t) => api.createFolder(t, name, folderId, color));
       await load();
     }, "Folder created");
-  };
 
   const download = (file: FileItem) =>
     run(async () => {
@@ -487,16 +480,19 @@ export default function DashboardPage() {
           <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
           <MenuItem icon={<Share2 className="h-4 w-4" />} label="Share" onClick={() => { close(); setSharingFolder(folder); }} />
           <MenuItem icon={<Pencil className="h-4 w-4" />} label="Rename" onClick={() => { close(); setRenamingFolder(folder); }} />
-          <div className="flex items-center gap-1.5 px-4 py-2">
+          <div
+            className="flex items-center gap-1.5 px-4 py-2"
+            onClick={(e) => e.stopPropagation()}
+          >
             <button
-              onClick={() => applyFolderColor(folder, null)}
+              onClick={(e) => { e.stopPropagation(); applyFolderColor(folder, null); }}
               aria-label="Default color"
               className="h-4 w-4 rounded-full border border-zinc-300 bg-white"
             />
             {FOLDER_COLORS.map((c) => (
               <button
                 key={c}
-                onClick={() => applyFolderColor(folder, c)}
+                onClick={(e) => { e.stopPropagation(); applyFolderColor(folder, c); }}
                 aria-label={`Color ${c}`}
                 style={{ backgroundColor: c }}
                 className={`h-4 w-4 rounded-full ${folder.color === c ? "ring-2 ring-offset-1 ring-zinc-400" : ""}`}
@@ -590,6 +586,7 @@ export default function DashboardPage() {
           <div className="flex min-w-0 items-center gap-3">
             <Folder
               className="h-5 w-5 shrink-0 text-indigo-500"
+              fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
@@ -681,6 +678,7 @@ export default function DashboardPage() {
           <div className="flex min-w-0 items-center gap-2">
             <Folder
               className="h-6 w-6 shrink-0 text-indigo-500"
+              fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
@@ -884,27 +882,6 @@ export default function DashboardPage() {
                     ))
                   }
                 </Menu>
-                {nfOpen ? (
-                  <div className="flex items-center gap-2">
-                    <Input
-                      autoFocus
-                      value={nfName}
-                      onChange={(e) => setNfName(e.target.value)}
-                      onKeyDown={(e) => e.key === "Enter" && createFolder()}
-                      placeholder="Folder name"
-                      className="h-9 w-44"
-                    />
-                    <Button onClick={createFolder} disabled={busy || !nfName.trim()}>
-                      Create
-                    </Button>
-                    <Button
-                      onClick={() => setNfOpen(false)}
-                      className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
-                    >
-                      Cancel
-                    </Button>
-                  </div>
-                ) : null}
               </div>
 
               {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
@@ -947,6 +924,9 @@ export default function DashboardPage() {
           onClose={() => setSharingFolder(null)}
           onCreated={() => setAliasRefresh((v) => v + 1)}
         />
+      ) : null}
+      {nfOpen ? (
+        <CreateFolderModal onClose={() => setNfOpen(false)} onCreate={createFolder} />
       ) : null}
       {renamingFile ? (
         <RenameModal
