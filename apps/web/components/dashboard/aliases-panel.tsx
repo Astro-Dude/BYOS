@@ -5,9 +5,11 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
   const authed = useAuthed();
+  const toast = useToast();
   const { user } = useAuth();
   const username = user?.username ?? "";
   const [aliases, setAliases] = useState<AliasItem[]>([]);
@@ -34,14 +36,18 @@ export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
     try {
       await authed((t) => api.deleteAlias(t, alias.id));
       await load();
+      toast("Link deleted");
     } catch (err) {
-      setError(err instanceof ApiError ? err.detail : "Delete failed");
+      const m = err instanceof ApiError ? err.detail : "Delete failed";
+      setError(m);
+      toast(m, "error");
     }
   };
 
   const copy = async (slug: string) => {
     await navigator.clipboard.writeText(api.aliasUrl(username, slug));
     setCopied(slug);
+    toast("Link copied");
     setTimeout(() => setCopied(null), 1500);
   };
 

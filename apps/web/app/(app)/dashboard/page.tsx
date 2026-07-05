@@ -47,6 +47,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 type Category = "all" | "folder" | "image" | "pdf" | "doc" | "video";
 const CATEGORIES: { key: Category; label: string }[] = [
@@ -113,6 +114,7 @@ export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
   const authed = useAuthed();
+  const toast = useToast();
 
   const [view, setView] = useState<DriveView>("drive");
   const [layout, setLayout] = useState<"list" | "grid">("list");
@@ -241,14 +243,17 @@ export default function DashboardPage() {
     return () => clearTimeout(id);
   }, [search, authed]);
 
-  const run = (fn: () => Promise<void>) => {
+  const run = (fn: () => Promise<void>, successMsg?: string) => {
     setError(null);
     setBusy(true);
     (async () => {
       try {
         await fn();
+        if (successMsg) toast(successMsg);
       } catch (err) {
-        setError(err instanceof ApiError ? err.detail : "Something went wrong");
+        const msg = err instanceof ApiError ? err.detail : "Something went wrong";
+        setError(msg);
+        toast(msg, "error");
       } finally {
         setBusy(false);
       }
@@ -263,7 +268,7 @@ export default function DashboardPage() {
       }
       await load();
       if (inputRef.current) inputRef.current.value = "";
-    });
+    }, "Upload complete");
   };
 
   const createFolder = () => {
@@ -274,7 +279,7 @@ export default function DashboardPage() {
       setNfName("");
       setNfOpen(false);
       await load();
-    });
+    }, "Folder created");
   };
 
   const download = (file: FileItem) =>
@@ -297,14 +302,14 @@ export default function DashboardPage() {
     setResults((r) => (r ? r.filter((f) => f.id !== file.id) : r));
     run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
-    });
+    }, "File deleted");
   };
 
   const removeFolder = (folder: FolderItem) =>
     run(async () => {
       await authed((t) => api.deleteFolder(t, folder.id));
       await load();
-    });
+    }, "Folder deleted");
 
   const toggleFavorite = (file: FileItem) =>
     run(async () => {
@@ -315,7 +320,7 @@ export default function DashboardPage() {
           .filter((f) => view !== "starred" || f.is_favorite);
       if (searchActive) setResults((r) => (r ? patch(r) : r));
       else setFiles(patch);
-    });
+    }, file.is_favorite ? "Removed from starred" : "Added to starred");
 
   const openTag = (tag: string) => {
     setView("drive");
@@ -330,14 +335,14 @@ export default function DashboardPage() {
     setResults((r) => (r ? r.filter((f) => f.id !== fileId) : r));
     run(async () => {
       await authed((t) => api.moveFile(t, fileId, folderId));
-    });
+    }, "File moved");
   };
 
   const applyFolderColor = (folder: FolderItem, color: string | null) => {
     setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, color } : f)));
     run(async () => {
       await authed((t) => api.updateFolder(t, folder.id, { color }));
-    });
+    }, "Folder color updated");
   };
 
   if (authLoading || !user) {

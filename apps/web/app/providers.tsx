@@ -5,12 +5,15 @@ import type { ReactNode } from "react";
 import { useState } from "react";
 
 import { AuthProvider } from "@/lib/auth-context";
+import { ToastProvider } from "@/lib/toast";
 
 export function Providers({ children }: { children: ReactNode }) {
   const [queryClient] = useState(() => new QueryClient());
   return (
     <QueryClientProvider client={queryClient}>
-      <AuthProvider>{children}</AuthProvider>
+      <AuthProvider>
+        <ToastProvider>{children}</ToastProvider>
+      </AuthProvider>
     </QueryClientProvider>
   );
 }

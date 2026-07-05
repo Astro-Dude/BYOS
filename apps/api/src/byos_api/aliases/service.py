@@ -23,6 +23,10 @@ class SlugTaken(Exception):
     pass
 
 
+class FileAlreadyLinked(Exception):
+    pass
+
+
 class AliasNotFound(Exception):
     pass
 
@@ -44,15 +48,23 @@ async def create_alias(
     if not SLUG_RE.match(slug):
         raise InvalidSlug
     await _owned_file(db, user, file_id)
-    existing = (
+    # One link per file: if this file already has an alias, don't make another.
+    by_file = (
+        await db.execute(
+            select(Alias).where(Alias.owner_id == user.id, Alias.file_id == file_id)
+        )
+    ).scalar_one_or_none()
+    if by_file is not None:
+        if by_file.slug == slug:
+            return by_file  # idempotent re-create of the same link
+        raise FileAlreadyLinked
+    # Slug must be free within this user's namespace.
+    by_slug = (
         await db.execute(
             select(Alias).where(Alias.owner_id == user.id, Alias.slug == slug)
         )
     ).scalar_one_or_none()
-    if existing is not None:
-        # Idempotent if the same owner re-creates the same slug → file mapping.
-        if existing.file_id == file_id:
-            return existing
+    if by_slug is not None:
         raise SlugTaken
     alias = Alias(owner_id=user.id, slug=slug, file_id=file_id, description=description)
     db.add(alias)

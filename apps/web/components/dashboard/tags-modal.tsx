@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 export function TagsModal({
   file,
@@ -19,6 +20,7 @@ export function TagsModal({
   onChanged: () => void;
 }) {
   const authed = useAuthed();
+  const toast = useToast();
   const [tags, setTags] = useState<string[]>(file.tags);
   const [name, setName] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,6 +34,7 @@ export function TagsModal({
         const updated = await fn();
         setTags(updated.tags);
         onChanged();
+        toast("Tags updated");
       } catch (err) {
         setError(err instanceof ApiError ? err.detail : "Action failed");
       } finally {

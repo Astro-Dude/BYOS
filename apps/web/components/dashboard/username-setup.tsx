@@ -8,11 +8,13 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 /** Blocking first-run step: pick a unique username. Your links live at
  *  /{username}/{slug}. Shown until the account has a username. */
 export function UsernameSetup() {
   const authed = useAuthed();
+  const toast = useToast();
   const { refresh } = useAuth();
   const [username, setUsername] = useState("");
   const [busy, setBusy] = useState(false);
@@ -24,6 +26,7 @@ export function UsernameSetup() {
     setError(null);
     try {
       await authed((t) => api.setUsername(t, username.trim()));
+      toast(`Welcome, @${username.trim()}`);
       await refresh(); // context user now has a username → the gate clears
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Couldn't set username");

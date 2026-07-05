@@ -1,12 +1,13 @@
 "use client";
 
 import { ApiError, type FileItem } from "@byos/api-client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 export function AliasModal({
   file,
@@ -18,13 +19,26 @@ export function AliasModal({
   onCreated: () => void;
 }) {
   const authed = useAuthed();
+  const toast = useToast();
   const { user } = useAuth();
   const username = user?.username ?? "";
   const [slug, setSlug] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [createdUrl, setCreatedUrl] = useState<string | null>(null);
+  const [linkUrl, setLinkUrl] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
+
+  // A file can have only one link — if it already has one, show it.
+  useEffect(() => {
+    authed((t) => api.listAliases(t))
+      .then((aliases) => {
+        const found = aliases.find((a) => a.file_id === file.id);
+        if (found) setLinkUrl(api.aliasUrl(username, found.slug));
+      })
+      .catch(() => undefined)
+      .finally(() => setLoading(false));
+  }, [authed, file.id, username]);
 
   const submit = async () => {
     if (!slug.trim()) return;
@@ -32,7 +46,8 @@ export function AliasModal({
     setBusy(true);
     try {
       const alias = await authed((t) => api.createAlias(t, slug.trim(), file.id));
-      setCreatedUrl(api.aliasUrl(username, alias.slug));
+      setLinkUrl(api.aliasUrl(username, alias.slug));
+      toast("Link created");
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Could not create link");
@@ -42,9 +57,10 @@ export function AliasModal({
   };
 
   const copy = async () => {
-    if (!createdUrl) return;
-    await navigator.clipboard.writeText(createdUrl);
+    if (!linkUrl) return;
+    await navigator.clipboard.writeText(linkUrl);
     setCopied(true);
+    toast("Link copied");
     setTimeout(() => setCopied(false), 1500);
   };
 
@@ -54,16 +70,19 @@ export function AliasModal({
       onClick={onClose}
     >
       <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-zinc-900">Permanent link</h3>
+        <h3 className="text-base font-semibold text-zinc-900">Share link</h3>
         <p className="mt-1 truncate text-sm text-zinc-500">for {file.name}</p>
 
-        {createdUrl ? (
+        {loading ? (
+          <p className="mt-4 text-sm text-zinc-400">Loading…</p>
+        ) : linkUrl ? (
           <div className="mt-4">
             <p className="text-sm text-zinc-600">
-              Share this link. Replace the file anytime — the URL never changes.
+              This is the file&apos;s permanent link. It always opens the current version —
+              replace the file or restore a version (⋮ → Versions) to change what it serves.
             </p>
             <div className="mt-2 flex gap-2">
-              <Input readOnly value={createdUrl} onFocus={(e) => e.currentTarget.select()} />
+              <Input readOnly value={linkUrl} onFocus={(e) => e.currentTarget.select()} />
               <Button onClick={copy}>{copied ? "Copied" : "Copy"}</Button>
             </div>
             <div className="mt-4 flex justify-end">
@@ -74,7 +93,7 @@ export function AliasModal({
           </div>
         ) : (
           <div className="mt-4">
-            <label className="text-sm font-medium text-zinc-700">Alias</label>
+            <label className="text-sm font-medium text-zinc-700">Choose a link name</label>
             <div className="mt-1 flex items-center gap-2">
               <span className="text-sm text-zinc-400">/{username}/</span>
               <Input

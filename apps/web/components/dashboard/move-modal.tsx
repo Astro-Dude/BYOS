@@ -7,6 +7,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 /** Navigate the folder tree and move `file` into the chosen folder (or root). */
 export function MoveModal({
@@ -19,6 +20,7 @@ export function MoveModal({
   onMoved: () => void;
 }) {
   const authed = useAuthed();
+  const toast = useToast();
   const [parent, setParent] = useState<string | null>(null); // folder being browsed (null = root)
   const [crumbs, setCrumbs] = useState<{ id: string; name: string }[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -58,6 +60,7 @@ export function MoveModal({
     setBusy(true);
     try {
       await authed((t) => api.moveFile(t, file.id, parent));
+      toast(`Moved to ${destName}`);
       onMoved();
       onClose();
     } catch (err) {

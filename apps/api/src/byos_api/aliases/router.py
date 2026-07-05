@@ -42,6 +42,10 @@ async def create_alias(payload: AliasCreate, user: CurrentUser, db: DbDep) -> Al
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
     except service.SlugTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That alias is already taken") from None
+    except service.FileAlreadyLinked:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT, "This file already has a link"
+        ) from None
     return AliasOut.model_validate(alias)
 
 

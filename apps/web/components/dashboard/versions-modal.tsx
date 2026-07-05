@@ -7,6 +7,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
 
 function humanSize(bytes: number): string {
   if (bytes < 1024) return `${bytes} B`;
@@ -30,6 +31,7 @@ export function VersionsModal({
   onChanged: () => void;
 }) {
   const authed = useAuthed();
+  const toast = useToast();
   const [versions, setVersions] = useState<VersionItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
@@ -51,7 +53,7 @@ export function VersionsModal({
     void load();
   }, [load]);
 
-  const act = (fn: () => Promise<void>) => {
+  const act = (fn: () => Promise<void>, successMsg?: string) => {
     setError(null);
     setBusy(true);
     (async () => {
@@ -59,8 +61,11 @@ export function VersionsModal({
         await fn();
         await load();
         onChanged();
+        if (successMsg) toast(successMsg);
       } catch (err) {
-        setError(err instanceof ApiError ? err.detail : "Action failed");
+        const m = err instanceof ApiError ? err.detail : "Action failed";
+        setError(m);
+        toast(m, "error");
       } finally {
         setBusy(false);
       }
@@ -73,7 +78,7 @@ export function VersionsModal({
     act(async () => {
       await authed((t) => api.replaceFile(t, file.id, f));
       if (inputRef.current) inputRef.current.value = "";
-    });
+    }, "File replaced — link now serves the new version");
   };
 
   const download = (v: VersionItem) => {
@@ -153,7 +158,7 @@ export function VersionsModal({
                     </button>
                     {!v.is_current && (
                       <button
-                        onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined))}
+                        onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined), "Version restored — link now serves this version")}
                         className="text-zinc-700 hover:underline"
                       >
                         Restore
@@ -161,7 +166,7 @@ export function VersionsModal({
                     )}
                     {!v.is_current && (
                       <button
-                        onClick={() => act(() => authed((t) => api.deleteVersion(t, file.id, v.id)))}
+                        onClick={() => act(() => authed((t) => api.deleteVersion(t, file.id, v.id)), "Version deleted")}
                         className="text-red-600 hover:underline"
                       >
                         Delete

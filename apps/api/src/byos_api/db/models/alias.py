@@ -26,4 +26,8 @@ class Alias(UUIDPrimaryKey, TimestampMixin, Base):
     )
     description: Mapped[str | None] = mapped_column(String(255))
 
-    __table_args__ = (Index("uq_aliases_owner_slug", "owner_id", "slug", unique=True),)
+    __table_args__ = (
+        Index("uq_aliases_owner_slug", "owner_id", "slug", unique=True),
+        # One link per file: a file can have at most one alias per owner.
+        Index("uq_aliases_owner_file", "owner_id", "file_id", unique=True),
+    )
