@@ -17,7 +17,7 @@ export default function LandingPage() {
       <header className="flex items-center justify-between py-6">
         <Logo markClassName="h-9 w-9" wordClassName="text-lg" />
         <nav className="flex items-center gap-4 text-sm">
-          <Link href="/login" className="text-zinc-600 hover:text-zinc-900">
+          <Link href="/login" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-100">
             Log in
           </Link>
           <Link
@@ -33,7 +33,7 @@ export default function LandingPage() {
         <p className="text-sm font-medium uppercase tracking-wider text-indigo-600">
           Bring Your Own Storage
         </p>
-        <h1 className="mt-3 max-w-3xl text-5xl font-bold tracking-tight text-zinc-900">
+        <h1 className="mt-3 max-w-3xl text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
           The operating system for your personal cloud storage.
         </h1>
         <p className="mt-6 max-w-2xl text-lg text-zinc-600">
@@ -49,7 +49,7 @@ export default function LandingPage() {
           </Link>
           <Link
             href="/login"
-            className="rounded-md border border-zinc-300 px-5 py-2.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-md border border-zinc-300 dark:border-zinc-700 px-5 py-2.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           >
             Log in
           </Link>
@@ -58,14 +58,14 @@ export default function LandingPage() {
         <dl className="mt-20 grid grid-cols-1 gap-8 sm:grid-cols-2">
           {features.map(([title, body]) => (
             <div key={title}>
-              <dt className="font-semibold text-zinc-900">{title}</dt>
+              <dt className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</dt>
               <dd className="mt-1 text-sm text-zinc-600">{body}</dd>
             </div>
           ))}
         </dl>
       </section>
 
-      <footer className="border-t border-zinc-100 py-6 text-sm text-zinc-400">
+      <footer className="border-t border-zinc-100 dark:border-zinc-800 py-6 text-sm text-zinc-400">
         BYOS — storage providers store bytes; BYOS provides the experience.
       </footer>
     </main>

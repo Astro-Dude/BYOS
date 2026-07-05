@@ -28,9 +28,9 @@ function formatBytes(n: number): string {
 
 function StatCard({ label, value, sub }: { label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-xl border border-zinc-200 bg-white p-4">
+    <div className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
       <div className="text-xs font-medium uppercase tracking-wide text-zinc-500">{label}</div>
-      <div className="mt-1 text-2xl font-semibold text-zinc-900">{value}</div>
+      <div className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">{value}</div>
       {sub ? <div className="mt-0.5 text-xs text-zinc-400">{sub}</div> : null}
     </div>
   );
@@ -144,7 +144,7 @@ export function InsightsPanel() {
 
   return (
     <div className="space-y-6 pt-2">
-      <h1 className="text-2xl font-normal text-zinc-800">Insights</h1>
+      <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Insights</h1>
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         <StatCard
@@ -165,19 +165,19 @@ export function InsightsPanel() {
         />
       </div>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 className="font-semibold text-zinc-900">Activity — last 30 days</h2>
+      <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Activity — last 30 days</h2>
         <div className="mt-4">
           <ActivityChart points={series} />
         </div>
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 className="font-semibold text-zinc-900">Most accessed</h2>
+      <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Most accessed</h2>
         {top.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-400">Nothing accessed yet.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-zinc-100">
+          <ul className="mt-3 divide-y divide-zinc-100 dark:divide-zinc-800">
             {top.map((item) => (
               <li
                 key={`${item.target_type}:${item.target_id}`}
@@ -185,7 +185,7 @@ export function InsightsPanel() {
               >
                 <span className="flex min-w-0 items-center gap-2">
                   {TARGET_ICON[item.target_type] ?? <span aria-hidden>•</span>}
-                  <span className="truncate text-sm text-zinc-800">{item.label}</span>
+                  <span className="truncate text-sm text-zinc-800 dark:text-zinc-200">{item.label}</span>
                 </span>
                 <span className="shrink-0 text-sm font-medium text-zinc-500">
                   {item.hits.toLocaleString()} hits
@@ -196,21 +196,21 @@ export function InsightsPanel() {
         )}
       </section>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5">
-        <h2 className="font-semibold text-zinc-900">Duplicate files</h2>
+      <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Duplicate files</h2>
         <p className="text-sm text-zinc-500">Files with identical content, grouped by hash.</p>
         {duplicates.length === 0 ? (
           <p className="mt-3 text-sm text-zinc-400">No duplicates found — nice and tidy.</p>
         ) : (
           <ul className="mt-3 space-y-3">
             {duplicates.map((group) => (
-              <li key={group.hash} className="rounded-lg bg-zinc-50 p-3">
+              <li key={group.hash} className="rounded-lg bg-zinc-50 dark:bg-zinc-800/50 p-3">
                 <div className="mb-1 text-xs font-medium text-zinc-500">
                   {group.files.length} copies
                 </div>
                 <ul className="space-y-1">
                   {group.files.map((file) => (
-                    <li key={file.id} className="flex items-center gap-2 text-sm text-zinc-700">
+                    <li key={file.id} className="flex items-center gap-2 text-sm text-zinc-700 dark:text-zinc-300">
                       <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
                       <span className="truncate">{file.name}</span>
                     </li>

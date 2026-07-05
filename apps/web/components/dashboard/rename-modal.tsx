@@ -37,10 +37,10 @@ export function RenameModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-900">{title}</h3>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
         <Input
           className="mt-3"
           value={name}
@@ -52,7 +52,7 @@ export function RenameModal({
         <div className="mt-4 flex justify-end gap-2">
           <Button
             onClick={onClose}
-            className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+            className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           >
             Cancel
           </Button>

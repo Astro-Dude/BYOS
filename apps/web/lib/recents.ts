@@ -40,3 +40,15 @@ export function addRecentFolder(folder: FolderItem): void {
   r.folders = [folder, ...r.folders.filter((f) => f.id !== folder.id)].slice(0, CAP);
   write(r);
 }
+
+export function removeRecentFile(id: string): void {
+  const r = read();
+  r.files = r.files.filter((f) => f.id !== id);
+  write(r);
+}
+
+export function removeRecentFolder(id: string): void {
+  const r = read();
+  r.folders = r.folders.filter((f) => f.id !== id);
+  write(r);
+}

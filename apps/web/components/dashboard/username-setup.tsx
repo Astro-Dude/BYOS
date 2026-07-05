@@ -43,11 +43,11 @@ export function UsernameSetup() {
       <h1 className="text-2xl font-semibold tracking-tight">Choose your username</h1>
       <p className="mt-1 text-sm text-zinc-500">
         It&apos;s unique and permanent. Your shareable links live at{" "}
-        <code className="rounded bg-zinc-100 px-1">/{username || "you"}/…</code>
+        <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1">/{username || "you"}/…</code>
       </p>
 
       <form onSubmit={submit} className="mt-6">
-        <div className="flex items-center rounded-md border border-zinc-300 bg-white px-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
+        <div className="flex items-center rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
           <span className="text-sm text-zinc-400">/</span>
           <Input
             value={username}

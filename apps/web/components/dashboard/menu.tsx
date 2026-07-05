@@ -79,7 +79,7 @@ export function Menu({
             <div
               ref={menuRef}
               style={{ position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
-              className="z-[100] min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg"
+              className="z-[100] min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
             >
               {children(() => setOpen(false))}
             </div>,
@@ -108,8 +108,8 @@ export function MenuItem({
         e.stopPropagation();
         onClick();
       }}
-      className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-zinc-50 ${
-        danger ? "text-red-600" : "text-zinc-700"
+      className={`flex w-full items-center gap-3 px-4 py-2 text-left text-sm hover:bg-zinc-50 dark:hover:bg-zinc-800 ${
+        danger ? "text-red-600" : "text-zinc-700 dark:text-zinc-300"
       }`}
     >
       {icon}

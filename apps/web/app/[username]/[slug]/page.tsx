@@ -82,7 +82,7 @@ export default function SharedFolderPage() {
           <Folder className="h-4 w-4 text-indigo-500" />
           <span>Shared folder</span>
         </div>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900">
+        <h1 className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
           {view?.root_name ?? slug}
         </h1>
         <p className="mt-0.5 text-sm text-zinc-500">by @{view?.owner_username ?? username}</p>
@@ -97,8 +97,8 @@ export default function SharedFolderPage() {
                 onClick={() => c.id && openFolder(c.id)}
                 className={
                   i === view.breadcrumb.length - 1
-                    ? "font-medium text-zinc-900"
-                    : "hover:text-zinc-800 hover:underline"
+                    ? "font-medium text-zinc-900 dark:text-zinc-100"
+                    : "hover:text-zinc-800 dark:text-zinc-200 hover:underline"
                 }
               >
                 {c.name}
@@ -115,28 +115,28 @@ export default function SharedFolderPage() {
       ) : loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-zinc-100" />
+            <div key={i} className="h-12 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
           ))}
         </div>
       ) : view && view.folders.length === 0 && view.files.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200 p-10 text-center text-sm text-zinc-500">
+        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-10 text-center text-sm text-zinc-500">
           This folder is empty.
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-100 rounded-lg border border-zinc-200">
+        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800">
           {view?.folders.map((f) => (
             <li key={f.id}>
               <button
                 onClick={() => openFolder(f.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50"
+                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
               >
                 <Folder className="h-5 w-5 shrink-0 text-indigo-500" />
-                <span className="truncate text-sm font-medium text-zinc-900">{f.name}</span>
+                <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{f.name}</span>
               </button>
             </li>
           ))}
           {view?.files.map((f) => (
-            <li key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50">
+            <li key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800">
               <a
                 href={api.publicFolderFileUrl(username, slug, f.id)}
                 target="_blank"
@@ -144,12 +144,12 @@ export default function SharedFolderPage() {
                 className="flex min-w-0 flex-1 items-center gap-3"
               >
                 <FileIcon className="h-5 w-5 shrink-0 text-zinc-400" />
-                <span className="truncate text-sm text-zinc-900">{f.name}</span>
+                <span className="truncate text-sm text-zinc-900 dark:text-zinc-100">{f.name}</span>
               </a>
               <span className="shrink-0 text-xs text-zinc-400">{humanSize(f.size)}</span>
               <a
                 href={api.publicFolderFileUrl(username, slug, f.id, true)}
-                className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
+                className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-100"
                 title="Download"
               >
                 <Download className="h-4 w-4" />

@@ -85,8 +85,8 @@ export function FolderShareModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-zinc-900">Share folder</h3>
+      <div className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Share folder</h3>
         <p className="mt-1 truncate text-sm text-zinc-500">📁 {folder.name}</p>
 
         {loading ? (
@@ -96,7 +96,7 @@ export function FolderShareModal({
           </div>
         ) : showEditor ? (
           <div className="mt-4">
-            <label className="text-sm font-medium text-zinc-700">
+            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
               {editing ? "Rename link" : "Choose a link name"}
             </label>
             <div className="mt-1 flex items-center gap-2">
@@ -116,7 +116,7 @@ export function FolderShareModal({
             <div className="mt-4 flex justify-end gap-2">
               <Button
                 onClick={() => (editing ? setEditing(false) : onClose())}
-                className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
               >
                 Cancel
               </Button>
@@ -142,7 +142,7 @@ export function FolderShareModal({
                   setError(null);
                   setEditing(true);
                 }}
-                className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+                className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
               >
                 Rename
               </Button>

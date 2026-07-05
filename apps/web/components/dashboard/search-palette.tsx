@@ -10,7 +10,6 @@ import {
   HardDrive,
   Link2,
   Search,
-  ShieldCheck,
   Star,
 } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
@@ -38,7 +37,6 @@ const PAGES: { view: DriveView; label: string; Icon: typeof HardDrive }[] = [
   { view: "starred", label: "Starred", Icon: Star },
   { view: "links", label: "Links", Icon: Link2 },
   { view: "insights", label: "Insights", Icon: BarChart3 },
-  { view: "activity", label: "Activity", Icon: ShieldCheck },
   { view: "developer", label: "Developer", Icon: Code2 },
 ];
 

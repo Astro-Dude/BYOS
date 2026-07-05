@@ -101,14 +101,14 @@ function ApiKeysSection() {
   };
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5">
-      <h2 className="font-semibold text-zinc-900">API keys</h2>
+    <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+      <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">API keys</h2>
       <p className="text-sm text-zinc-500">
         Authenticate programmatic requests with{" "}
-        <code className="rounded bg-zinc-100 px-1">Authorization: Bearer byosk_…</code>
+        <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1">Authorization: Bearer byosk_…</code>
       </p>
 
-      <div className="mt-4 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
+      <div className="mt-4 space-y-3 rounded-lg border border-zinc-200 dark:border-zinc-800 bg-zinc-50/60 dark:bg-zinc-800/40 p-3">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -122,8 +122,8 @@ function ApiKeysSection() {
           </p>
           <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
             {SCOPE_GROUPS.map((g) => (
-              <div key={g.resource} className="rounded-md border border-zinc-200 bg-white p-2">
-                <p className="text-xs font-medium text-zinc-700">{g.label}</p>
+              <div key={g.resource} className="rounded-md border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-2">
+                <p className="text-xs font-medium text-zinc-700 dark:text-zinc-300">{g.label}</p>
                 {(["read", "write"] as const).map((action) => {
                   const scope = `${g.resource}:${action}`;
                   return (
@@ -135,7 +135,7 @@ function ApiKeysSection() {
                         type="checkbox"
                         checked={scopes.has(scope)}
                         onChange={() => toggleScope(scope)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 accent-indigo-600"
+                        className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-700 accent-indigo-600"
                       />
                       {action}
                     </label>
@@ -152,7 +152,7 @@ function ApiKeysSection() {
             <select
               value={expiryDays ?? ""}
               onChange={(e) => setExpiryDays(e.target.value ? Number(e.target.value) : null)}
-              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs"
+              className="rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-2 py-1 text-xs"
             >
               {EXPIRY_OPTIONS.map((o) => (
                 <option key={o.label} value={o.days ?? ""}>
@@ -174,7 +174,7 @@ function ApiKeysSection() {
             Copy this key now — it won&apos;t be shown again.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="min-w-0 flex-1 truncate rounded bg-white px-2 py-1 text-sm">
+            <code className="min-w-0 flex-1 truncate rounded bg-white dark:bg-zinc-900 px-2 py-1 text-sm">
               {freshKey}
             </code>
             <button onClick={copyKey} className="shrink-0 text-sm font-medium text-indigo-600">
@@ -182,7 +182,7 @@ function ApiKeysSection() {
             </button>
             <button
               onClick={() => setFreshKey(null)}
-              className="shrink-0 text-sm text-zinc-400 hover:text-zinc-700"
+              className="shrink-0 text-sm text-zinc-400 hover:text-zinc-700 dark:text-zinc-300"
             >
               Dismiss
             </button>
@@ -191,12 +191,12 @@ function ApiKeysSection() {
       ) : null}
 
       {keys.length > 0 ? (
-        <ul className="mt-4 divide-y divide-zinc-100">
+        <ul className="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
           {keys.map((key) => (
             <li key={key.id} className="flex items-center justify-between gap-4 py-2.5">
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="truncate text-sm font-medium text-zinc-800">{key.name}</span>
+                  <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{key.name}</span>
                   {key.revoked_at ? (
                     <span className="rounded-full bg-red-50 px-2 py-0.5 text-xs text-red-600">
                       Revoked
@@ -220,7 +220,7 @@ function ApiKeysSection() {
                     {key.scopes.map((s) => (
                       <span
                         key={s}
-                        className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600"
+                        className="rounded bg-zinc-100 dark:bg-zinc-800 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600"
                       >
                         {s}
                       </span>
@@ -296,11 +296,11 @@ function WebhooksSection() {
   };
 
   return (
-    <section className="rounded-xl border border-zinc-200 bg-white p-5">
-      <h2 className="font-semibold text-zinc-900">Webhooks</h2>
+    <section className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-5">
+      <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Webhooks</h2>
       <p className="text-sm text-zinc-500">
         Receive signed POSTs on file events. Verify with the{" "}
-        <code className="rounded bg-zinc-100 px-1">X-BYOS-Signature</code> header.
+        <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1">X-BYOS-Signature</code> header.
       </p>
 
       <div className="mt-4 space-y-2">
@@ -316,7 +316,7 @@ function WebhooksSection() {
                 type="checkbox"
                 checked={events.includes(event)}
                 onChange={() => toggleEvent(event)}
-                className="h-3.5 w-3.5 rounded border-zinc-300 accent-indigo-600"
+                className="h-3.5 w-3.5 rounded border-zinc-300 dark:border-zinc-700 accent-indigo-600"
               />
               {event}
             </label>
@@ -330,11 +330,11 @@ function WebhooksSection() {
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
 
       {hooks.length > 0 ? (
-        <ul className="mt-4 divide-y divide-zinc-100">
+        <ul className="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
           {hooks.map((hook) => (
             <li key={hook.id} className="flex items-start justify-between gap-4 py-2.5">
               <div className="min-w-0">
-                <code className="block truncate text-sm text-zinc-800">{hook.url}</code>
+                <code className="block truncate text-sm text-zinc-800 dark:text-zinc-200">{hook.url}</code>
                 <div className="mt-1 flex flex-wrap gap-1">
                   {hook.events.map((event) => (
                     <span
@@ -375,10 +375,10 @@ function DocsSection() {
   const [open, setOpen] = useState(false);
   const base = api.apiBase;
   return (
-    <section className="rounded-lg border border-zinc-200 p-5">
+    <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h2 className="font-semibold text-zinc-900">Documentation</h2>
+          <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Documentation</h2>
           <p className="text-sm text-zinc-500">
             Everything you need to build against the BYOS API.
           </p>
@@ -388,7 +388,7 @@ function DocsSection() {
             href={api.docsUrl()}
             target="_blank"
             rel="noreferrer"
-            className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm font-medium text-zinc-700 hover:bg-zinc-50"
+            className="rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           >
             Interactive API reference ↗
           </a>
@@ -399,9 +399,9 @@ function DocsSection() {
       </div>
 
       {open ? (
-        <div className="mt-5 space-y-6 text-sm text-zinc-700">
+        <div className="mt-5 space-y-6 text-sm text-zinc-700 dark:text-zinc-300">
           <div>
-            <h3 className="font-semibold text-zinc-900">Authentication</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Authentication</h3>
             <p className="mt-1 text-zinc-600">
               Create an API key above, then send it as a Bearer token on every request.
               The full key is shown only once.
@@ -411,7 +411,7 @@ function DocsSection() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-zinc-900">Scopes &amp; safety</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Scopes &amp; safety</h3>
             <p className="mt-1 text-zinc-600">
               Each key is limited to the scopes you grant it —{" "}
               <code>files</code>, <code>folders</code>, and <code>aliases</code>, each with{" "}
@@ -428,7 +428,7 @@ function DocsSection() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-zinc-900">Core endpoints</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Core endpoints</h3>
             <div className="mt-2 overflow-x-auto">
               <table className="w-full text-left text-xs">
                 <thead className="text-zinc-500">
@@ -438,7 +438,7 @@ function DocsSection() {
                     <th className="py-1 font-medium">Description</th>
                   </tr>
                 </thead>
-                <tbody className="font-mono text-zinc-700">
+                <tbody className="font-mono text-zinc-700 dark:text-zinc-300">
                   {[
                     ["GET", "/files", "List files (paginated, filterable)"],
                     ["POST", "/files", "Upload a file"],
@@ -454,7 +454,7 @@ function DocsSection() {
                     ["GET", "/aliases", "List your links"],
                     ["GET", "/public/{user}/{slug}/list", "Browse a shared folder (public)"],
                   ].map(([m, p, d]) => (
-                    <tr key={`${m} ${p}`} className="border-t border-zinc-100">
+                    <tr key={`${m} ${p}`} className="border-t border-zinc-100 dark:border-zinc-800">
                       <td className="py-1 pr-4 text-indigo-600">{m}</td>
                       <td className="py-1 pr-4">{p}</td>
                       <td className="py-1 font-sans text-zinc-600">{d}</td>
@@ -466,7 +466,7 @@ function DocsSection() {
           </div>
 
           <div>
-            <h3 className="font-semibold text-zinc-900">Upload &amp; replace</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Upload &amp; replace</h3>
             <p className="mt-1 text-zinc-600">
               Uploads are multipart. Replacing a file keeps its permanent link and every
               existing version — the alias simply serves the newest one.
@@ -483,7 +483,7 @@ curl -X PUT ${base}/files/FILE_ID \\
           </div>
 
           <div>
-            <h3 className="font-semibold text-zinc-900">Links &amp; folder sharing</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Links &amp; folder sharing</h3>
             <p className="mt-1 text-zinc-600">
               A link (alias) targets <em>either</em> a file or a folder. File links stream
               the current version inline at <code>/{"{username}"}/{"{slug}"}</code>. Folder
@@ -507,7 +507,7 @@ curl ${base}/public/USERNAME/design-assets/list`}</CodeBlock>
           </div>
 
           <div>
-            <h3 className="font-semibold text-zinc-900">Webhooks</h3>
+            <h3 className="font-semibold text-zinc-900 dark:text-zinc-100">Webhooks</h3>
             <p className="mt-1 text-zinc-600">
               Register an endpoint below to receive <code>file.created</code>,{" "}
               <code>file.replaced</code>, and <code>file.deleted</code> events. Each
@@ -542,7 +542,7 @@ X-BYOS-Signature: sha256=...
 export function DeveloperPanel() {
   return (
     <div className="space-y-6 pt-2">
-      <h1 className="text-2xl font-normal text-zinc-800">Developer</h1>
+      <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Developer</h1>
       <DocsSection />
       <ApiKeysSection />
       <WebhooksSection />

@@ -6,8 +6,12 @@
   color-scheme: light;
 }
 
+.dark {
+  color-scheme: dark;
+}
+
 body {
-  @apply bg-zinc-50 text-zinc-900 antialiased;
+  @apply bg-zinc-50 text-zinc-900 antialiased transition-colors dark:bg-zinc-950 dark:text-zinc-100;
 }
 
 /* Gentle "breathing" for the brand loader — subtle, premium. */

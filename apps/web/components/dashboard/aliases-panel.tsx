@@ -65,13 +65,13 @@ export function AliasesPanel({
   if (!loading && aliases.length === 0) return null; // nothing to show yet
 
   return (
-    <section className="rounded-lg border border-zinc-200 p-5">
-      <h2 className="font-semibold text-zinc-900">Permanent links</h2>
+    <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
+      <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Permanent links</h2>
       <p className="text-sm text-zinc-500">
         Share these URLs — replacing the underlying file updates them everywhere.
       </p>
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
-      <ul className="mt-4 divide-y divide-zinc-100">
+      <ul className="mt-4 divide-y divide-zinc-100 dark:divide-zinc-800">
         {aliases.map((alias) => (
           <li key={alias.id} className="flex items-center justify-between gap-4 py-2">
             <div className="min-w-0">
@@ -79,7 +79,7 @@ export function AliasesPanel({
               {alias.target_name ? (
                 <button
                   onClick={() => onOpenLocation(alias.parent_folder_id)}
-                  className="mt-0.5 truncate text-xs text-zinc-500 hover:text-zinc-800 hover:underline"
+                  className="mt-0.5 truncate text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-200 hover:underline"
                   title={alias.target_type === "folder" ? "Open folder" : "Go to file location"}
                 >
                   {alias.target_type === "folder" ? "📁" : "→"} {alias.target_name}
@@ -89,7 +89,7 @@ export function AliasesPanel({
             <div className="flex shrink-0 gap-3">
               <button
                 onClick={() => copy(alias)}
-                className="text-sm font-medium text-zinc-600 hover:text-zinc-900"
+                className="text-sm font-medium text-zinc-600 hover:text-zinc-900 dark:text-zinc-100"
               >
                 {copied === alias.slug ? "Copied" : "Copy URL"}
               </button>

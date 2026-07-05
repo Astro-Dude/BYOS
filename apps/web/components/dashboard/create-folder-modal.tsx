@@ -36,7 +36,7 @@ export function CreateFolderModal({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl"
+        className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
@@ -45,7 +45,7 @@ export function CreateFolderModal({
             fill={color ?? "none"}
             style={color ? { color } : undefined}
           />
-          <h3 className="text-base font-semibold text-zinc-900">New folder</h3>
+          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">New folder</h3>
         </div>
 
         <Input
@@ -64,7 +64,7 @@ export function CreateFolderModal({
               type="button"
               onClick={() => setColor(null)}
               aria-label="No color"
-              className={`h-6 w-6 rounded-full border border-zinc-300 bg-white ${
+              className={`h-6 w-6 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 ${
                 color === null ? "ring-2 ring-zinc-400 ring-offset-1" : ""
               }`}
             />
@@ -86,7 +86,7 @@ export function CreateFolderModal({
         <div className="mt-6 flex justify-end gap-2">
           <Button
             onClick={onClose}
-            className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50"
+            className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
           >
             Cancel
           </Button>

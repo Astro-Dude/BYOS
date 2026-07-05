@@ -79,12 +79,12 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-          <p className="truncate text-sm font-medium text-zinc-900">{file.name}</p>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700" aria-label="Close">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+          <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
@@ -103,7 +103,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
           ) : kind === "audio" && url ? (
             <audio src={url} controls className="w-full" />
           ) : kind === "text" && text !== null ? (
-            <pre className="w-full whitespace-pre-wrap break-words text-left text-xs text-zinc-800">
+            <pre className="w-full whitespace-pre-wrap break-words text-left text-xs text-zinc-800 dark:text-zinc-200">
               {text}
             </pre>
           ) : (

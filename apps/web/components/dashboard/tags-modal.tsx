@@ -55,8 +55,8 @@ export function TagsModal({
       className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-zinc-900">Tags</h3>
+      <div className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Tags</h3>
         <p className="mt-1 truncate text-sm text-zinc-500">for {file.name}</p>
 
         <div className="mt-4 flex flex-wrap gap-2">

@@ -103,20 +103,20 @@ export function VersionsModal({
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-zinc-900">Versions · {file.name}</p>
+            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">Versions · {file.name}</p>
             <p className="text-xs text-zinc-500">Replacing keeps the same links; they serve the latest.</p>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700" aria-label="Close">
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="border-b border-zinc-100 px-4 py-3">
+        <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
           <Button disabled={busy} onClick={() => inputRef.current?.click()}>
             {busy ? "Working…" : "Replace with new file"}
           </Button>
@@ -133,11 +133,11 @@ export function VersionsModal({
           {loading ? (
             <p className="p-4 text-sm text-zinc-500">Loading…</p>
           ) : (
-            <ul className="divide-y divide-zinc-100">
+            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
               {versions.map((v) => (
                 <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-900">
+                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
                       v{v.version_no}
                       {v.is_current ? (
                         <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
@@ -159,7 +159,7 @@ export function VersionsModal({
                     {!v.is_current && (
                       <button
                         onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined), "Version restored — link now serves this version")}
-                        className="text-zinc-700 hover:underline"
+                        className="text-zinc-700 dark:text-zinc-300 hover:underline"
                       >
                         Restore
                       </button>

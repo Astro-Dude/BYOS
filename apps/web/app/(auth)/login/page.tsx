@@ -145,7 +145,7 @@ export default function LoginPage() {
             setStep("phone");
             setError(null);
           }}
-          className="mt-4 text-sm text-zinc-500 hover:text-zinc-800"
+          className="mt-4 text-sm text-zinc-500 hover:text-zinc-800 dark:text-zinc-200"
         >
           ← Start over
         </button>

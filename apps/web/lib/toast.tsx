@@ -29,14 +29,14 @@ export function ToastProvider({ children }: { children: ReactNode }) {
         {toasts.map((t) => (
           <div
             key={t.id}
-            className="pointer-events-auto flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm shadow-lg"
+            className="pointer-events-auto flex items-center gap-2 rounded-lg border border-zinc-200 bg-white px-3.5 py-2.5 text-sm shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
           >
             {t.type === "error" ? (
               <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
             ) : (
               <Check className="h-4 w-4 shrink-0 text-indigo-600" />
             )}
-            <span className="text-zinc-800">{t.message}</span>
+            <span className="text-zinc-800 dark:text-zinc-200">{t.message}</span>
           </div>
         ))}
       </div>
