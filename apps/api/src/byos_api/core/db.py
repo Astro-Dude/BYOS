@@ -21,8 +21,9 @@ def prepare_asyncpg(raw_url: str) -> tuple[URL, dict[str, Any]]:
     - Strips libpq-only query params (``sslmode``, ``channel_binding``) that the
       asyncpg driver rejects, and translates an SSL requirement into asyncpg's
       ``ssl`` connect arg (managed providers like Neon/Supabase append these).
-    - For PgBouncer endpoints (Neon's ``-pooler`` host), disables asyncpg's
-      prepared-statement cache, which is incompatible with transaction pooling.
+    - For PgBouncer/pooler endpoints (Neon's ``-pooler`` host, Supabase's
+      ``...pooler.supabase.com``), disables asyncpg's prepared-statement cache,
+      which is incompatible with transaction pooling.
     """
     url = make_url(raw_url)
     query = dict(url.query)
@@ -37,7 +38,7 @@ def prepare_asyncpg(raw_url: str) -> tuple[URL, dict[str, Any]]:
     )
     if ssl_required:
         connect_args["ssl"] = "require"
-    if "-pooler" in (url.host or ""):
+    if "pooler" in (url.host or ""):  # Neon (-pooler) or Supabase (pooler.supabase.com)
         connect_args["statement_cache_size"] = 0
     return url, connect_args
 
