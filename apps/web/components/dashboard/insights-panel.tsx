@@ -10,7 +10,7 @@ import {
 import { FileText, Globe, Link2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
-import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -124,7 +124,18 @@ export function InsightsPanel() {
   }, [load]);
 
   if (loading && !overview) {
-    return <BrandLoader className="py-24" label="Loading insights…" />;
+    return (
+      <div className="space-y-6 pt-2">
+        <Skeleton className="h-7 w-28" />
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <Skeleton key={i} className="h-24 rounded-xl" />
+          ))}
+        </div>
+        <Skeleton className="h-56 rounded-xl" />
+        <Skeleton className="h-40 rounded-xl" />
+      </div>
+    );
   }
   if (error) {
     return <p className="py-10 text-center text-sm text-red-600">{error}</p>;

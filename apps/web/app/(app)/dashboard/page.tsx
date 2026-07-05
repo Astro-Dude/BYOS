@@ -47,7 +47,6 @@ import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
-import { BrandLoader } from "@/components/ui/brand-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -379,8 +378,30 @@ export default function DashboardPage() {
 
   if (authLoading || !user) {
     return (
-      <div className="flex h-screen items-center justify-center bg-zinc-50">
-        <BrandLoader />
+      <div className="flex h-screen bg-zinc-50">
+        <div className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white p-4 sm:block">
+          <Skeleton className="h-8 w-24" />
+          <Skeleton className="mt-4 h-12 w-full rounded-2xl" />
+          <div className="mt-4 space-y-1.5">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <Skeleton key={i} className="h-8 w-full rounded-r-full" />
+            ))}
+          </div>
+        </div>
+        <div className="flex-1 p-6">
+          <Skeleton className="h-9 w-64 rounded-full" />
+          <Skeleton className="mt-6 h-7 w-40" />
+          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="flex items-center gap-4 border-b border-zinc-50 px-4 py-3.5">
+                <Skeleton className="h-5 w-5" />
+                <Skeleton className="h-4 w-1/3" />
+                <Skeleton className="ml-auto h-3 w-14" />
+                <Skeleton className="h-3 w-10" />
+              </div>
+            ))}
+          </div>
+        </div>
       </div>
     );
   }

@@ -6,9 +6,9 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/logo";
-import { BrandLoader } from "@/components/ui/brand-loader";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
 
@@ -74,8 +74,12 @@ export default function LoginPage() {
 
   if (authLoading || user) {
     return (
-      <main className="flex min-h-screen items-center justify-center">
-        <BrandLoader />
+      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
+        <Skeleton className="h-9 w-32" />
+        <Skeleton className="mt-8 h-7 w-52" />
+        <Skeleton className="mt-3 h-4 w-full" />
+        <Skeleton className="mt-8 h-11 w-full rounded-md" />
+        <Skeleton className="mt-3 h-11 w-full rounded-md" />
       </main>
     );
   }

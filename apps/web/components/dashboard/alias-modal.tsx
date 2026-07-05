@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
@@ -75,7 +75,10 @@ export function AliasModal({
         <p className="mt-1 truncate text-sm text-zinc-500">for {file.name}</p>
 
         {loading ? (
-          <BrandLoader className="py-8" />
+          <div className="mt-4 space-y-2">
+            <Skeleton className="h-4 w-3/4" />
+            <Skeleton className="h-10 w-full rounded-md" />
+          </div>
         ) : linkUrl ? (
           <div className="mt-4">
             <p className="text-sm text-zinc-600">

@@ -4,7 +4,7 @@ import { ApiError, type AuditItem } from "@byos/api-client";
 import { Ban, Dot, Globe, KeyRound, LogIn, Trash2 } from "lucide-react";
 import { type ReactNode, useCallback, useEffect, useState } from "react";
 
-import { BrandLoader } from "@/components/ui/brand-loader";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -61,7 +61,15 @@ export function ActivityPanel() {
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
       {loading ? (
-        <BrandLoader className="py-16" />
+        <ul className="divide-y divide-zinc-100 rounded-xl border border-zinc-200 bg-white">
+          {Array.from({ length: 6 }).map((_, i) => (
+            <li key={i} className="flex items-center gap-3 px-4 py-3">
+              <Skeleton className="h-4 w-4" />
+              <Skeleton className="h-4 w-40" />
+              <Skeleton className="ml-auto h-3 w-16" />
+            </li>
+          ))}
+        </ul>
       ) : items.length === 0 ? (
         <p className="rounded-xl border border-dashed border-zinc-200 py-16 text-center text-sm text-zinc-400">
           No activity recorded yet.
