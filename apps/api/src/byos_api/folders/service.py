@@ -3,13 +3,18 @@ and subtree (cycle-check) queries use recursive CTEs, all owner-scoped."""
 
 from __future__ import annotations
 
+import logging
 import uuid
 from collections import defaultdict
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.db.models import File, Folder, User
+from byos_api.db.models import File, FileVersion, Folder, User
+from byos_api.files import service as files_service
+from byos_api.storage import StoredObjectRef, get_provider
+
+logger = logging.getLogger("byos")
 
 
 async def subtree_sizes(db: AsyncSession, user: User) -> dict[uuid.UUID, int]:
@@ -73,6 +78,29 @@ FOLDER_COLORS = {
     "#8B5CF6",  # violet
     "#64748B",  # slate
 }
+
+
+async def subtree_folder_ids(
+    db: AsyncSession, user: User, root_id: uuid.UUID
+) -> set[uuid.UUID]:
+    """All folder ids in the subtree rooted at root_id (inclusive), owner-scoped."""
+    rows = (
+        await db.execute(
+            select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id)
+        )
+    ).all()
+    children: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
+    for fid, pid in rows:
+        children[pid].append(fid)
+    result: set[uuid.UUID] = set()
+    stack = [root_id]
+    while stack:
+        cur = stack.pop()
+        if cur in result:
+            continue
+        result.add(cur)
+        stack.extend(children.get(cur, []))
+    return result
 
 
 async def search_folders(
@@ -194,10 +222,45 @@ async def move_folder(
     return folder
 
 
+async def _delete_file_bytes(db: AsyncSession, user: User, record: File) -> None:
+    """Best-effort removal of a file's stored objects from the provider. Never
+    raises — a provider hiccup shouldn't block deleting the metadata."""
+    try:
+        account = await files_service.account_for_file(db, user, record)
+        if account is None:
+            return
+        provider = get_provider(record.provider)
+        versions = (
+            await db.execute(select(FileVersion).where(FileVersion.file_id == record.id))
+        ).scalars().all()
+        for version in versions:
+            await provider.delete(
+                account,
+                StoredObjectRef(
+                    provider=record.provider,
+                    locator=version.provider_locator,
+                    size=version.size,
+                ),
+            )
+    except Exception:
+        logger.warning("provider cleanup failed for file %s during folder delete", record.id)
+
+
 async def delete_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -> None:
     folder = await get_owned_folder(db, user, folder_id)
-    # Subfolders cascade (FK); files under this folder become root (folder_id → NULL).
-    await db.delete(folder)
+    # Recursive delete: remove every file nested anywhere in this folder's
+    # subtree (bytes + metadata), then delete the folder — its subfolders cascade
+    # via the parent_id FK. Files are NOT orphaned to the root.
+    ids = await subtree_folder_ids(db, user, folder_id)
+    files = (
+        await db.execute(select(File).where(File.owner_id == user.id, File.folder_id.in_(ids)))
+    ).scalars().all()
+    for record in files:
+        await _delete_file_bytes(db, user, record)
+        record.current_version_id = None
+        await db.flush()
+        await db.delete(record)  # cascades to file_versions
+    await db.delete(folder)  # cascades to subfolders
     await db.commit()
 
 

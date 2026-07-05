@@ -1150,7 +1150,7 @@ export default function DashboardPage() {
           message={
             confirming.kind === "file"
               ? `“${confirming.file.name}” will be permanently removed from your drive.`
-              : `“${confirming.folder.name}” and its subfolders will be removed. Files inside move to the root — they aren't deleted.`
+              : `“${confirming.folder.name}” and everything inside it — subfolders and files — will be permanently deleted.`
           }
           onCancel={() => setConfirming(null)}
           onConfirm={() => {
