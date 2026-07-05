@@ -34,6 +34,7 @@ const FILTERS: { insert: string; label: string; hint: string }[] = [
 ];
 
 type Item =
+  | { kind: "search" }
   | { kind: "folder"; folder: FolderItem }
   | { kind: "file"; file: FileItem };
 
@@ -42,11 +43,13 @@ export function SearchPalette({
   onClose,
   onOpenFile,
   onOpenFolder,
+  onSearchAll,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenFile: (file: FileItem) => void;
   onOpenFolder: (folderId: string) => void;
+  onSearchAll: (query: string) => void;
 }) {
   const authed = useAuthed();
   const [query, setQuery] = useState("");
@@ -58,14 +61,19 @@ export function SearchPalette({
   const [showHelp, setShowHelp] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Flat list backing keyboard navigation (folders first, then files).
+  const hasQuery = query.trim() !== "";
+
+  // Flat list backing keyboard nav: the "search all" action, then folders, files.
   const items = useMemo<Item[]>(
     () => [
+      ...(hasQuery ? [{ kind: "search" as const }] : []),
       ...folders.map((folder) => ({ kind: "folder" as const, folder })),
       ...files.map((file) => ({ kind: "file" as const, file })),
     ],
-    [folders, files],
+    [hasQuery, folders, files],
   );
+  const folderBase = hasQuery ? 1 : 0;
+  const fileBase = folderBase + folders.length;
 
   useEffect(() => {
     if (open) {
@@ -95,7 +103,7 @@ export function SearchPalette({
         .then(([fld, fls]) => {
           setFolders(fld);
           setFiles(fls);
-          setActive(0);
+          setActive(0); // keep "search all" selected by default
         })
         .catch(() => {
           setFolders([]);
@@ -111,11 +119,12 @@ export function SearchPalette({
 
   const chooseItem = useCallback(
     (item: Item) => {
-      if (item.kind === "folder") onOpenFolder(item.folder.id);
+      if (item.kind === "search") onSearchAll(query.trim());
+      else if (item.kind === "folder") onOpenFolder(item.folder.id);
       else onOpenFile(item.file);
       onClose();
     },
-    [onOpenFile, onOpenFolder, onClose],
+    [onSearchAll, onOpenFolder, onOpenFile, onClose, query],
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -138,7 +147,7 @@ export function SearchPalette({
     inputRef.current?.focus();
   };
 
-  const empty = query.trim() !== "" && !loading && searched && items.length === 0;
+  const noMatches = hasQuery && !loading && searched && folders.length === 0 && files.length === 0;
 
   if (!open) return null;
 
@@ -201,28 +210,44 @@ export function SearchPalette({
         ) : null}
 
         {/* Results */}
-        <div className="max-h-[46vh] overflow-y-auto">
-          {loading && items.length === 0 ? (
-            <div className="space-y-1 p-2">
+        <div className="max-h-[46vh] overflow-y-auto p-2">
+          {hasQuery ? (
+            <button
+              onMouseEnter={() => setActive(0)}
+              onClick={() => chooseItem({ kind: "search" })}
+              className={rowClass(0)}
+            >
+              <Search className="h-5 w-5 shrink-0 text-indigo-500" />
+              <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
+                Search all results for <span className="font-medium">“{query.trim()}”</span>
+              </span>
+              <span className="shrink-0 text-[11px] text-zinc-400">see everything</span>
+            </button>
+          ) : null}
+
+          {loading && folders.length === 0 && files.length === 0 ? (
+            <div className="space-y-1 pt-1">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full rounded-lg" />
               ))}
             </div>
-          ) : empty ? (
-            <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              Nothing matches “{query.trim()}”.
+          ) : noMatches ? (
+            <p className="px-2 py-8 text-center text-sm text-zinc-400">
+              No files or folders match — press{" "}
+              <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1">↵</kbd> anyway to
+              open the results page.
             </p>
-          ) : items.length > 0 ? (
-            <div className="p-2">
+          ) : (
+            <>
               {folders.length > 0 ? (
                 <ul>
-                  <li className="px-2 pb-1 pt-1 text-xs font-medium text-zinc-400">Folders</li>
+                  <li className="px-2 pb-1 pt-2 text-xs font-medium text-zinc-400">Folders</li>
                   {folders.map((folder, i) => (
                     <li key={folder.id}>
                       <button
-                        onMouseEnter={() => setActive(i)}
+                        onMouseEnter={() => setActive(folderBase + i)}
                         onClick={() => chooseItem({ kind: "folder", folder })}
-                        className={rowClass(i)}
+                        className={rowClass(folderBase + i)}
                       >
                         <FolderIcon
                           className="h-5 w-5 shrink-0 text-indigo-500"
@@ -240,33 +265,31 @@ export function SearchPalette({
               {files.length > 0 ? (
                 <ul>
                   <li className="px-2 pb-1 pt-2 text-xs font-medium text-zinc-400">Files</li>
-                  {files.map((file, i) => {
-                    const idx = folders.length + i;
-                    return (
-                      <li key={file.id}>
-                        <button
-                          onMouseEnter={() => setActive(idx)}
-                          onClick={() => chooseItem({ kind: "file", file })}
-                          className={rowClass(idx)}
-                        >
-                          {fileIcon(file.mime, file.ext, "h-5 w-5 shrink-0 text-zinc-400")}
-                          <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
-                            {file.name}
-                          </span>
-                          <span className="shrink-0 text-xs text-zinc-400">
-                            {humanSize(file.size)}
-                          </span>
-                        </button>
-                      </li>
-                    );
-                  })}
+                  {files.map((file, i) => (
+                    <li key={file.id}>
+                      <button
+                        onMouseEnter={() => setActive(fileBase + i)}
+                        onClick={() => chooseItem({ kind: "file", file })}
+                        className={rowClass(fileBase + i)}
+                      >
+                        {fileIcon(file.mime, file.ext, "h-5 w-5 shrink-0 text-zinc-400")}
+                        <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
+                          {file.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-zinc-400">
+                          {humanSize(file.size)}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
                 </ul>
               ) : null}
-            </div>
-          ) : (
-            <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              Start typing to search, or open <strong>Filters</strong> for operators.
-            </p>
+              {!hasQuery ? (
+                <p className="px-2 py-8 text-center text-sm text-zinc-400">
+                  Start typing to search, or open <strong>Filters</strong> for operators.
+                </p>
+              ) : null}
+            </>
           )}
         </div>
 
@@ -281,7 +304,7 @@ export function SearchPalette({
             <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1">
               <CornerDownLeft className="h-3 w-3" />
             </kbd>
-            open
+            open · full results
           </span>
           <span className="flex items-center gap-1">
             <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1">esc</kbd>

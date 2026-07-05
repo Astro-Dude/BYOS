@@ -123,6 +123,7 @@ export default function DashboardPage() {
 
   const [search, setSearch] = useState("");
   const [results, setResults] = useState<FileItem[] | null>(null);
+  const [folderResults, setFolderResults] = useState<FolderItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<Category>("all");
 
   const [nfOpen, setNfOpen] = useState(false);
@@ -245,13 +246,21 @@ export default function DashboardPage() {
 
   useEffect(() => {
     const id = setTimeout(() => {
-      if (!search.trim()) {
+      const q = search.trim();
+      if (!q) {
         setResults(null);
+        setFolderResults([]);
         return;
       }
-      authed((t) => api.nlSearch(t, search.trim()))
-        .then(setResults)
-        .catch(() => setResults([]));
+      authed((t) => Promise.all([api.nlSearch(t, q), api.searchFolders(t, q)]))
+        .then(([files, folders]) => {
+          setResults(files);
+          setFolderResults(folders);
+        })
+        .catch(() => {
+          setResults([]);
+          setFolderResults([]);
+        });
     }, 300);
     return () => clearTimeout(id);
   }, [search, authed]);
@@ -360,6 +369,13 @@ export default function DashboardPage() {
     setTagFilter(tag);
   };
 
+  // Navigate into a folder, leaving any active search/tag view.
+  const openFolder = (id: string) => {
+    setSearch("");
+    setTagFilter(null);
+    setFolderId(id);
+  };
+
   const moveFileToFolder = (fileId: string, folderId: string | null) => {
     setDragFolder(null);
     // Optimistic: it leaves the current folder view; a failed move resyncs on reload.
@@ -446,8 +462,14 @@ export default function DashboardPage() {
   const plainDrive = view === "drive" && !tagFilter && !searchActive;
   const rawFiles = searchActive ? (results ?? []) : files;
   const shownFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
-  const shownFolders =
-    plainDrive && (typeFilter === "all" || typeFilter === "folder") ? folders : [];
+  const allowFolders = typeFilter === "all" || typeFilter === "folder";
+  const shownFolders = searchActive
+    ? allowFolders
+      ? folderResults
+      : []
+    : plainDrive && allowFolders
+      ? folders
+      : [];
 
   const menuTrigger = (
     <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
@@ -476,7 +498,7 @@ export default function DashboardPage() {
     <Menu trigger={() => menuTrigger}>
       {(close) => (
         <>
-          <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
+          <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); openFolder(folder.id); }} />
           <MenuItem icon={<Share2 className="h-4 w-4" />} label="Share" onClick={() => { close(); setSharingFolder(folder); }} />
           <MenuItem icon={<Pencil className="h-4 w-4" />} label="Rename" onClick={() => { close(); setRenamingFolder(folder); }} />
           <div
@@ -507,7 +529,7 @@ export default function DashboardPage() {
   const emptyState = (
     <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 py-24 text-center">
       <p className="text-base font-medium text-zinc-900">
-        {searchActive ? "No matching files" : "This folder is empty"}
+        {searchActive ? "No matching files or folders" : "This folder is empty"}
       </p>
       <p className="mt-1 text-sm text-zinc-500">
         {searchActive ? "Try a different search." : "Drop files here or use New to upload."}
@@ -577,7 +599,7 @@ export default function DashboardPage() {
               moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          onClick={() => setFolderId(folder.id)}
+          onClick={() => openFolder(folder.id)}
           className={`grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 ${
             dragFolder === folder.id ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400" : "hover:bg-zinc-50"
           }`}
@@ -667,7 +689,7 @@ export default function DashboardPage() {
               moveFolderIntoFolder(folderId, folder.id);
             }
           }}
-          onClick={() => setFolderId(folder.id)}
+          onClick={() => openFolder(folder.id)}
           className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
             dragFolder === folder.id
               ? "border-indigo-400 ring-2 ring-indigo-400"
@@ -735,13 +757,13 @@ export default function DashboardPage() {
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
         <header className="flex items-center gap-4 px-6 py-3">
-          <div className="flex-1">
+          <div className="flex flex-1 justify-center">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="flex w-full max-w-2xl items-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5 text-left transition hover:bg-zinc-200/70"
+              className="flex w-full max-w-md items-center gap-2 rounded-full bg-zinc-100 px-4 py-2 text-left transition hover:bg-zinc-200/70"
             >
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />
-              <span className="flex-1 text-sm text-zinc-400">Search files…</span>
+              <span className="flex-1 text-sm text-zinc-400">Search files &amp; folders…</span>
               <kbd className="hidden shrink-0 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">
                 ⌘K
               </kbd>
@@ -916,9 +938,12 @@ export default function DashboardPage() {
         onOpenFile={(f) => setPreview(f)}
         onOpenFolder={(fid) => {
           setView("drive");
+          openFolder(fid);
+        }}
+        onSearchAll={(q) => {
+          setView("drive");
           setTagFilter(null);
-          setSearch("");
-          setFolderId(fid);
+          setSearch(q);
         }}
       />
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
