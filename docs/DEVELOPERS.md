@@ -108,7 +108,18 @@ Session (browser) logins have full access and bypass scope checks.
 | `GET /files/tags` | All your tag names |
 | `GET /files/duplicates` | Files grouped by identical content hash |
 | `GET /files/search?q&ext&mime&folder_id&limit` | Full‑text + fuzzy search |
-| `GET /files/nl-search?q&limit` | Natural‑language search ("pdfs from last week >2mb") |
+| `GET /files/nl-search?q&limit` | Search with **filter operators** + natural language (below) |
+
+**Search operators** (`/files/nl-search`) — combine any of these; anything else is
+fuzzy full‑text. Natural phrases (`pdfs from last week larger than 2mb`) still work.
+
+```
+type:pdf|image|video|audio|doc   ext:png
+tag:invoice (repeatable)         in:reports (folder name)
+size:>2mb   size:<500kb          is:starred
+after:2026-06-01  before:2026-07-01  during:2026-06   (year / month / day)
+"exact phrase"   -exclude
+```
 
 **FileItem** shape:
 ```json

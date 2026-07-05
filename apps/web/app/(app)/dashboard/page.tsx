@@ -11,26 +11,20 @@ import {
   Check,
   Download,
   Eye,
-  File as FileIcon,
-  FileArchive,
-  FileText,
   Folder,
   FolderInput,
   FolderOpen,
   History,
-  Image as ImageIcon,
   LayoutGrid,
   List,
   Loader2,
   MoreVertical,
-  Music,
   Pencil,
   Search,
   Share2,
   Star,
   Tag,
   Trash2,
-  Video,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -41,6 +35,8 @@ import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { CreateFolderModal } from "@/components/dashboard/create-folder-modal";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
+import { fileIcon } from "@/components/dashboard/file-icon";
+import { SearchPalette } from "@/components/dashboard/search-palette";
 import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
@@ -77,16 +73,6 @@ function humanSize(bytes: number): string {
     i += 1;
   }
   return `${value.toFixed(1)} ${units[i]}`;
-}
-
-function fileIcon(mime: string | null, ext: string | null, className = "h-5 w-5 text-zinc-500") {
-  const m = mime ?? "";
-  if (m.startsWith("image/")) return <ImageIcon className={className} />;
-  if (m.startsWith("video/")) return <Video className={className} />;
-  if (m.startsWith("audio/")) return <Music className={className} />;
-  if (m === "application/pdf" || ext === "pdf") return <FileText className={className} />;
-  if (["zip", "tar", "gz", "rar", "7z"].includes(ext ?? "")) return <FileArchive className={className} />;
-  return <FileIcon className={className} />;
 }
 
 function matchesType(file: FileItem, cat: Category): boolean {
@@ -142,6 +128,7 @@ export default function DashboardPage() {
   const [nfOpen, setNfOpen] = useState(false);
   const [aliasRefresh, setAliasRefresh] = useState(0);
   const [preview, setPreview] = useState<FileItem | null>(null);
+  const [paletteOpen, setPaletteOpen] = useState(false);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
   const [sharingFolder, setSharingFolder] = useState<FolderItem | null>(null);
   const [renamingFile, setRenamingFile] = useState<FileItem | null>(null);
@@ -227,6 +214,18 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
+
+  // ⌘K / Ctrl+K opens the search palette from anywhere.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
+        e.preventDefault();
+        setPaletteOpen(true);
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   // Infinite scroll: load the next page when the sentinel scrolls into view.
   useEffect(() => {
@@ -737,15 +736,16 @@ export default function DashboardPage() {
         {/* Top bar */}
         <header className="flex items-center gap-4 px-6 py-3">
           <div className="flex-1">
-            <div className="flex max-w-2xl items-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5">
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="flex w-full max-w-2xl items-center gap-2 rounded-full bg-zinc-100 px-4 py-2.5 text-left transition hover:bg-zinc-200/70"
+            >
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />
-              <input
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder='Search — try "pdfs from last week"'
-                className="w-full bg-transparent text-sm outline-none placeholder:text-zinc-400"
-              />
-            </div>
+              <span className="flex-1 text-sm text-zinc-400">Search files…</span>
+              <kbd className="hidden shrink-0 rounded border border-zinc-300 bg-white px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">
+                ⌘K
+              </kbd>
+            </button>
           </div>
           <Menu
             trigger={() => (
@@ -910,6 +910,11 @@ export default function DashboardPage() {
         </main>
       </div>
 
+      <SearchPalette
+        open={paletteOpen}
+        onClose={() => setPaletteOpen(false)}
+        onOpenFile={(f) => setPreview(f)}
+      />
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
       {aliasFor ? (
         <AliasModal

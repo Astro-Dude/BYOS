@@ -6,14 +6,14 @@ from __future__ import annotations
 
 import logging
 import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime, time, timedelta
 
-from sqlalchemy import func, select, text
+from sqlalchemy import false, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.ai.nl_search import ParsedQuery
 from byos_api.core import crypto
-from byos_api.db.models import File, FileVersion, StorageAccount, Tag, User
+from byos_api.db.models import File, FileVersion, Folder, StorageAccount, Tag, User
 from byos_api.providers import service as providers_service
 from byos_api.storage import ProviderAccount, StoredObjectRef, get_provider
 
@@ -168,21 +168,40 @@ async def nl_search(db: AsyncSession, user: User, parsed: ParsedQuery, limit: in
     recency) plus optional full-text on the remaining terms."""
     stmt = select(File).where(File.owner_id == user.id)
     if parsed.text:
+        like = parsed.text.replace('"', "").strip()
         stmt = stmt.where(
             text(
                 "(search_vector @@ websearch_to_tsquery('english', :q) OR name ILIKE :like)"
-            ).bindparams(q=parsed.text, like=f"%{parsed.text}%")
+            ).bindparams(q=parsed.text, like=f"%{like}%")
         )
     if parsed.ext:
         stmt = stmt.where(File.ext == parsed.ext.lower())
     if parsed.mime_prefix:
         stmt = stmt.where(File.mime.ilike(f"{parsed.mime_prefix}%"))
+    for tag in parsed.tags:
+        stmt = stmt.where(File.tags.any(Tag.name == tag))
+    if parsed.is_favorite:
+        stmt = stmt.where(File.is_favorite.is_(True))
+    if parsed.folder_name is not None:
+        folder_ids = (
+            await db.execute(
+                select(Folder.id).where(
+                    Folder.owner_id == user.id,
+                    func.lower(Folder.name) == parsed.folder_name.lower(),
+                )
+            )
+        ).scalars().all()
+        stmt = stmt.where(File.folder_id.in_(folder_ids)) if folder_ids else stmt.where(false())
     if parsed.min_size is not None:
         stmt = stmt.where(File.size >= parsed.min_size)
     if parsed.max_size is not None:
         stmt = stmt.where(File.size <= parsed.max_size)
     if parsed.since_days is not None:
         stmt = stmt.where(File.created_at >= datetime.now(UTC) - timedelta(days=parsed.since_days))
+    if parsed.after is not None:
+        stmt = stmt.where(File.created_at >= datetime.combine(parsed.after, time.min, tzinfo=UTC))
+    if parsed.before is not None:
+        stmt = stmt.where(File.created_at < datetime.combine(parsed.before, time.min, tzinfo=UTC))
 
     if parsed.text:
         stmt = stmt.order_by(
