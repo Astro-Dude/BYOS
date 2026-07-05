@@ -145,6 +145,7 @@ Replacing a file keeps history; the current version is what downloads/links serv
 | Method & path | Purpose |
 |---|---|
 | `GET /folders?parent_id` | List a folder's children (root if omitted) |
+| `GET /folders/search?q&limit` | Find folders by name (operator tokens are stripped) |
 | `POST /folders` `{name, parent_id?, color?}` | Create (idempotent per name+parent; color = hex from the palette) |
 | `GET /folders/{id}/breadcrumb` | Ancestor path |
 | `PATCH /folders/{id}` `{name?, color?}` | Rename and/or set color (color = hex from the palette, or `null`) |

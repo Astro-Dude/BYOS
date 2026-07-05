@@ -3,9 +3,10 @@ from __future__ import annotations
 import uuid
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from byos_api.ai import nl_search
 from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.db import get_db
 from byos_api.folders import service
@@ -37,6 +38,20 @@ async def create_folder(payload: FolderCreate, user: CurrentUser, db: DbDep) -> 
     except service.InvalidColor:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid folder color") from None
     return FolderOut.model_validate(folder)
+
+
+@router.get("/search", response_model=list[FolderOut])
+async def search_folders(
+    user: CurrentUser,
+    db: DbDep,
+    q: str,
+    limit: Annotated[int, Query(ge=1, le=50)] = 20,
+) -> list[FolderOut]:
+    """Find folders by name. Operator tokens (type:, size:, …) are stripped;
+    only the free-text part matches folder names."""
+    query_text = nl_search.parse(q).text
+    folders = await service.search_folders(db, user, query_text, limit)
+    return [FolderOut.model_validate(f) for f in folders]
 
 
 @router.get("", response_model=list[FolderOut])

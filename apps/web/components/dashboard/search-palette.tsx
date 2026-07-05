@@ -1,7 +1,7 @@
 "use client";
 
-import { type FileItem } from "@byos/api-client";
-import { CornerDownLeft, Search } from "lucide-react";
+import { type FileItem, type FolderItem } from "@byos/api-client";
+import { CornerDownLeft, Folder as FolderIcon, Search } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { fileIcon } from "@/components/dashboard/file-icon";
@@ -33,61 +33,89 @@ const FILTERS: { insert: string; label: string; hint: string }[] = [
   { insert: "is:starred", label: "is:starred", hint: "favorites only" },
 ];
 
+type Item =
+  | { kind: "folder"; folder: FolderItem }
+  | { kind: "file"; file: FileItem };
+
 export function SearchPalette({
   open,
   onClose,
   onOpenFile,
+  onOpenFolder,
 }: {
   open: boolean;
   onClose: () => void;
   onOpenFile: (file: FileItem) => void;
+  onOpenFolder: (folderId: string) => void;
 }) {
   const authed = useAuthed();
   const [query, setQuery] = useState("");
-  const [results, setResults] = useState<FileItem[] | null>(null);
+  const [folders, setFolders] = useState<FolderItem[]>([]);
+  const [files, setFiles] = useState<FileItem[]>([]);
+  const [searched, setSearched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [active, setActive] = useState(0);
   const [showHelp, setShowHelp] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Reset + focus each time it opens.
+  // Flat list backing keyboard navigation (folders first, then files).
+  const items = useMemo<Item[]>(
+    () => [
+      ...folders.map((folder) => ({ kind: "folder" as const, folder })),
+      ...files.map((file) => ({ kind: "file" as const, file })),
+    ],
+    [folders, files],
+  );
+
   useEffect(() => {
     if (open) {
       setQuery("");
-      setResults(null);
+      setFolders([]);
+      setFiles([]);
+      setSearched(false);
       setActive(0);
       setShowHelp(false);
       requestAnimationFrame(() => inputRef.current?.focus());
     }
   }, [open]);
 
-  // Debounced search.
+  // Debounced search across folders + files.
   useEffect(() => {
     if (!open) return;
     const q = query.trim();
     if (!q) {
-      setResults(null);
+      setFolders([]);
+      setFiles([]);
+      setSearched(false);
       return;
     }
     setLoading(true);
     const t = setTimeout(() => {
-      authed((tok) => api.nlSearch(tok, q))
-        .then((r) => {
-          setResults(r);
+      authed((tok) => Promise.all([api.searchFolders(tok, q), api.nlSearch(tok, q)]))
+        .then(([fld, fls]) => {
+          setFolders(fld);
+          setFiles(fls);
           setActive(0);
         })
-        .catch(() => setResults([]))
-        .finally(() => setLoading(false));
+        .catch(() => {
+          setFolders([]);
+          setFiles([]);
+        })
+        .finally(() => {
+          setSearched(true);
+          setLoading(false);
+        });
     }, 200);
     return () => clearTimeout(t);
   }, [query, open, authed]);
 
-  const choose = useCallback(
-    (file: FileItem) => {
-      onOpenFile(file);
+  const chooseItem = useCallback(
+    (item: Item) => {
+      if (item.kind === "folder") onOpenFolder(item.folder.id);
+      else onOpenFile(item.file);
       onClose();
     },
-    [onOpenFile, onClose],
+    [onOpenFile, onOpenFolder, onClose],
   );
 
   const onKeyDown = (e: React.KeyboardEvent) => {
@@ -95,13 +123,13 @@ export function SearchPalette({
       onClose();
     } else if (e.key === "ArrowDown") {
       e.preventDefault();
-      setActive((a) => Math.min(a + 1, (results?.length ?? 1) - 1));
+      setActive((a) => Math.min(a + 1, items.length - 1));
     } else if (e.key === "ArrowUp") {
       e.preventDefault();
       setActive((a) => Math.max(a - 1, 0));
-    } else if (e.key === "Enter" && results && results[active]) {
+    } else if (e.key === "Enter" && items[active]) {
       e.preventDefault();
-      choose(results[active]);
+      chooseItem(items[active]);
     }
   };
 
@@ -110,12 +138,14 @@ export function SearchPalette({
     inputRef.current?.focus();
   };
 
-  const empty = useMemo(
-    () => query.trim() !== "" && !loading && results !== null && results.length === 0,
-    [query, loading, results],
-  );
+  const empty = query.trim() !== "" && !loading && searched && items.length === 0;
 
   if (!open) return null;
+
+  const rowClass = (i: number) =>
+    `flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
+      i === active ? "bg-indigo-50" : "hover:bg-zinc-50"
+    }`;
 
   return (
     <div
@@ -134,7 +164,7 @@ export function SearchPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search files —  try  type:pdf  after:2026-06-01  invoice"
+            placeholder="Search files & folders —  try  type:pdf  after:2026-06-01  invoice"
             className="w-full bg-transparent py-4 text-sm outline-none placeholder:text-zinc-400"
           />
           <button
@@ -172,7 +202,7 @@ export function SearchPalette({
 
         {/* Results */}
         <div className="max-h-[46vh] overflow-y-auto">
-          {loading && !results ? (
+          {loading && items.length === 0 ? (
             <div className="space-y-1 p-2">
               {Array.from({ length: 4 }).map((_, i) => (
                 <Skeleton key={i} className="h-10 w-full rounded-lg" />
@@ -180,29 +210,59 @@ export function SearchPalette({
             </div>
           ) : empty ? (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
-              No files match “{query.trim()}”.
+              Nothing matches “{query.trim()}”.
             </p>
-          ) : results && results.length > 0 ? (
-            <ul className="p-2">
-              <li className="px-2 pb-1 pt-1 text-xs font-medium text-zinc-400">Files</li>
-              {results.map((file, i) => (
-                <li key={file.id}>
-                  <button
-                    onMouseEnter={() => setActive(i)}
-                    onClick={() => choose(file)}
-                    className={`flex w-full items-center gap-3 rounded-lg px-2 py-2 text-left ${
-                      i === active ? "bg-indigo-50" : "hover:bg-zinc-50"
-                    }`}
-                  >
-                    {fileIcon(file.mime, file.ext, "h-5 w-5 shrink-0 text-zinc-400")}
-                    <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
-                      {file.name}
-                    </span>
-                    <span className="shrink-0 text-xs text-zinc-400">{humanSize(file.size)}</span>
-                  </button>
-                </li>
-              ))}
-            </ul>
+          ) : items.length > 0 ? (
+            <div className="p-2">
+              {folders.length > 0 ? (
+                <ul>
+                  <li className="px-2 pb-1 pt-1 text-xs font-medium text-zinc-400">Folders</li>
+                  {folders.map((folder, i) => (
+                    <li key={folder.id}>
+                      <button
+                        onMouseEnter={() => setActive(i)}
+                        onClick={() => chooseItem({ kind: "folder", folder })}
+                        className={rowClass(i)}
+                      >
+                        <FolderIcon
+                          className="h-5 w-5 shrink-0 text-indigo-500"
+                          fill={folder.color ?? "none"}
+                          style={folder.color ? { color: folder.color } : undefined}
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
+                          {folder.name}
+                        </span>
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              ) : null}
+              {files.length > 0 ? (
+                <ul>
+                  <li className="px-2 pb-1 pt-2 text-xs font-medium text-zinc-400">Files</li>
+                  {files.map((file, i) => {
+                    const idx = folders.length + i;
+                    return (
+                      <li key={file.id}>
+                        <button
+                          onMouseEnter={() => setActive(idx)}
+                          onClick={() => chooseItem({ kind: "file", file })}
+                          className={rowClass(idx)}
+                        >
+                          {fileIcon(file.mime, file.ext, "h-5 w-5 shrink-0 text-zinc-400")}
+                          <span className="min-w-0 flex-1 truncate text-sm text-zinc-800">
+                            {file.name}
+                          </span>
+                          <span className="shrink-0 text-xs text-zinc-400">
+                            {humanSize(file.size)}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : null}
+            </div>
           ) : (
             <p className="px-4 py-10 text-center text-sm text-zinc-400">
               Start typing to search, or open <strong>Filters</strong> for operators.

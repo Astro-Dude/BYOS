@@ -914,6 +914,12 @@ export default function DashboardPage() {
         open={paletteOpen}
         onClose={() => setPaletteOpen(false)}
         onOpenFile={(f) => setPreview(f)}
+        onOpenFolder={(fid) => {
+          setView("drive");
+          setTagFilter(null);
+          setSearch("");
+          setFolderId(fid);
+        }}
       />
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
       {aliasFor ? (

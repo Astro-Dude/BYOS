@@ -37,6 +37,22 @@ FOLDER_COLORS = {
 }
 
 
+async def search_folders(
+    db: AsyncSession, user: User, query: str, limit: int = 20
+) -> list[Folder]:
+    """Case-insensitive substring match on folder names, owner-scoped."""
+    q = query.strip()
+    if not q:
+        return []
+    stmt = (
+        select(Folder)
+        .where(Folder.owner_id == user.id, Folder.name.ilike(f"%{q}%"))
+        .order_by(Folder.name)
+        .limit(limit)
+    )
+    return list((await db.execute(stmt)).scalars())
+
+
 async def get_owned_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -> Folder:
     folder = await db.get(Folder, folder_id)
     if folder is None or folder.owner_id != user.id:

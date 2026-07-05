@@ -339,6 +339,11 @@ export class ByosClient {
     return this.request<Breadcrumb[]>(`/folders/${folderId}/breadcrumb`, { token });
   }
 
+  searchFolders(token: string, query: string, limit = 20): Promise<FolderItem[]> {
+    const params = new URLSearchParams({ q: query, limit: String(limit) });
+    return this.request<FolderItem[]>(`/folders/search?${params.toString()}`, { token });
+  }
+
   renameFolder(token: string, id: string, name: string): Promise<FolderItem> {
     return this.request<FolderItem>(`/folders/${id}`, {
       method: "PATCH",
