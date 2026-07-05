@@ -41,9 +41,11 @@ class Settings(BaseSettings):
     # the web app, so the API redirects folder aliases here.
     web_base_url: str = "http://localhost:3000"
 
-    # Security / upload validation. Defaults are permissive (this is your own
-    # storage); tighten via env for shared or hardened deployments.
-    max_upload_bytes: int = 5 * 1024 * 1024 * 1024  # 5 GiB
+    # Security / upload validation. The default matches Telegram's per-file
+    # ceiling for a standard account (2 GiB); raise it to 4 GiB if your account
+    # is Telegram Premium. Files above this are rejected up front (413) instead
+    # of failing mid-upload against the provider.
+    max_upload_bytes: int = 2 * 1024 * 1024 * 1024  # 2 GiB (Telegram free-tier limit)
     blocked_extensions: str = ""  # comma-separated, e.g. "exe,bat,scr" (empty = allow all)
     # Rate limits (requests per window, seconds). Fail open if Redis is down.
     auth_rate_limit: int = 20

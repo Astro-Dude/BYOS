@@ -132,6 +132,9 @@ function shortDate(iso: string): string {
 }
 
 const PAGE_SIZE = 100;
+// Telegram's per-file ceiling for a standard account. Keep in sync with the
+// API's max_upload_bytes so oversized files are caught before uploading.
+const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
@@ -176,7 +179,13 @@ export default function DashboardPage() {
   const [movingFile, setMovingFile] = useState<FileItem | null>(null);
   const [dragFolder, setDragFolder] = useState<string | null>(null);
   const [uploads, setUploads] = useState<
-    { id: number; name: string; status: "uploading" | "done" | "error"; progress: number }[]
+    {
+      id: number;
+      name: string;
+      status: "uploading" | "done" | "error";
+      progress: number;
+      note?: string;
+    }[]
   >([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -320,15 +329,31 @@ export default function DashboardPage() {
 
   const upload = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    const jobs = Array.from(fileList).map((file) => ({
+    const all = Array.from(fileList).map((file) => ({
       id: (uploadIdRef.current += 1),
       name: file.name,
       file,
     }));
+    // Reject files above the provider's limit up front — never start an upload
+    // that the server would only fail on.
+    const jobs = all.filter((j) => j.file.size <= MAX_UPLOAD_BYTES);
+    const tooBig = all.filter((j) => j.file.size > MAX_UPLOAD_BYTES);
+    if (tooBig.length) {
+      toast(`${tooBig.length} file(s) exceed the 2 GB limit`, "error");
+    }
     setUploads((prev) => [
       ...prev,
+      ...tooBig.map((j) => ({
+        id: j.id,
+        name: j.name,
+        status: "error" as const,
+        progress: 0,
+        note: "Too large (max 2 GB)",
+      })),
       ...jobs.map((j) => ({ id: j.id, name: j.name, status: "uploading" as const, progress: 0 })),
     ]);
+    if (inputRef.current) inputRef.current.value = "";
+    if (jobs.length === 0) return;
     (async () => {
       for (const job of jobs) {
         try {
@@ -343,11 +368,13 @@ export default function DashboardPage() {
           // Refresh as each file lands so it shows up immediately, not only
           // once the whole batch is done.
           await load();
-        } catch {
-          setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error" } : u)));
+        } catch (err) {
+          const note = err instanceof ApiError ? err.detail : "Upload failed";
+          setUploads((p) =>
+            p.map((u) => (u.id === job.id ? { ...u, status: "error", note } : u)),
+          );
         }
       }
-      if (inputRef.current) inputRef.current.value = "";
       // Auto-dismiss the finished panel a few seconds after everything settles.
       setTimeout(() => setUploads((p) => p.filter((u) => u.status === "uploading")), 4000);
     })();
@@ -1144,16 +1171,25 @@ export default function DashboardPage() {
                   )}
                   <span className="min-w-0 flex-1 truncate text-zinc-700">{u.name}</span>
                   {u.status === "uploading" ? (
-                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">{u.progress}%</span>
+                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">
+                      {u.progress >= 100 ? "Processing…" : `${u.progress}%`}
+                    </span>
                   ) : null}
                 </div>
                 {u.status === "uploading" ? (
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
-                    <div
-                      className="h-full rounded-full bg-indigo-600 transition-all duration-200"
-                      style={{ width: `${u.progress}%` }}
-                    />
+                    {u.progress >= 100 ? (
+                      // Bytes are all sent; the server is still saving to Telegram.
+                      <div className="h-full w-full animate-pulse rounded-full bg-indigo-400" />
+                    ) : (
+                      <div
+                        className="h-full rounded-full bg-indigo-600 transition-all duration-200"
+                        style={{ width: `${u.progress}%` }}
+                      />
+                    )}
                   </div>
+                ) : u.note ? (
+                  <p className="mt-0.5 pl-6 text-xs text-red-600">{u.note}</p>
                 ) : null}
               </li>
             ))}

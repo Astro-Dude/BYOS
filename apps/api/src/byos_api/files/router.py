@@ -8,7 +8,7 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, Upl
 from fastapi.responses import Response
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from telethon.errors import FloodWaitError
+from telethon.errors import FloodWaitError, RPCError
 
 from byos_api.ai import nl_search
 from byos_api.ai.tagging import suggest_tags
@@ -49,9 +49,10 @@ async def _validate_upload(file: UploadFile, filename: str) -> None:
     bytes, so rejected uploads never touch the provider."""
     settings = get_settings()
     if file.size is not None and file.size > settings.max_upload_bytes:
+        limit_gb = settings.max_upload_bytes / (1024**3)
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            f"File exceeds the {settings.max_upload_bytes}-byte limit",
+            f"File is too large — the maximum upload size is {limit_gb:.0f} GB.",
         )
     _, ext = service.split_filename(filename)
     if ext and ext.lower() in settings.blocked_extensions_set:
@@ -114,6 +115,15 @@ async def upload_file(
         )
     except FloodWaitError as exc:
         raise _flood(exc) from exc
+    except RPCError as exc:
+        # Telegram rejected the transfer (e.g. FilePartsInvalidError for a file
+        # over the account's per-file ceiling). Fail cleanly instead of 500.
+        logger.warning("telegram upload rejected: %s", exc)
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            "Telegram rejected this file — it may exceed your account's size limit "
+            "(2 GB, or 4 GB with Telegram Premium).",
+        ) from exc
 
     # Idempotency: if an identical file (same name + content hash) already exists
     # in this folder, drop the redundant upload and return the existing record —
@@ -376,6 +386,15 @@ async def replace_file(
         )
     except FloodWaitError as exc:
         raise _flood(exc) from exc
+    except RPCError as exc:
+        # Telegram rejected the transfer (e.g. FilePartsInvalidError for a file
+        # over the account's per-file ceiling). Fail cleanly instead of 500.
+        logger.warning("telegram upload rejected: %s", exc)
+        raise HTTPException(
+            status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+            "Telegram rejected this file — it may exceed your account's size limit "
+            "(2 GB, or 4 GB with Telegram Premium).",
+        ) from exc
 
     # Idempotent replace: identical content creates no new version.
     current = (
