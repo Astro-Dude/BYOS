@@ -135,7 +135,7 @@ function ApiKeysSection() {
                         type="checkbox"
                         checked={scopes.has(scope)}
                         onChange={() => toggleScope(scope)}
-                        className="h-3.5 w-3.5 rounded border-zinc-300 text-indigo-600"
+                        className="h-3.5 w-3.5 rounded border-zinc-300 accent-indigo-600"
                       />
                       {action}
                     </label>
@@ -316,6 +316,7 @@ function WebhooksSection() {
                 type="checkbox"
                 checked={events.includes(event)}
                 onChange={() => toggleEvent(event)}
+                className="h-3.5 w-3.5 rounded border-zinc-300 accent-indigo-600"
               />
               {event}
             </label>
