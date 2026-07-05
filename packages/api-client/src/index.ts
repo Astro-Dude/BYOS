@@ -64,16 +64,6 @@ export interface FolderItem {
   created_at: string;
 }
 
-export interface ShareInfoItem {
-  file_name: string;
-  mime: string | null;
-  size: number;
-  view_only: boolean;
-  has_password: boolean;
-  expired: boolean;
-  limit_reached: boolean;
-}
-
 export interface Breadcrumb {
   id: string;
   name: string;
@@ -513,15 +503,8 @@ export class ByosClient {
     return this.request<void>(`/shares/${id}`, { method: "DELETE", token });
   }
 
-  /** Direct API content URL for a share (used by the viewer to embed/download). */
-  shareUrl(shareToken: string, pw?: string): string {
-    const q = pw ? `?pw=${encodeURIComponent(pw)}` : "";
-    return `${this.baseUrl}/s/${shareToken}${q}`;
-  }
-
-  /** Public share metadata for the viewer page (no auth). */
-  shareInfo(token: string): Promise<ShareInfoItem> {
-    return this.request<ShareInfoItem>(`/s/${token}/info`);
+  shareUrl(shareToken: string): string {
+    return `${this.baseUrl}/s/${shareToken}`;
   }
 
   // ── Analytics ─────────────────────────────────────────────────────────────

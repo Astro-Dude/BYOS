@@ -36,7 +36,7 @@ export function ShareModal({
       if (expiry.trim()) input.expires_in_days = Number(expiry);
       if (maxDownloads.trim()) input.max_downloads = Number(maxDownloads);
       const share = await authed((t) => api.createShare(t, input));
-      setUrl(`${window.location.origin}/s/${share.token}`);
+      setUrl(api.shareUrl(share.token));
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Could not create share");

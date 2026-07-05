@@ -15,7 +15,7 @@ from byos_api.core.db import get_db
 from byos_api.core.ratelimit import limit
 from byos_api.files import service as files_service
 from byos_api.shares import service
-from byos_api.shares.schemas import ShareCreate, ShareInfo, ShareOut
+from byos_api.shares.schemas import ShareCreate, ShareOut
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
 
@@ -73,16 +73,6 @@ async def list_shares(user: CurrentUser, db: DbDep) -> list[ShareOut]:
 @router.delete("/{share_id}", status_code=status.HTTP_204_NO_CONTENT)
 async def revoke_share(share_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
     await service.revoke_share(db, user, share_id)
-
-
-@public_router.get(
-    "/s/{token}/info", response_model=ShareInfo, dependencies=[Depends(_public_limit)]
-)
-async def share_info(token: str, db: DbDep) -> ShareInfo:
-    info = await service.share_info(db, token)
-    if info is None:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "Share not found")
-    return ShareInfo(**info)  # type: ignore[arg-type]
 
 
 @public_router.get("/s/{token}", dependencies=[Depends(_public_limit)])

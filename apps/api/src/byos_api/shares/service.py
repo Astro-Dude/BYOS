@@ -109,27 +109,3 @@ async def resolve_share(
 async def register_download(db: AsyncSession, share: Share) -> None:
     share.download_count += 1
     await db.commit()
-
-
-async def share_info(db: AsyncSession, token: str) -> dict[str, object] | None:
-    """Public metadata for the viewer page (no content, no password required)."""
-    share = (await db.execute(select(Share).where(Share.token == token))).scalar_one_or_none()
-    if share is None:
-        return None
-    file = await db.get(File, share.file_id)
-    if file is None:
-        return None
-    now = datetime.now(UTC)
-    return {
-        "file_name": file.name,
-        "mime": file.mime,
-        "size": file.size,
-        "view_only": share.view_only,
-        "has_password": share.password_hash is not None,
-        "expired": share.expires_at is not None and share.expires_at <= now,
-        "limit_reached": (
-            not share.view_only
-            and share.max_downloads is not None
-            and share.download_count >= share.max_downloads
-        ),
-    }

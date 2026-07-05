@@ -25,16 +25,3 @@ class ShareOut(BaseModel):
     download_count: int
     view_only: bool
     created_at: datetime
-
-
-class ShareInfo(BaseModel):
-    """Public metadata for a share, used by the viewer page to decide how to
-    render and whether to offer a download. No content, no ownership info."""
-
-    file_name: str
-    mime: str | None = None
-    size: int
-    view_only: bool
-    has_password: bool
-    expired: bool
-    limit_reached: bool
