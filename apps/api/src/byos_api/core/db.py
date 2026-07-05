@@ -38,7 +38,13 @@ def prepare_asyncpg(raw_url: str) -> tuple[URL, dict[str, Any]]:
     )
     if ssl_required:
         connect_args["ssl"] = "require"
-    if "pooler" in (url.host or ""):  # Neon (-pooler) or Supabase (pooler.supabase.com)
+    # Only *transaction* poolers (PgBouncer txn mode) can't use prepared
+    # statements → disable asyncpg's cache there. Session poolers (Supabase
+    # :5432) and direct connections keep it, which avoids an extra prepare
+    # round-trip per query (roughly halves query latency).
+    #   - Neon's pooler host is "-pooler" (transaction mode)
+    #   - Supabase's transaction pooler is port 6543 (session pooler is 5432)
+    if "-pooler" in (url.host or "") or url.port == 6543:
         connect_args["statement_cache_size"] = 0
     return url, connect_args
 

@@ -16,9 +16,16 @@ hot-read caching. Do them in that order.
 - **Optimistic delete**, ETag/304 on downloads, pagination + infinite scroll.
 - **Provider-agnostic DB layer** (`prepare_asyncpg` handles Neon + Supabase poolers).
 
-## 🚧 In progress
-- **Migrate prod DB to Supabase (Mumbai / ap-south-1, always-on).** Closer region
-  (~200 ms → ~30–60 ms) and no per-request cold start. See "Supabase swap" below.
+- **Prod DB → Supabase (Mumbai / ap-south-1, session pooler), always-on.** Done.
+  Measured ~57–90 ms/query (vs Neon Singapore ~228 ms), no per-request cold
+  starts. `prepare_asyncpg` keeps prepared statements on for the session pooler
+  (only transaction poolers / port 6543 / Neon `-pooler` disable them). Data API
+  disabled + automatic RLS on in Supabase. Prod uses `.env.production`; dev stays
+  on local Postgres.
+
+## 🚧 Next
+- **Co-locate the deployed API in ap-south-1** so API↔Supabase is ~1 ms (see §2).
+  Until then, testing from a laptop still pays the browser↔DB distance.
 
 ---
 
