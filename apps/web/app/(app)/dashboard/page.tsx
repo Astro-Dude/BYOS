@@ -39,7 +39,7 @@ import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { fileIcon } from "@/components/dashboard/file-icon";
 import { SearchPalette } from "@/components/dashboard/search-palette";
 import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
-import { InsightsPanel } from "@/components/dashboard/insights-panel";
+import { DuplicatesPanel } from "@/components/dashboard/duplicates-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
 import { RenameModal } from "@/components/dashboard/rename-modal";
 import { UsernameSetup } from "@/components/dashboard/username-setup";
@@ -220,7 +220,7 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
-    if (["links", "insights", "developer"].includes(view)) return;
+    if (["links", "duplicates", "developer"].includes(view)) return;
     setLoading(true);
     setError(null);
     try {
@@ -915,8 +915,8 @@ export default function DashboardPage() {
             }
           }}
         >
-          {view === "insights" ? (
-            <InsightsPanel />
+          {view === "duplicates" ? (
+            <DuplicatesPanel />
           ) : view === "developer" ? (
             <DeveloperPanel />
           ) : view === "links" ? (
@@ -958,17 +958,60 @@ export default function DashboardPage() {
                     >
                       My Drive
                     </button>
-                    {crumbs.map((c) => (
-                      <span key={c.id} className="flex items-center gap-2">
-                        <span className="text-zinc-300">›</span>
-                        <button
-                          onClick={() => setFolderId(c.id)}
-                          className={c.id === folderId ? "" : "text-zinc-500 hover:text-zinc-800 dark:text-zinc-200"}
-                        >
-                          {c.name}
-                        </button>
-                      </span>
-                    ))}
+                    {(() => {
+                      // Collapse a deep path to: My Drive › … › last two crumbs.
+                      const collapse = crumbs.length > 3;
+                      const hidden = collapse ? crumbs.slice(0, -2) : [];
+                      const visible = collapse ? crumbs.slice(-2) : crumbs;
+                      return (
+                        <>
+                          {collapse ? (
+                            <span className="flex items-center gap-2">
+                              <span className="text-zinc-300">›</span>
+                              <Menu
+                                align="left"
+                                trigger={() => (
+                                  <span
+                                    className="cursor-pointer px-1 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                    title="Show hidden folders"
+                                  >
+                                    …
+                                  </span>
+                                )}
+                              >
+                                {(close) =>
+                                  hidden.map((c) => (
+                                    <MenuItem
+                                      key={c.id}
+                                      label={c.name}
+                                      onClick={() => {
+                                        close();
+                                        setFolderId(c.id);
+                                      }}
+                                    />
+                                  ))
+                                }
+                              </Menu>
+                            </span>
+                          ) : null}
+                          {visible.map((c) => (
+                            <span key={c.id} className="flex items-center gap-2">
+                              <span className="text-zinc-300">›</span>
+                              <button
+                                onClick={() => setFolderId(c.id)}
+                                className={
+                                  c.id === folderId
+                                    ? "max-w-[16rem] truncate"
+                                    : "max-w-[16rem] truncate text-zinc-500 hover:text-zinc-800 dark:text-zinc-200"
+                                }
+                              >
+                                {c.name}
+                              </button>
+                            </span>
+                          ))}
+                        </>
+                      );
+                    })()}
                   </nav>
                 )}
                 <div className="flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">

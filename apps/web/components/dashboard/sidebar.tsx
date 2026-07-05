@@ -2,8 +2,8 @@
 
 import type { ProviderStatus } from "@byos/api-client";
 import {
-  BarChart3,
   Code2,
+  Copy,
   FolderPlus,
   HardDrive,
   Link2,
@@ -33,7 +33,7 @@ function formatBytes(n: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
-export type DriveView = "drive" | "starred" | "links" | "insights" | "developer";
+export type DriveView = "drive" | "starred" | "links" | "duplicates" | "developer";
 
 export function Sidebar({
   view,
@@ -120,7 +120,7 @@ export function Sidebar({
         {navItem("drive", "My Drive", <HardDrive className={iconClass} />)}
         {navItem("starred", "Starred", <Star className={iconClass} />)}
         {navItem("links", "Links", <Link2 className={iconClass} />)}
-        {navItem("insights", "Insights", <BarChart3 className={iconClass} />)}
+        {navItem("duplicates", "Duplicates", <Copy className={iconClass} />)}
       </nav>
 
       {/* Developer + theme toggle + storage pinned to the bottom. */}

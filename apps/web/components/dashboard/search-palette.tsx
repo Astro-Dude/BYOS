@@ -3,8 +3,8 @@
 import { type FileItem, type FolderItem } from "@byos/api-client";
 import {
   ArrowRight,
-  BarChart3,
   Code2,
+  Copy,
   CornerDownLeft,
   Folder as FolderIcon,
   HardDrive,
@@ -36,7 +36,7 @@ const PAGES: { view: DriveView; label: string; Icon: typeof HardDrive }[] = [
   { view: "drive", label: "My Drive", Icon: HardDrive },
   { view: "starred", label: "Starred", Icon: Star },
   { view: "links", label: "Links", Icon: Link2 },
-  { view: "insights", label: "Insights", Icon: BarChart3 },
+  { view: "duplicates", label: "Duplicates", Icon: Copy },
   { view: "developer", label: "Developer", Icon: Code2 },
 ];
 
