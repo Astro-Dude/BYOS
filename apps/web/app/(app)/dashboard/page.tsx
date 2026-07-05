@@ -15,7 +15,6 @@ import {
   Folder,
   FolderInput,
   FolderOpen,
-  Globe,
   History,
   Image as ImageIcon,
   LayoutGrid,
@@ -40,8 +39,6 @@ import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
-import { ShareModal } from "@/components/dashboard/share-modal";
-import { SharesPanel } from "@/components/dashboard/shares-panel";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
@@ -137,8 +134,6 @@ export default function DashboardPage() {
   const [preview, setPreview] = useState<FileItem | null>(null);
   const [aliasFor, setAliasFor] = useState<FileItem | null>(null);
   const [versionsFor, setVersionsFor] = useState<FileItem | null>(null);
-  const [shareFor, setShareFor] = useState<FileItem | null>(null);
-  const [shareRefresh, setShareRefresh] = useState(0);
   const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [movingFile, setMovingFile] = useState<FileItem | null>(null);
@@ -375,7 +370,6 @@ export default function DashboardPage() {
           <MenuItem icon={<Eye className="h-4 w-4" />} label="Preview" onClick={() => { close(); setPreview(file); }} />
           <MenuItem icon={<Download className="h-4 w-4" />} label="Download" onClick={() => { close(); download(file); }} />
           <MenuItem icon={<Link2 className="h-4 w-4" />} label="Get link" onClick={() => { close(); setAliasFor(file); }} />
-          <MenuItem icon={<Globe className="h-4 w-4" />} label="Share" onClick={() => { close(); setShareFor(file); }} />
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />
@@ -655,7 +649,6 @@ export default function DashboardPage() {
             <div className="pt-2">
               <h1 className="mb-4 text-2xl font-normal text-zinc-800">Links</h1>
               <AliasesPanel refreshKey={aliasRefresh} />
-              <SharesPanel refreshKey={shareRefresh} />
             </div>
           ) : (
             <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
@@ -795,13 +788,6 @@ export default function DashboardPage() {
           file={versionsFor}
           onClose={() => setVersionsFor(null)}
           onChanged={() => load()}
-        />
-      ) : null}
-      {shareFor ? (
-        <ShareModal
-          file={shareFor}
-          onClose={() => setShareFor(null)}
-          onCreated={() => setShareRefresh((v) => v + 1)}
         />
       ) : null}
       {tagsFor ? (
