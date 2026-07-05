@@ -9,6 +9,10 @@ class PhoneRequest(BaseModel):
     phone: str
 
 
+class UsernameRequest(BaseModel):
+    username: str
+
+
 class TicketCodeRequest(BaseModel):
     ticket: str
     code: str
@@ -37,6 +41,7 @@ class UserResponse(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     id: uuid.UUID
+    username: str | None = None
     display_name: str | None = None
     email: EmailStr | None = None
     is_verified: bool

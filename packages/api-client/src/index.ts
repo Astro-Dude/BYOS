@@ -7,6 +7,7 @@
 
 export interface User {
   id: string;
+  username: string | null;
   email: string | null;
   display_name: string | null;
   is_verified: boolean;
@@ -247,6 +248,14 @@ export class ByosClient {
     return this.request<User>("/auth/me", { token });
   }
 
+  setUsername(token: string, username: string): Promise<User> {
+    return this.request<User>("/auth/username", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ username }),
+    });
+  }
+
   health(): Promise<HealthResponse> {
     return this.request<HealthResponse>("/health");
   }
@@ -481,9 +490,9 @@ export class ByosClient {
     return this.request<void>(`/aliases/${id}`, { method: "DELETE", token });
   }
 
-  /** Public, permanent URL for an alias (never changes even when the file is replaced). */
-  aliasUrl(slug: string): string {
-    return `${this.baseUrl}/a/${slug}`;
+  /** Public, permanent URL for an alias: /{username}/{slug} (never changes). */
+  aliasUrl(username: string, slug: string): string {
+    return `${this.baseUrl}/${username}/${slug}`;
   }
 
   // ── Shares (links with access controls) ───────────────────────────────────

@@ -4,10 +4,12 @@ import { ApiError, type AliasItem } from "@byos/api-client";
 import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
-import { useAuthed } from "@/lib/auth-context";
+import { useAuth, useAuthed } from "@/lib/auth-context";
 
 export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
   const authed = useAuthed();
+  const { user } = useAuth();
+  const username = user?.username ?? "";
   const [aliases, setAliases] = useState<AliasItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +40,7 @@ export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
   };
 
   const copy = async (slug: string) => {
-    await navigator.clipboard.writeText(api.aliasUrl(slug));
+    await navigator.clipboard.writeText(api.aliasUrl(username, slug));
     setCopied(slug);
     setTimeout(() => setCopied(null), 1500);
   };
@@ -55,7 +57,7 @@ export function AliasesPanel({ refreshKey }: { refreshKey: number }) {
       <ul className="mt-4 divide-y divide-zinc-100">
         {aliases.map((alias) => (
           <li key={alias.id} className="flex items-center justify-between gap-4 py-2">
-            <code className="truncate text-sm text-indigo-600">/a/{alias.slug}</code>
+            <code className="truncate text-sm text-indigo-600">/{username}/{alias.slug}</code>
             <div className="flex shrink-0 gap-3">
               <button
                 onClick={() => copy(alias.slug)}

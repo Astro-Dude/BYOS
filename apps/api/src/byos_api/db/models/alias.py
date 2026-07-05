@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from sqlalchemy import ForeignKey, String
+from sqlalchemy import ForeignKey, Index, String
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -19,8 +19,11 @@ class Alias(UUIDPrimaryKey, TimestampMixin, Base):
     owner_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
     )
-    slug: Mapped[str] = mapped_column(String(128), unique=True, index=True, nullable=False)
+    # Slug is unique per owner (namespaced under the owner's username in the URL).
+    slug: Mapped[str] = mapped_column(String(128), index=True, nullable=False)
     file_id: Mapped[uuid.UUID] = mapped_column(
         UUID(as_uuid=True), ForeignKey("files.id", ondelete="CASCADE"), nullable=False
     )
     description: Mapped[str | None] = mapped_column(String(255))
+
+    __table_args__ = (Index("uq_aliases_owner_slug", "owner_id", "slug", unique=True),)

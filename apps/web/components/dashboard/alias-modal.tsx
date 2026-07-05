@@ -6,7 +6,7 @@ import { useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
-import { useAuthed } from "@/lib/auth-context";
+import { useAuth, useAuthed } from "@/lib/auth-context";
 
 export function AliasModal({
   file,
@@ -18,6 +18,8 @@ export function AliasModal({
   onCreated: () => void;
 }) {
   const authed = useAuthed();
+  const { user } = useAuth();
+  const username = user?.username ?? "";
   const [slug, setSlug] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -30,7 +32,7 @@ export function AliasModal({
     setBusy(true);
     try {
       const alias = await authed((t) => api.createAlias(t, slug.trim(), file.id));
-      setCreatedUrl(api.aliasUrl(alias.slug));
+      setCreatedUrl(api.aliasUrl(username, alias.slug));
       onCreated();
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Could not create link");
@@ -74,7 +76,7 @@ export function AliasModal({
           <div className="mt-4">
             <label className="text-sm font-medium text-zinc-700">Alias</label>
             <div className="mt-1 flex items-center gap-2">
-              <span className="text-sm text-zinc-400">/a/</span>
+              <span className="text-sm text-zinc-400">/{username}/</span>
               <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}

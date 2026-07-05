@@ -72,13 +72,15 @@ def create_app() -> FastAPI:
     app.include_router(folders_router)
     app.include_router(files_router)
     app.include_router(aliases_router)
-    app.include_router(alias_public_router)
     app.include_router(shares_router)
     app.include_router(share_public_router)
     app.include_router(analytics_router)
     app.include_router(apikeys_router)
     app.include_router(webhooks_router)
     app.include_router(audit_router)
+    # MUST be last: the public "/{username}/{slug}" catch-all would otherwise
+    # shadow two-segment API paths (e.g. /analytics/overview).
+    app.include_router(alias_public_router)
     return app
 
 

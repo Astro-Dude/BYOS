@@ -18,11 +18,11 @@ import {
   History,
   Image as ImageIcon,
   LayoutGrid,
-  Link2,
   List,
   MoreVertical,
   Music,
   Search,
+  Share2,
   Star,
   Tag,
   Trash2,
@@ -37,6 +37,7 @@ import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
+import { UsernameSetup } from "@/components/dashboard/username-setup";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
@@ -343,6 +344,10 @@ export default function DashboardPage() {
     return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
   }
 
+  if (!user.username) {
+    return <UsernameSetup />;
+  }
+
   const onLogout = async () => {
     await logout();
     router.replace("/login");
@@ -369,7 +374,7 @@ export default function DashboardPage() {
         <>
           <MenuItem icon={<Eye className="h-4 w-4" />} label="Preview" onClick={() => { close(); setPreview(file); }} />
           <MenuItem icon={<Download className="h-4 w-4" />} label="Download" onClick={() => { close(); download(file); }} />
-          <MenuItem icon={<Link2 className="h-4 w-4" />} label="Get link" onClick={() => { close(); setAliasFor(file); }} />
+          <MenuItem icon={<Share2 className="h-4 w-4" />} label="Share" onClick={() => { close(); setAliasFor(file); }} />
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />

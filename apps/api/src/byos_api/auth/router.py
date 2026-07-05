@@ -15,6 +15,7 @@ from byos_api.auth.schemas import (
     TicketCodeRequest,
     TicketPasswordRequest,
     TokenResponse,
+    UsernameRequest,
     UserResponse,
 )
 from byos_api.core.config import get_settings
@@ -152,3 +153,17 @@ async def logout(request: Request, response: Response, db: DbDep) -> None:
 @router.get("/me", response_model=UserResponse)
 async def me(user: CurrentUser) -> UserResponse:
     return UserResponse.model_validate(user)
+
+
+@router.post("/username", response_model=UserResponse)
+async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -> UserResponse:
+    try:
+        updated = await service.set_username(db, user, payload.username)
+    except service.InvalidUsername:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "3–30 chars: letters, numbers, - or _, starting with a letter/number; not reserved",
+        ) from None
+    except service.UsernameTaken:
+        raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
+    return UserResponse.model_validate(updated)

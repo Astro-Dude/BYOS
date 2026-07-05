@@ -7,6 +7,7 @@ Refresh tokens are opaque and stored only as SHA-256 hashes.
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
@@ -17,6 +18,39 @@ from byos_api.core.security import generate_refresh_token, hash_refresh_token
 from byos_api.db.models import RefreshToken, User
 
 _settings = get_settings()
+
+# 3–30 chars, starts alphanumeric, then letters/digits/-/_.
+USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,29}$")
+# Names that would collide with (or shadow) top-level API paths.
+RESERVED_USERNAMES = {
+    "a", "s", "auth", "providers", "folders", "files", "aliases", "shares",
+    "analytics", "api-keys", "webhooks", "audit", "health", "docs", "redoc",
+    "openapi.json", "admin", "api", "www", "dashboard", "login", "register",
+    "settings", "help", "support", "static", "public",
+}
+
+
+class InvalidUsername(Exception):
+    pass
+
+
+class UsernameTaken(Exception):
+    pass
+
+
+async def set_username(db: AsyncSession, user: User, raw: str) -> User:
+    username = raw.strip().lower()
+    if not USERNAME_RE.match(username) or username in RESERVED_USERNAMES:
+        raise InvalidUsername
+    clash = (
+        await db.execute(select(User).where(User.username == username))
+    ).scalar_one_or_none()
+    if clash is not None and clash.id != user.id:
+        raise UsernameTaken
+    user.username = username
+    await db.commit()
+    await db.refresh(user)
+    return user
 
 
 class InvalidRefreshToken(Exception):

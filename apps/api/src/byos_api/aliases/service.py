@@ -44,10 +44,14 @@ async def create_alias(
     if not SLUG_RE.match(slug):
         raise InvalidSlug
     await _owned_file(db, user, file_id)
-    existing = (await db.execute(select(Alias).where(Alias.slug == slug))).scalar_one_or_none()
+    existing = (
+        await db.execute(
+            select(Alias).where(Alias.owner_id == user.id, Alias.slug == slug)
+        )
+    ).scalar_one_or_none()
     if existing is not None:
         # Idempotent if the same owner re-creates the same slug → file mapping.
-        if existing.owner_id == user.id and existing.file_id == file_id:
+        if existing.file_id == file_id:
             return existing
         raise SlugTaken
     alias = Alias(owner_id=user.id, slug=slug, file_id=file_id, description=description)
@@ -92,9 +96,18 @@ async def delete_alias(db: AsyncSession, user: User, alias_id: uuid.UUID) -> Non
     await db.commit()
 
 
-async def resolve(db: AsyncSession, slug: str) -> tuple[Alias, File, FileVersion]:
-    """Public resolution: slug → file → its CURRENT version."""
-    alias = (await db.execute(select(Alias).where(Alias.slug == slug))).scalar_one_or_none()
+async def resolve(db: AsyncSession, username: str, slug: str) -> tuple[Alias, File, FileVersion]:
+    """Public resolution: username → owner, then their slug → file → CURRENT version."""
+    owner = (
+        await db.execute(select(User).where(User.username == username.lower()))
+    ).scalar_one_or_none()
+    if owner is None:
+        raise AliasNotFound
+    alias = (
+        await db.execute(
+            select(Alias).where(Alias.owner_id == owner.id, Alias.slug == slug)
+        )
+    ).scalar_one_or_none()
     if alias is None:
         raise AliasNotFound
     file = await db.get(File, alias.file_id)

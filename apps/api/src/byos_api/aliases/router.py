@@ -73,11 +73,11 @@ async def delete_alias(alias_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
         return  # idempotent
 
 
-@public_router.get("/a/{slug}", dependencies=[Depends(_public_limit)])
-async def resolve_alias(slug: str, request: Request, db: DbDep) -> Response:
-    """PUBLIC (unauthenticated): stream the current version of the aliased file."""
+@public_router.get("/{username}/{slug}", dependencies=[Depends(_public_limit)])
+async def resolve_alias(username: str, slug: str, request: Request, db: DbDep) -> Response:
+    """PUBLIC (unauthenticated): stream the current version of /{username}/{slug}."""
     try:
-        alias, file, version = await service.resolve(db, slug)
+        alias, file, version = await service.resolve(db, username, slug)
     except service.AliasNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alias not found") from None
 
