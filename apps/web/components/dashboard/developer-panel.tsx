@@ -18,14 +18,40 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric", year: "numeric" });
 }
 
+const SCOPE_GROUPS = [
+  { resource: "files", label: "Files" },
+  { resource: "folders", label: "Folders" },
+  { resource: "aliases", label: "Links" },
+] as const;
+
+const EXPIRY_OPTIONS: { label: string; days: number | null }[] = [
+  { label: "Never", days: null },
+  { label: "30 days", days: 30 },
+  { label: "90 days", days: 90 },
+  { label: "1 year", days: 365 },
+];
+
 function ApiKeysSection() {
   const authed = useAuthed();
   const [keys, setKeys] = useState<ApiKeyItem[]>([]);
   const [name, setName] = useState("");
+  // Safe default: a read-only key across all resources.
+  const [scopes, setScopes] = useState<Set<string>>(
+    () => new Set(["files:read", "folders:read", "aliases:read"]),
+  );
+  const [expiryDays, setExpiryDays] = useState<number | null>(null);
   const [freshKey, setFreshKey] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+
+  const toggleScope = (scope: string) =>
+    setScopes((prev) => {
+      const next = new Set(prev);
+      if (next.has(scope)) next.delete(scope);
+      else next.add(scope);
+      return next;
+    });
 
   const load = useCallback(async () => {
     try {
@@ -41,11 +67,13 @@ function ApiKeysSection() {
 
   const create = async () => {
     const clean = name.trim();
-    if (!clean) return;
+    if (!clean || scopes.size === 0) return;
     setBusy(true);
     setError(null);
     try {
-      const result = await authed((t) => api.createApiKey(t, clean));
+      const result = await authed((t) =>
+        api.createApiKey(t, clean, Array.from(scopes), expiryDays),
+      );
       setFreshKey(result.key);
       setCopied(false);
       setName("");
@@ -80,16 +108,63 @@ function ApiKeysSection() {
         <code className="rounded bg-zinc-100 px-1">Authorization: Bearer byosk_…</code>
       </p>
 
-      <div className="mt-4 flex gap-2">
+      <div className="mt-4 space-y-3 rounded-lg border border-zinc-200 bg-zinc-50/60 p-3">
         <Input
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && create()}
           placeholder="Key name (e.g. CI, laptop)"
         />
-        <Button onClick={create} disabled={busy || !name.trim()}>
-          Create
-        </Button>
+
+        <div>
+          <p className="text-xs font-medium text-zinc-500">
+            Permissions — grant only what this key needs
+          </p>
+          <div className="mt-2 grid grid-cols-1 gap-1.5 sm:grid-cols-3">
+            {SCOPE_GROUPS.map((g) => (
+              <div key={g.resource} className="rounded-md border border-zinc-200 bg-white p-2">
+                <p className="text-xs font-medium text-zinc-700">{g.label}</p>
+                {(["read", "write"] as const).map((action) => {
+                  const scope = `${g.resource}:${action}`;
+                  return (
+                    <label
+                      key={scope}
+                      className="mt-1 flex items-center gap-2 text-xs text-zinc-600"
+                    >
+                      <input
+                        type="checkbox"
+                        checked={scopes.has(scope)}
+                        onChange={() => toggleScope(scope)}
+                        className="h-3.5 w-3.5 rounded border-zinc-300 text-indigo-600"
+                      />
+                      {action}
+                    </label>
+                  );
+                })}
+              </div>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-2">
+          <label className="flex items-center gap-2 text-xs text-zinc-600">
+            Expires
+            <select
+              value={expiryDays ?? ""}
+              onChange={(e) => setExpiryDays(e.target.value ? Number(e.target.value) : null)}
+              className="rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs"
+            >
+              {EXPIRY_OPTIONS.map((o) => (
+                <option key={o.label} value={o.days ?? ""}>
+                  {o.label}
+                </option>
+              ))}
+            </select>
+          </label>
+          <Button onClick={create} disabled={busy || !name.trim() || scopes.size === 0}>
+            Create key
+          </Button>
+        </div>
       </div>
       {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
 
@@ -130,6 +205,30 @@ function ApiKeysSection() {
                 </div>
                 <code className="text-xs text-zinc-400">byosk_{key.prefix}…</code>
                 <span className="ml-2 text-xs text-zinc-400">created {shortDate(key.created_at)}</span>
+                {key.expires_at ? (
+                  <span className="ml-2 text-xs text-zinc-400">
+                    · expires {shortDate(key.expires_at)}
+                  </span>
+                ) : null}
+                {key.last_used_at ? (
+                  <span className="ml-2 text-xs text-zinc-400">
+                    · last used {shortDate(key.last_used_at)}
+                  </span>
+                ) : null}
+                {key.scopes && key.scopes.length > 0 ? (
+                  <div className="mt-1 flex flex-wrap gap-1">
+                    {key.scopes.map((s) => (
+                      <span
+                        key={s}
+                        className="rounded bg-zinc-100 px-1.5 py-0.5 text-[10px] font-medium text-zinc-600"
+                      >
+                        {s}
+                      </span>
+                    ))}
+                  </div>
+                ) : (
+                  <span className="ml-2 text-xs text-amber-600">· full access (legacy)</span>
+                )}
               </div>
               {key.revoked_at ? null : (
                 <button
@@ -304,10 +403,27 @@ function DocsSection() {
             <h3 className="font-semibold text-zinc-900">Authentication</h3>
             <p className="mt-1 text-zinc-600">
               Create an API key above, then send it as a Bearer token on every request.
-              Keys carry your account&apos;s permissions and are shown only once.
+              The full key is shown only once.
             </p>
             <CodeBlock>{`curl ${base}/files \\
   -H "Authorization: Bearer byosk_your_key_here"`}</CodeBlock>
+          </div>
+
+          <div>
+            <h3 className="font-semibold text-zinc-900">Scopes &amp; safety</h3>
+            <p className="mt-1 text-zinc-600">
+              Each key is limited to the scopes you grant it —{" "}
+              <code>files</code>, <code>folders</code>, and <code>aliases</code>, each with{" "}
+              <code>:read</code> and <code>:write</code> (write implies read). A call outside a
+              key&apos;s scopes returns <code>403</code>. Keys can also carry an expiry and are
+              rate-limited per key.
+            </p>
+            <p className="mt-2 text-zinc-600">
+              For safety, keys <strong>cannot</strong> perform account administration —
+              creating/revoking keys, reading provider (Telegram) credentials, or managing
+              webhooks all require an interactive login. A leaked key can never escalate its own
+              access.
+            </p>
           </div>
 
           <div>

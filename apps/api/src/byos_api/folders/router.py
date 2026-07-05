@@ -6,7 +6,7 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.db import get_db
 from byos_api.folders import service
 from byos_api.folders.schemas import (
@@ -17,7 +17,11 @@ from byos_api.folders.schemas import (
     FolderUpdate,
 )
 
-router = APIRouter(prefix="/folders", tags=["folders"])
+router = APIRouter(
+    prefix="/folders",
+    tags=["folders"],
+    dependencies=[Depends(require_scope("folders")), Depends(api_key_rate_limit)],
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 

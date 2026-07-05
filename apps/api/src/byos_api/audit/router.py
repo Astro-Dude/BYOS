@@ -7,11 +7,13 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.audit.schemas import AuditOut
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, get_session_user
 from byos_api.core.db import get_db
 from byos_api.db.models import AuditLog
 
-router = APIRouter(prefix="/audit", tags=["audit"])
+router = APIRouter(
+    prefix="/audit", tags=["audit"], dependencies=[Depends(get_session_user)]
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 

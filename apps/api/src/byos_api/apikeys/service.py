@@ -22,13 +22,56 @@ _SCHEME = "byosk"
 _PREFIX_BYTES = 4  # 8 hex chars
 _SECRET_BYTES = 32
 _TOUCH_INTERVAL = timedelta(minutes=5)
+_MAX_EXPIRY_DAYS = 3650  # 10 years
+
+# Fine-grained, per-resource permissions. A key is granted a subset of these;
+# session logins (the web UI) implicitly have all of them.
+SCOPE_RESOURCES = ("files", "folders", "aliases")
+ALL_SCOPES = tuple(f"{r}:{a}" for r in SCOPE_RESOURCES for a in ("read", "write"))
+
+
+class InvalidScope(Exception):
+    pass
+
+
+class InvalidExpiry(Exception):
+    pass
 
 
 def _hash(raw: str) -> str:
     return hashlib.sha256(raw.encode()).hexdigest()
 
 
-async def create_key(db: AsyncSession, user: User, name: str) -> tuple[ApiKey, str]:
+def _validate_scopes(scopes: list[str]) -> list[str]:
+    cleaned = [s.strip() for s in scopes if s.strip()]
+    if not cleaned:
+        raise InvalidScope("at least one scope is required")
+    for s in cleaned:
+        if s not in ALL_SCOPES:
+            raise InvalidScope(s)
+    # Deduplicate while preserving order.
+    seen: set[str] = set()
+    unique: list[str] = []
+    for s in cleaned:
+        if s not in seen:
+            seen.add(s)
+            unique.append(s)
+    return unique
+
+
+async def create_key(
+    db: AsyncSession,
+    user: User,
+    name: str,
+    scopes: list[str],
+    expires_in_days: int | None = None,
+) -> tuple[ApiKey, str]:
+    validated = _validate_scopes(scopes)
+    expires_at = None
+    if expires_in_days is not None:
+        if expires_in_days <= 0 or expires_in_days > _MAX_EXPIRY_DAYS:
+            raise InvalidExpiry
+        expires_at = datetime.now(UTC) + timedelta(days=expires_in_days)
     prefix = secrets.token_hex(_PREFIX_BYTES)
     secret = secrets.token_urlsafe(_SECRET_BYTES)
     full = f"{_SCHEME}_{prefix}_{secret}"
@@ -37,6 +80,8 @@ async def create_key(db: AsyncSession, user: User, name: str) -> tuple[ApiKey, s
         name=name.strip() or "API key",
         prefix=prefix,
         key_hash=_hash(full),
+        scopes=validated,
+        expires_at=expires_at,
     )
     db.add(key)
     await db.commit()
@@ -59,8 +104,9 @@ async def revoke_key(db: AsyncSession, user: User, key_id: uuid.UUID) -> None:
     # absent / already-revoked → idempotent no-op
 
 
-async def authenticate(db: AsyncSession, raw_key: str) -> User | None:
-    """Resolve the owning, active user for a raw key, or None if invalid."""
+async def authenticate(db: AsyncSession, raw_key: str) -> tuple[User, ApiKey] | None:
+    """Resolve the owning active user + the key row, or None if the key is
+    invalid, revoked, or expired."""
     parts = raw_key.split("_")
     if len(parts) < 3 or parts[0] != _SCHEME:
         return None
@@ -72,11 +118,13 @@ async def authenticate(db: AsyncSession, raw_key: str) -> User | None:
         return None
     if not secrets.compare_digest(key.key_hash, _hash(raw_key)):
         return None
+    now = datetime.now(UTC)
+    if key.expires_at is not None and key.expires_at <= now:
+        return None  # expired
     user = await db.get(User, key.owner_id)
     if user is None or not user.is_active:
         return None
-    now = datetime.now(UTC)
     if key.last_used_at is None or (now - key.last_used_at) > _TOUCH_INTERVAL:
         key.last_used_at = now
         await db.commit()
-    return user
+    return user, key

@@ -16,7 +16,7 @@ from byos_api.aliases.schemas import (
     PublicMeta,
 )
 from byos_api.analytics.recorder import record_event
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.core.ratelimit import limit
@@ -25,7 +25,11 @@ from byos_api.files import service as files_service
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
 
-router = APIRouter(prefix="/aliases", tags=["aliases"])
+router = APIRouter(
+    prefix="/aliases",
+    tags=["aliases"],
+    dependencies=[Depends(require_scope("aliases")), Depends(api_key_rate_limit)],
+)
 public_api_router = APIRouter(prefix="/public", tags=["public"])
 public_router = APIRouter(tags=["aliases"])
 

@@ -39,7 +39,9 @@ def sign(secret: str, body: bytes) -> str:
 
 async def _deliver(url: str, secret: str, body: bytes) -> None:
     try:
-        async with httpx.AsyncClient(timeout=_TIMEOUT) as client:
+        # follow_redirects stays off so a 3xx can't bounce a validated URL to
+        # an internal address (SSRF via redirect).
+        async with httpx.AsyncClient(timeout=_TIMEOUT, follow_redirects=False) as client:
             await client.post(
                 url,
                 content=body,

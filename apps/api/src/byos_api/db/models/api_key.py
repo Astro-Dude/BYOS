@@ -4,7 +4,7 @@ import uuid
 from datetime import datetime
 
 from sqlalchemy import DateTime, ForeignKey, String, func
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy.dialects.postgresql import JSONB, UUID
 from sqlalchemy.orm import Mapped, mapped_column
 
 from byos_api.core.db import Base
@@ -27,6 +27,10 @@ class ApiKey(UUIDPrimaryKey, Base):
     name: Mapped[str] = mapped_column(String(120), nullable=False)
     prefix: Mapped[str] = mapped_column(String(24), unique=True, index=True, nullable=False)
     key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
+    # Granted permissions, e.g. ["files:read", "aliases:write"]. NULL = a legacy
+    # key issued before scopes existed → treated as full access for back-compat.
+    scopes: Mapped[list[str] | None] = mapped_column(JSONB)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     last_used_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(

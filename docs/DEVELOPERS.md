@@ -25,16 +25,18 @@ Authorization: Bearer <token>
 2. **JWT access token (for browsers)** — short‑lived (15 min), obtained via the
    Telegram login flow and refreshed with a rotating cookie. Used by the web app.
 
-The same endpoints accept either. A few endpoints are **public** (no auth):
-`GET /{username}/{slug}` (alias resolution) and `GET /health`.
+Data endpoints accept either. **Account‑admin endpoints** (`/api-keys`,
+`/providers`, `/webhooks`) accept **only** a session login, not an API key. A few
+endpoints are **public** (no auth): `GET /{username}/{slug}` (alias resolution),
+the `/public/...` folder‑browse routes, and `GET /health`.
 
 ### Getting an API key
 Create one in the app under **Developer → API keys**, or via the API (using a
-browser session):
+browser session — see *Scopes & limits* below on why keys can't create keys):
 
 ```
-POST /api-keys        { "name": "CI token" }
-→ 201 { "key": "byosk_ab12cd34_…", "api_key": { "id", "name", "prefix", … } }
+POST /api-keys  { "name": "CI token", "scopes": ["files:read"], "expires_in_days": 90 }
+→ 201 { "key": "byosk_ab12cd34_…", "api_key": { "id", "name", "prefix", "scopes", "expires_at", … } }
 ```
 
 The plaintext `key` is shown **once** — store it securely. Only its SHA‑256 hash
@@ -42,14 +44,36 @@ is kept server‑side. Manage keys:
 
 | Method & path | Purpose |
 |---|---|
-| `POST /api-keys` `{name}` | Create a key (returns plaintext once) |
-| `GET /api-keys` | List your keys (prefix + last‑used, never the secret) |
+| `POST /api-keys` `{name, scopes[], expires_in_days?}` | Create a key (returns plaintext once) |
+| `GET /api-keys` | List your keys (prefix, scopes, expiry, last‑used — never the secret) |
+| `GET /api-keys/scopes` | The scopes a key can be granted |
 | `DELETE /api-keys/{id}` | Revoke a key (immediately stops working; idempotent) |
 
 Use it:
 ```bash
 curl -H "Authorization: Bearer byosk_ab12cd34_…" http://localhost:8000/files
 ```
+
+### Scopes & limits
+
+A key is limited to the **scopes** you grant it. Scopes are per‑resource:
+
+```
+files:read   files:write
+folders:read folders:write
+aliases:read aliases:write
+```
+
+- `:write` implies `:read` for the same resource.
+- A request outside a key's scopes returns **403**.
+- Keys may **expire** (`expires_in_days`, max 3650) and stop working automatically.
+- Each key is **rate‑limited** independently (429 when exceeded).
+- **Account administration requires an interactive login, not an API key**:
+  creating/revoking keys (`/api-keys`), provider credentials (`/providers`), and
+  webhooks (`/webhooks`) reject API‑key auth with **403**. This means a leaked key
+  can never mint more keys, read your Telegram session, or change webhooks.
+
+Session (browser) logins have full access and bypass scope checks.
 
 ---
 
@@ -64,8 +88,8 @@ curl -H "Authorization: Bearer byosk_ab12cd34_…" http://localhost:8000/files
   no‑op (`204`); re‑uploading identical content returns the existing file; etc.
 - **Caching:** file content responses send an `ETag`; send `If-None-Match` to get
   a `304 Not Modified` and skip re‑downloading unchanged bytes.
-- **Rate limits:** the login flow and public link endpoints are IP‑rate‑limited
-  (`429` when exceeded).
+- **Rate limits:** the login flow and public link endpoints are IP‑rate‑limited;
+  API‑key traffic is rate‑limited per key (`429` when exceeded).
 
 ---
 
@@ -183,6 +207,11 @@ Get an HTTP callback when your files change.
 | `POST /webhooks` `{url, events?}` | Subscribe (`events` = subset of the list below, or `["*"]`) |
 | `GET /webhooks` | List (includes each webhook's signing `secret`) |
 | `DELETE /webhooks/{id}` | Delete |
+
+Managing webhooks requires a **session login** (not an API key). The `url` must be
+a public http(s) address — URLs resolving to loopback/private/internal IPs are
+rejected (SSRF protection), and redirects are not followed on delivery. In
+production, `https` is required.
 
 **Events:** `file.created`, `file.replaced`, `file.deleted`.
 

@@ -50,6 +50,9 @@ class Settings(BaseSettings):
     auth_rate_window: int = 60
     public_rate_limit: int = 120
     public_rate_window: int = 60
+    # Per-API-key limit for authenticated programmatic traffic.
+    api_rate_limit: int = 120
+    api_rate_window: int = 60
 
     # AI: heuristic auto-tagging of uploads by type (Phase 15).
     auto_tagging: bool = True

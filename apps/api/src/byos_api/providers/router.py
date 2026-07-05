@@ -5,14 +5,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, get_session_user
 from byos_api.core.db import get_db
 from byos_api.providers import service
 from byos_api.providers.schemas import ProviderStatus
 
 # Connecting Telegram now happens at login (see /auth/telegram/*). This router
 # just reports connected providers and allows disconnecting.
-router = APIRouter(prefix="/providers", tags=["providers"])
+router = APIRouter(
+    prefix="/providers", tags=["providers"], dependencies=[Depends(get_session_user)]
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 

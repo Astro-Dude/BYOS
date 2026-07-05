@@ -42,11 +42,20 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
+    # In production the interactive docs (/docs, /redoc, /openapi.json) are
+    # disabled so the full API surface isn't advertised publicly; the in-app,
+    # auth-gated Developer tab is the developer-facing documentation there.
+    _docs_kwargs: dict[str, str | None] = (
+        {"docs_url": None, "redoc_url": None, "openapi_url": None}
+        if settings.is_production
+        else {}
+    )
     app = FastAPI(
         title="BYOS API",
         version="0.0.0",
         summary="Bring Your Own Storage — unified layer over your own storage providers.",
         lifespan=lifespan,
+        **_docs_kwargs,  # type: ignore[arg-type]
     )
 
     # Order matters: the LAST-added middleware is outermost. CORS must wrap the

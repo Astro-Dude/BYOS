@@ -14,7 +14,7 @@ from byos_api.ai import nl_search
 from byos_api.ai.tagging import suggest_tags
 from byos_api.analytics.recorder import record_event
 from byos_api.audit import recorder as audit
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
@@ -34,7 +34,11 @@ from byos_api.streaming import stream_object
 from byos_api.webhooks import dispatcher
 
 logger = logging.getLogger("byos")
-router = APIRouter(prefix="/files", tags=["files"])
+router = APIRouter(
+    prefix="/files",
+    tags=["files"],
+    dependencies=[Depends(require_scope("files")), Depends(api_key_rate_limit)],
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 _UPLOAD_CHUNK = 1024 * 1024

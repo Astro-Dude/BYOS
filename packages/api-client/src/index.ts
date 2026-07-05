@@ -171,6 +171,8 @@ export interface ApiKeyItem {
   id: string;
   name: string;
   prefix: string;
+  scopes: string[] | null;
+  expires_at: string | null;
   last_used_at: string | null;
   revoked_at: string | null;
   created_at: string;
@@ -674,11 +676,16 @@ export class ByosClient {
     return this.request<ApiKeyItem[]>("/api-keys", { token });
   }
 
-  createApiKey(token: string, name: string): Promise<ApiKeyCreated> {
+  createApiKey(
+    token: string,
+    name: string,
+    scopes: string[],
+    expiresInDays?: number | null,
+  ): Promise<ApiKeyCreated> {
     return this.request<ApiKeyCreated>("/api-keys", {
       method: "POST",
       token,
-      body: JSON.stringify({ name }),
+      body: JSON.stringify({ name, scopes, expires_in_days: expiresInDays ?? null }),
     });
   }
 

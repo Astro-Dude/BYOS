@@ -6,12 +6,14 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, get_session_user
 from byos_api.core.db import get_db
 from byos_api.webhooks import service
 from byos_api.webhooks.schemas import WebhookCreate, WebhookOut
 
-router = APIRouter(prefix="/webhooks", tags=["webhooks"])
+router = APIRouter(
+    prefix="/webhooks", tags=["webhooks"], dependencies=[Depends(get_session_user)]
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -27,6 +29,8 @@ async def create_webhook(payload: WebhookCreate, user: CurrentUser, db: DbDep) -
             status.HTTP_400_BAD_REQUEST,
             f"Unknown event '{exc}'. Valid: {', '.join(service.EVENT_TYPES)} or '*'",
         ) from None
+    except service.InvalidUrl as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     return WebhookOut.model_validate(hook)
 
 
