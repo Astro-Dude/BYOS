@@ -48,7 +48,7 @@ export function SharesPanel({ refreshKey }: { refreshKey: number }) {
   };
 
   const copy = async (share: ShareItem) => {
-    await navigator.clipboard.writeText(api.shareUrl(share.token));
+    await navigator.clipboard.writeText(`${window.location.origin}/s/${share.token}`);
     setCopied(share.id);
     setTimeout(() => setCopied(null), 1500);
   };

@@ -13,6 +13,7 @@ import {
   FileArchive,
   FileText,
   Folder,
+  FolderInput,
   FolderOpen,
   Globe,
   History,
@@ -36,6 +37,7 @@ import { ActivityPanel } from "@/components/dashboard/activity-panel";
 import { AliasesPanel } from "@/components/dashboard/aliases-panel";
 import { DeveloperPanel } from "@/components/dashboard/developer-panel";
 import { InsightsPanel } from "@/components/dashboard/insights-panel";
+import { MoveModal } from "@/components/dashboard/move-modal";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { ShareModal } from "@/components/dashboard/share-modal";
@@ -106,6 +108,8 @@ function shortDate(iso: string): string {
 }
 
 const PAGE_SIZE = 100;
+const FOLDER_COLORS = ["#3C6E66", "#B5892E", "#B23A2E", "#3B6FA0", "#4C7A34", "#6B5B95", "#8B867D"];
+const FILE_DRAG_TYPE = "application/byos-file-id";
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -137,6 +141,8 @@ export default function DashboardPage() {
   const [shareRefresh, setShareRefresh] = useState(0);
   const [tagsFor, setTagsFor] = useState<FileItem | null>(null);
   const [tagFilter, setTagFilter] = useState<string | null>(null);
+  const [movingFile, setMovingFile] = useState<FileItem | null>(null);
+  const [dragFolder, setDragFolder] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -321,6 +327,23 @@ export default function DashboardPage() {
     setTagFilter(tag);
   };
 
+  const moveFileToFolder = (fileId: string, folderId: string | null) => {
+    setDragFolder(null);
+    // Optimistic: it leaves the current folder view; a failed move resyncs on reload.
+    setFiles((prev) => prev.filter((f) => f.id !== fileId));
+    setResults((r) => (r ? r.filter((f) => f.id !== fileId) : r));
+    run(async () => {
+      await authed((t) => api.moveFile(t, fileId, folderId));
+    });
+  };
+
+  const applyFolderColor = (folder: FolderItem, color: string | null) => {
+    setFolders((prev) => prev.map((f) => (f.id === folder.id ? { ...f, color } : f)));
+    run(async () => {
+      await authed((t) => api.updateFolder(t, folder.id, { color }));
+    });
+  };
+
   if (authLoading || !user) {
     return <div className="p-8 text-sm text-zinc-500">Loading…</div>;
   }
@@ -355,6 +378,7 @@ export default function DashboardPage() {
           <MenuItem icon={<Globe className="h-4 w-4" />} label="Share" onClick={() => { close(); setShareFor(file); }} />
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
+          <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />
           <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFile(file); }} />
         </>
       )}
@@ -366,6 +390,22 @@ export default function DashboardPage() {
       {(close) => (
         <>
           <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); setFolderId(folder.id); }} />
+          <div className="flex items-center gap-1.5 px-4 py-2">
+            <button
+              onClick={() => applyFolderColor(folder, null)}
+              aria-label="Default color"
+              className="h-4 w-4 rounded-full border border-zinc-300 bg-white"
+            />
+            {FOLDER_COLORS.map((c) => (
+              <button
+                key={c}
+                onClick={() => applyFolderColor(folder, c)}
+                aria-label={`Color ${c}`}
+                style={{ backgroundColor: c }}
+                className={`h-4 w-4 rounded-full ${folder.color === c ? "ring-2 ring-offset-1 ring-zinc-400" : ""}`}
+              />
+            ))}
+          </div>
           <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); removeFolder(folder); }} />
         </>
       )}
@@ -394,13 +434,33 @@ export default function DashboardPage() {
       {shownFolders.map((folder) => (
         <div
           key={folder.id}
-          className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes(FILE_DRAG_TYPE)) {
+              e.preventDefault();
+              setDragFolder(folder.id);
+            }
+          }}
+          onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
+          onDrop={(e) => {
+            const id = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            if (id) {
+              e.preventDefault();
+              e.stopPropagation();
+              moveFileToFolder(id, folder.id);
+            }
+          }}
+          className={`grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 ${
+            dragFolder === folder.id ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400" : "hover:bg-zinc-50"
+          }`}
         >
           <button
             onClick={() => setFolderId(folder.id)}
             className="flex min-w-0 items-center gap-3 text-left"
           >
-            <Folder className="h-5 w-5 shrink-0 text-indigo-500" />
+            <Folder
+              className="h-5 w-5 shrink-0 text-indigo-500"
+              style={folder.color ? { color: folder.color } : undefined}
+            />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
           </button>
           <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
@@ -411,7 +471,12 @@ export default function DashboardPage() {
       {shownFiles.map((file) => (
         <div
           key={file.id}
-          className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          className="grid cursor-grab grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 px-4 py-2.5 hover:bg-zinc-50 active:cursor-grabbing"
         >
           <div className="flex min-w-0 items-center gap-2">
             <button onClick={() => toggleFavorite(file)} aria-label="Star" className="shrink-0">
@@ -449,13 +514,35 @@ export default function DashboardPage() {
       {shownFolders.map((folder) => (
         <div
           key={folder.id}
-          className="flex items-center justify-between gap-2 rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
+          onDragOver={(e) => {
+            if (e.dataTransfer.types.includes(FILE_DRAG_TYPE)) {
+              e.preventDefault();
+              setDragFolder(folder.id);
+            }
+          }}
+          onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
+          onDrop={(e) => {
+            const id = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            if (id) {
+              e.preventDefault();
+              e.stopPropagation();
+              moveFileToFolder(id, folder.id);
+            }
+          }}
+          className={`flex items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
+            dragFolder === folder.id
+              ? "border-indigo-400 ring-2 ring-indigo-400"
+              : "border-zinc-200 hover:border-indigo-300 hover:shadow-sm"
+          }`}
         >
           <button
             onClick={() => setFolderId(folder.id)}
             className="flex min-w-0 items-center gap-2 text-left"
           >
-            <Folder className="h-6 w-6 shrink-0 text-indigo-500" />
+            <Folder
+              className="h-6 w-6 shrink-0 text-indigo-500"
+              style={folder.color ? { color: folder.color } : undefined}
+            />
             <span className="truncate text-sm font-medium text-zinc-900">{folder.name}</span>
           </button>
           {folderMenu(folder)}
@@ -464,7 +551,12 @@ export default function DashboardPage() {
       {shownFiles.map((file) => (
         <div
           key={file.id}
-          className="rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm"
+          draggable
+          onDragStart={(e) => {
+            e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
+            e.dataTransfer.effectAllowed = "move";
+          }}
+          className="cursor-grab rounded-xl border border-zinc-200 bg-white p-4 hover:border-indigo-300 hover:shadow-sm active:cursor-grabbing"
         >
           <div className="flex items-start justify-between">
             <button onClick={() => setPreview(file)} aria-label="Preview">
@@ -714,6 +806,9 @@ export default function DashboardPage() {
       ) : null}
       {tagsFor ? (
         <TagsModal file={tagsFor} onClose={() => setTagsFor(null)} onChanged={() => load()} />
+      ) : null}
+      {movingFile ? (
+        <MoveModal file={movingFile} onClose={() => setMovingFile(null)} onMoved={() => load()} />
       ) : null}
     </div>
   );

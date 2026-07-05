@@ -22,5 +22,6 @@ class Folder(UUIDPrimaryKey, TimestampMixin, Base):
         UUID(as_uuid=True), ForeignKey("folders.id", ondelete="CASCADE")
     )
     name: Mapped[str] = mapped_column(String(255), nullable=False)
+    color: Mapped[str | None] = mapped_column(String(24))  # hex like "#3C6E66"; null = default
 
     __table_args__ = (Index("ix_folders_owner_parent", "owner_id", "parent_id"),)

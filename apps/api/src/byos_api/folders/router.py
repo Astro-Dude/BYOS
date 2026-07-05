@@ -14,7 +14,7 @@ from byos_api.folders.schemas import (
     FolderCreate,
     FolderMove,
     FolderOut,
-    FolderRename,
+    FolderUpdate,
 )
 
 router = APIRouter(prefix="/folders", tags=["folders"])
@@ -51,13 +51,17 @@ async def folder_breadcrumb(
 
 
 @router.patch("/{folder_id}", response_model=FolderOut)
-async def rename_folder(
-    folder_id: uuid.UUID, payload: FolderRename, user: CurrentUser, db: DbDep
+async def update_folder(
+    folder_id: uuid.UUID, payload: FolderUpdate, user: CurrentUser, db: DbDep
 ) -> FolderOut:
     try:
-        folder = await service.rename_folder(db, user, folder_id, payload.name)
+        folder = await service.update_folder(
+            db, user, folder_id, payload.model_dump(exclude_unset=True)
+        )
     except service.FolderNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found") from None
+    except service.InvalidColor:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Unsupported folder color") from None
     return FolderOut.model_validate(folder)
 
 

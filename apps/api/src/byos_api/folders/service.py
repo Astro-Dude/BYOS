@@ -19,6 +19,22 @@ class InvalidMove(Exception):
     pass
 
 
+class InvalidColor(Exception):
+    pass
+
+
+# Muted, theme-appropriate palette folders may be tagged with.
+FOLDER_COLORS = {
+    "#3C6E66",  # teal (accent)
+    "#B5892E",  # amber
+    "#B23A2E",  # brick
+    "#3B6FA0",  # blue
+    "#4C7A34",  # green
+    "#6B5B95",  # purple
+    "#8B867D",  # gray
+}
+
+
 async def get_owned_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -> Folder:
     folder = await db.get(Folder, folder_id)
     if folder is None or folder.owner_id != user.id:
@@ -62,11 +78,19 @@ async def list_children(
     return list(result.scalars())
 
 
-async def rename_folder(
-    db: AsyncSession, user: User, folder_id: uuid.UUID, name: str
+async def update_folder(
+    db: AsyncSession, user: User, folder_id: uuid.UUID, updates: dict[str, object]
 ) -> Folder:
+    """Apply only the fields present in `updates` (name and/or color). A color of
+    None clears it; any other value must be in FOLDER_COLORS."""
     folder = await get_owned_folder(db, user, folder_id)
-    folder.name = name
+    if updates.get("name"):
+        folder.name = str(updates["name"])
+    if "color" in updates:
+        color = updates["color"]
+        if color is not None and color not in FOLDER_COLORS:
+            raise InvalidColor
+        folder.color = color  # type: ignore[assignment]
     await db.commit()
     await db.refresh(folder)
     return folder

@@ -11,8 +11,9 @@ class FolderCreate(BaseModel):
     parent_id: uuid.UUID | None = None
 
 
-class FolderRename(BaseModel):
-    name: str = Field(min_length=1, max_length=255)
+class FolderUpdate(BaseModel):
+    name: str | None = Field(default=None, min_length=1, max_length=255)
+    color: str | None = None  # hex "#RRGGBB" or null to clear
 
 
 class FolderMove(BaseModel):
@@ -25,6 +26,7 @@ class FolderOut(BaseModel):
     id: uuid.UUID
     name: str
     parent_id: uuid.UUID | None = None
+    color: str | None = None
     created_at: datetime
 
 

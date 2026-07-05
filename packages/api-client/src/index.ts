@@ -60,7 +60,18 @@ export interface FolderItem {
   id: string;
   name: string;
   parent_id: string | null;
+  color: string | null;
   created_at: string;
+}
+
+export interface ShareInfoItem {
+  file_name: string;
+  mime: string | null;
+  size: number;
+  view_only: boolean;
+  has_password: boolean;
+  expired: boolean;
+  limit_reached: boolean;
 }
 
 export interface Breadcrumb {
@@ -293,6 +304,19 @@ export class ByosClient {
     });
   }
 
+  /** Update a folder's name and/or color (color null clears it). */
+  updateFolder(
+    token: string,
+    id: string,
+    patch: { name?: string; color?: string | null },
+  ): Promise<FolderItem> {
+    return this.request<FolderItem>(`/folders/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(patch),
+    });
+  }
+
   deleteFolder(token: string, id: string): Promise<void> {
     return this.request<void>(`/folders/${id}`, { method: "DELETE", token });
   }
@@ -342,6 +366,15 @@ export class ByosClient {
 
   deleteFile(token: string, id: string): Promise<void> {
     return this.request<void>(`/files/${id}`, { method: "DELETE", token });
+  }
+
+  /** Move a file to a folder (folderId null = root). */
+  moveFile(token: string, id: string, folderId: string | null): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}/move`, {
+      method: "POST",
+      token,
+      body: JSON.stringify({ folder_id: folderId }),
+    });
   }
 
   listFavorites(token: string, opts?: { limit?: number; offset?: number }): Promise<FileItem[]> {
@@ -480,8 +513,15 @@ export class ByosClient {
     return this.request<void>(`/shares/${id}`, { method: "DELETE", token });
   }
 
-  shareUrl(shareToken: string): string {
-    return `${this.baseUrl}/s/${shareToken}`;
+  /** Direct API content URL for a share (used by the viewer to embed/download). */
+  shareUrl(shareToken: string, pw?: string): string {
+    const q = pw ? `?pw=${encodeURIComponent(pw)}` : "";
+    return `${this.baseUrl}/s/${shareToken}${q}`;
+  }
+
+  /** Public share metadata for the viewer page (no auth). */
+  shareInfo(token: string): Promise<ShareInfoItem> {
+    return this.request<ShareInfoItem>(`/s/${token}/info`);
   }
 
   // ── Analytics ─────────────────────────────────────────────────────────────

@@ -19,7 +19,14 @@ from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
 from byos_api.files import service
-from byos_api.files.schemas import DuplicateGroup, FavoriteRequest, FileOut, TagRequest, VersionOut
+from byos_api.files.schemas import (
+    DuplicateGroup,
+    FavoriteRequest,
+    FileOut,
+    MoveRequest,
+    TagRequest,
+    VersionOut,
+)
 from byos_api.security.scanning import scan_upload
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
@@ -494,6 +501,23 @@ async def download_version(
         etag=version.hash,
         request=request,
     )
+
+
+@router.post("/{file_id}/move", response_model=FileOut)
+async def move_file(
+    file_id: uuid.UUID, payload: MoveRequest, user: CurrentUser, db: DbDep
+) -> FileOut:
+    record = await db.get(File, file_id)
+    if record is None or record.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+    if payload.folder_id is not None:
+        folder = await db.get(Folder, payload.folder_id)
+        if folder is None or folder.owner_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
+    record.folder_id = payload.folder_id
+    await db.commit()
+    await db.refresh(record)
+    return FileOut.model_validate(record)
 
 
 @router.put("/{file_id}/favorite", response_model=FileOut)

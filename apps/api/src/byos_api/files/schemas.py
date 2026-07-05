@@ -44,6 +44,10 @@ class DuplicateGroup(BaseModel):
     files: list[FileOut]
 
 
+class MoveRequest(BaseModel):
+    folder_id: uuid.UUID | None = None  # null = move to root
+
+
 class FavoriteRequest(BaseModel):
     favorite: bool
 
