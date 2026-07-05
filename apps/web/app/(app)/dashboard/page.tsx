@@ -7,6 +7,8 @@ import {
   type FolderItem,
 } from "@byos/api-client";
 import {
+  AlertCircle,
+  Check,
   Download,
   Eye,
   File as FileIcon,
@@ -19,6 +21,7 @@ import {
   Image as ImageIcon,
   LayoutGrid,
   List,
+  Loader2,
   MoreVertical,
   Music,
   Search,
@@ -27,6 +30,7 @@ import {
   Tag,
   Trash2,
   Video,
+  X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
@@ -45,6 +49,7 @@ import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
@@ -141,11 +146,15 @@ export default function DashboardPage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [movingFile, setMovingFile] = useState<FileItem | null>(null);
   const [dragFolder, setDragFolder] = useState<string | null>(null);
+  const [uploads, setUploads] = useState<
+    { id: number; name: string; status: "uploading" | "done" | "error" }[]
+  >([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileItem[]>([]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const uploadIdRef = useRef(0);
 
   const searchActive = search.trim().length > 0;
 
@@ -262,13 +271,29 @@ export default function DashboardPage() {
 
   const upload = (fileList: FileList | null) => {
     if (!fileList || fileList.length === 0) return;
-    run(async () => {
-      for (const file of Array.from(fileList)) {
-        await authed((t) => api.uploadFile(t, file, folderId));
+    const jobs = Array.from(fileList).map((file) => ({
+      id: (uploadIdRef.current += 1),
+      name: file.name,
+      file,
+    }));
+    setUploads((prev) => [
+      ...prev,
+      ...jobs.map((j) => ({ id: j.id, name: j.name, status: "uploading" as const })),
+    ]);
+    (async () => {
+      for (const job of jobs) {
+        try {
+          await authed((t) => api.uploadFile(t, job.file, folderId));
+          setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "done" } : u)));
+        } catch {
+          setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error" } : u)));
+        }
       }
       await load();
       if (inputRef.current) inputRef.current.value = "";
-    }, "Upload complete");
+      // Auto-dismiss the finished panel a few seconds after everything settles.
+      setTimeout(() => setUploads((p) => p.filter((u) => u.status === "uploading")), 4000);
+    })();
   };
 
   const createFolder = () => {
@@ -424,6 +449,31 @@ export default function DashboardPage() {
       <p className="mt-1 text-sm text-zinc-500">
         {searchActive ? "Try a different search." : "Drop files here or use New to upload."}
       </p>
+    </div>
+  );
+
+  const listSkeleton = (
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+      {Array.from({ length: 6 }).map((_, i) => (
+        <div key={i} className="flex items-center gap-4 border-b border-zinc-50 px-4 py-3.5">
+          <Skeleton className="h-5 w-5" />
+          <Skeleton className="h-4 w-[45%]" />
+          <Skeleton className="ml-auto h-3 w-14" />
+          <Skeleton className="h-3 w-10" />
+        </div>
+      ))}
+    </div>
+  );
+
+  const gridSkeleton = (
+    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+      {Array.from({ length: 10 }).map((_, i) => (
+        <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4">
+          <Skeleton className="h-7 w-7" />
+          <Skeleton className="mt-3 h-4 w-3/4" />
+          <Skeleton className="mt-2 h-3 w-1/3" />
+        </div>
+      ))}
     </div>
   );
 
@@ -767,7 +817,11 @@ export default function DashboardPage() {
               {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
 
               {loading && !searchActive ? (
-                <p className="text-sm text-zinc-500">Loading…</p>
+                layout === "list" ? (
+                  listSkeleton
+                ) : (
+                  gridSkeleton
+                )
               ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
                 emptyState
               ) : layout === "list" ? (
@@ -806,6 +860,39 @@ export default function DashboardPage() {
       ) : null}
       {movingFile ? (
         <MoveModal file={movingFile} onClose={() => setMovingFile(null)} onMoved={() => load()} />
+      ) : null}
+
+      {uploads.length > 0 ? (
+        <div className="fixed bottom-4 right-4 z-40 w-72 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 text-sm font-medium text-zinc-800">
+            <span>
+              {uploads.some((u) => u.status === "uploading")
+                ? `Uploading ${uploads.filter((u) => u.status === "uploading").length} file(s)…`
+                : "Uploads"}
+            </span>
+            <button
+              onClick={() => setUploads([])}
+              className="text-zinc-400 hover:text-zinc-700"
+              aria-label="Dismiss"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+          <ul className="max-h-56 divide-y divide-zinc-50 overflow-auto">
+            {uploads.map((u) => (
+              <li key={u.id} className="flex items-center gap-2 px-3 py-2 text-sm">
+                {u.status === "uploading" ? (
+                  <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" />
+                ) : u.status === "done" ? (
+                  <Check className="h-4 w-4 shrink-0 text-indigo-600" />
+                ) : (
+                  <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
+                )}
+                <span className="truncate text-zinc-700">{u.name}</span>
+              </li>
+            ))}
+          </ul>
+        </div>
       ) : null}
     </div>
   );
