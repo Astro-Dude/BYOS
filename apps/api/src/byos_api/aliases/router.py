@@ -15,7 +15,6 @@ from byos_api.aliases.schemas import (
     PublicFolderView,
     PublicMeta,
 )
-from byos_api.analytics.recorder import record_event
 from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
@@ -183,13 +182,6 @@ async def public_folder_file(
     except service.AliasNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Not found") from None
 
-    await record_event(
-        request,
-        owner_id=file.owner_id,
-        target_type="file",
-        target_id=file.id,
-        event_type="download" if dl else "view",
-    )
     account = await files_service.account_for_file_public(db, file)
     if account is None:
         raise HTTPException(
@@ -229,13 +221,6 @@ async def resolve_alias(username: str, slug: str, request: Request, db: DbDep) -
     except service.AliasNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Alias not found") from None
 
-    await record_event(
-        request,
-        owner_id=alias.owner_id,
-        target_type="alias",
-        target_id=alias.id,
-        event_type="view",
-    )
     account = await files_service.account_for_file_public(db, file)
     if account is None:
         raise HTTPException(

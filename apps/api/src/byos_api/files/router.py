@@ -12,7 +12,6 @@ from telethon.errors import FloodWaitError, RPCError
 
 from byos_api.ai import nl_search
 from byos_api.ai.tagging import suggest_tags
-from byos_api.analytics.recorder import record_event
 from byos_api.audit import recorder as audit
 from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.config import get_settings
@@ -291,13 +290,6 @@ async def download_file(
     if version is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File version not found")
 
-    await record_event(
-        request,
-        owner_id=record.owner_id,
-        target_type="file",
-        target_id=record.id,
-        event_type="download",
-    )
     account = await service.account_for_file(db, user, record)
     if account is None:
         raise HTTPException(status.HTTP_409_CONFLICT, "Storage provider is not connected")

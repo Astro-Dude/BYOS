@@ -7,7 +7,6 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.analytics.recorder import record_event
 from byos_api.audit import recorder as audit
 from byos_api.auth.dependencies import CurrentUser
 from byos_api.core.config import get_settings
@@ -102,13 +101,6 @@ async def open_share(
         locator=version.provider_locator,
         size=version.size,
         checksum=version.hash,
-    )
-    await record_event(
-        request,
-        owner_id=share.owner_id,
-        target_type="share",
-        target_id=share.id,
-        event_type="view" if share.view_only else "download",
     )
     if not share.view_only:
         await service.register_download(db, share)
