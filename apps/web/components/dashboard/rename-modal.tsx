@@ -10,11 +10,15 @@ export function RenameModal({
   initial,
   onClose,
   onSubmit,
+  confirmLabel = "Rename",
+  placeholder,
 }: {
   title: string;
   initial: string;
   onClose: () => void;
   onSubmit: (name: string) => Promise<void> | void;
+  confirmLabel?: string;
+  placeholder?: string;
 }) {
   const [name, setName] = useState(initial);
   const [busy, setBusy] = useState(false);
@@ -46,6 +50,7 @@ export function RenameModal({
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && submit()}
+          placeholder={placeholder}
           autoFocus
           onFocus={(e) => e.currentTarget.select()}
         />
@@ -57,7 +62,7 @@ export function RenameModal({
             Cancel
           </Button>
           <Button onClick={submit} disabled={busy || !name.trim()}>
-            {busy ? "Saving…" : "Rename"}
+            {busy ? "Saving…" : confirmLabel}
           </Button>
         </div>
       </div>

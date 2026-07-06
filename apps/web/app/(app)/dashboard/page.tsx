@@ -182,6 +182,10 @@ export default function DashboardPage() {
   const [tagFilter, setTagFilter] = useState<string | null>(null);
   const [movingFile, setMovingFile] = useState<FileItem | null>(null);
   const [dragFolder, setDragFolder] = useState<string | null>(null);
+  const [selFiles, setSelFiles] = useState<Set<string>>(new Set());
+  const [selFolders, setSelFolders] = useState<Set<string>>(new Set());
+  const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [uploads, setUploads] = useState<
     {
       id: number;
@@ -264,6 +268,12 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
+
+  // Drop any multi-selection when the visible set changes.
+  useEffect(() => {
+    setSelFiles(new Set());
+    setSelFolders(new Set());
+  }, [view, folderId, search, tagFilter]);
 
   // ⌘K / Ctrl+K opens the search palette from anywhere.
   useEffect(() => {
@@ -459,6 +469,55 @@ export default function DashboardPage() {
   };
   const sortArrow = (field: SortField) =>
     sortField !== field ? "" : sortDir === "asc" ? " ↑" : " ↓";
+
+  // ── Multi-select ─────────────────────────────────────────────────────────
+  const selCount = selFiles.size + selFolders.size;
+  const clearSelection = () => {
+    setSelFiles(new Set());
+    setSelFolders(new Set());
+  };
+  const toggleSelFile = (id: string) =>
+    setSelFiles((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+  const toggleSelFolder = (id: string) =>
+    setSelFolders((s) => {
+      const n = new Set(s);
+      n.has(id) ? n.delete(id) : n.add(id);
+      return n;
+    });
+
+  const bulkStar = () =>
+    run(async () => {
+      const ids = [...selFiles];
+      await Promise.all(ids.map((id) => authed((t) => api.setFavorite(t, id, true))));
+      clearSelection();
+      await load();
+    }, "Starred");
+
+  const bulkAddTag = (tag: string) =>
+    run(async () => {
+      const ids = [...selFiles];
+      await Promise.all(ids.map((id) => authed((t) => api.addTag(t, id, tag))));
+      clearSelection();
+      await load();
+    }, "Tagged");
+
+  const bulkDelete = () =>
+    run(async () => {
+      for (const id of selFiles) {
+        await authed((t) => api.deleteFile(t, id));
+        removeRecentFile(id);
+      }
+      for (const id of selFolders) {
+        await authed((t) => api.deleteFolder(t, id));
+        removeRecentFolder(id);
+      }
+      clearSelection();
+      await load();
+    }, "Deleted");
 
   const moveFileToFolder = (fileId: string, folderId: string | null) => {
     setDragFolder(null);
@@ -703,11 +762,22 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
-            dragFolder === folder.id ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400" : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
+            dragFolder === folder.id
+              ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400"
+              : selFolders.has(folder.id)
+                ? "bg-indigo-50 dark:bg-indigo-500/10"
+                : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
           }`}
         >
-          <div className="flex min-w-0 items-center gap-3">
+          <div className="flex min-w-0 items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selFolders.has(folder.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => toggleSelFolder(folder.id)}
+              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            />
             <Folder
               className="h-5 w-5 shrink-0 text-indigo-500"
               fill={folder.color ?? "none"}
@@ -729,9 +799,20 @@ export default function DashboardPage() {
             e.dataTransfer.effectAllowed = "move";
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className="grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
+            selFiles.has(file.id)
+              ? "bg-indigo-50 dark:bg-indigo-500/10"
+              : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          }`}
         >
           <div className="flex min-w-0 items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selFiles.has(file.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => toggleSelFile(file.id)}
+              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            />
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }}
               aria-label="Star"
@@ -793,13 +874,22 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white dark:bg-zinc-900 p-4 ${
+          className={`group flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white dark:bg-zinc-900 p-4 ${
             dragFolder === folder.id
               ? "border-indigo-400 ring-2 ring-indigo-400"
-              : "border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 hover:shadow-sm"
+              : selFolders.has(folder.id)
+                ? "border-indigo-400 ring-1 ring-indigo-400"
+                : "border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 hover:shadow-sm"
           }`}
         >
           <div className="flex min-w-0 items-center gap-2">
+            <input
+              type="checkbox"
+              checked={selFolders.has(folder.id)}
+              onClick={(e) => e.stopPropagation()}
+              onChange={() => toggleSelFolder(folder.id)}
+              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+            />
             <Folder
               className="h-6 w-6 shrink-0 text-indigo-500"
               fill={folder.color ?? "none"}
@@ -826,10 +916,23 @@ export default function DashboardPage() {
             e.dataTransfer.effectAllowed = "move";
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className="cursor-pointer rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 hover:border-indigo-300 hover:shadow-sm"
+          className={`group cursor-pointer rounded-xl border bg-white dark:bg-zinc-900 p-4 hover:shadow-sm ${
+            selFiles.has(file.id)
+              ? "border-indigo-400 ring-1 ring-indigo-400"
+              : "border-zinc-200 dark:border-zinc-800 hover:border-indigo-300"
+          }`}
         >
           <div className="flex items-start justify-between">
-            <span aria-hidden>{fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="checkbox"
+                checked={selFiles.has(file.id)}
+                onClick={(e) => e.stopPropagation()}
+                onChange={() => toggleSelFile(file.id)}
+                className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              />
+              <span aria-hidden>{fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}</span>
+            </div>
             <div className="flex items-center gap-1">
               <button onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }} aria-label="Star">
                 <Star
@@ -934,6 +1037,45 @@ export default function DashboardPage() {
             </div>
           ) : (
             <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
+              {/* Bulk-action bar (multi-select) */}
+              {selCount > 0 ? (
+                <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
+                  <span className="font-medium text-indigo-800 dark:text-indigo-200">
+                    {selCount} selected
+                  </span>
+                  <div className="ml-auto flex items-center gap-1.5">
+                    {selFiles.size > 0 ? (
+                      <>
+                        <button
+                          onClick={bulkStar}
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          <Star className="h-4 w-4" /> Star
+                        </button>
+                        <button
+                          onClick={() => setBulkTagOpen(true)}
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          <Tag className="h-4 w-4" /> Tag
+                        </button>
+                      </>
+                    ) : null}
+                    <button
+                      onClick={() => setBulkConfirm(true)}
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white dark:hover:bg-zinc-800"
+                    >
+                      <Trash2 className="h-4 w-4" /> Delete
+                    </button>
+                    <button
+                      onClick={clearSelection}
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white dark:hover:bg-zinc-800"
+                      aria-label="Clear selection"
+                    >
+                      <X className="h-4 w-4" />
+                    </button>
+                  </div>
+                </div>
+              ) : null}
               {/* Title + view toggle */}
               <div className="flex flex-wrap items-center justify-between gap-3 py-3">
                 {searchActive ? (
@@ -1158,6 +1300,27 @@ export default function DashboardPage() {
             else removeFolder(confirming.folder);
             setConfirming(null);
           }}
+        />
+      ) : null}
+      {bulkConfirm ? (
+        <ConfirmModal
+          title={`Delete ${selCount} item${selCount === 1 ? "" : "s"}?`}
+          message="The selected files and folders (and everything inside those folders) will be permanently deleted."
+          onCancel={() => setBulkConfirm(false)}
+          onConfirm={() => {
+            bulkDelete();
+            setBulkConfirm(false);
+          }}
+        />
+      ) : null}
+      {bulkTagOpen ? (
+        <RenameModal
+          title={`Tag ${selFiles.size} file${selFiles.size === 1 ? "" : "s"}`}
+          initial=""
+          placeholder="Tag name"
+          confirmLabel="Add tag"
+          onClose={() => setBulkTagOpen(false)}
+          onSubmit={(tag) => bulkAddTag(tag.toLowerCase())}
         />
       ) : null}
       {renamingFile ? (
