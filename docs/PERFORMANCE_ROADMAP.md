@@ -16,6 +16,15 @@ hot-read caching. Do them in that order.
 - **Optimistic delete**, ETag/304 on downloads, pagination + infinite scroll.
 - **Provider-agnostic DB layer** (`prepare_asyncpg` handles Neon + Supabase poolers).
 
+- **Cached authed user in Redis** (`get_current_user`) — session requests skip
+  the per-request `db.get(User)` hop; rehydrated via `merge(load=False)` so it
+  stays session-attached (mutations persist), busted on username change, graceful
+  fallback if Redis is down.
+- **Folder listing 3→2 queries** — `list_children_with_sizes` shares one
+  all-folders fetch for both children + subtree sizes.
+- **Duplicates client cache** — stale-while-revalidate in the browser
+  (localStorage); instant repaint, cleared on upload/delete.
+
 - **Prod DB → Supabase (Mumbai / ap-south-1, session pooler), always-on.** Done.
   Measured ~57–90 ms/query (vs Neon Singapore ~228 ms), no per-request cold
   starts. `prepare_asyncpg` keeps prepared statements on for the session pooler

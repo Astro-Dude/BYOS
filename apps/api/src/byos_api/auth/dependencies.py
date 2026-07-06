@@ -12,19 +12,73 @@ from __future__ import annotations
 
 import uuid
 from dataclasses import dataclass
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, Any
 
 import jwt
 from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import make_transient_to_detached
 
 from byos_api.apikeys import service as apikeys_service
+from byos_api.core.cache import cached_json, invalidate
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.core.ratelimit import rate_limit
 from byos_api.core.security import decode_access_token
 from byos_api.db.models import User
+
+_USER_CACHE_TTL = 60  # seconds
+
+
+def _user_cache_key(user_id: uuid.UUID | str) -> str:
+    return f"user:{user_id}"
+
+
+async def invalidate_user(user_id: uuid.UUID | str) -> None:
+    """Drop a cached user snapshot (call after mutating the user row)."""
+    await invalidate(_user_cache_key(user_id))
+
+
+async def _load_active_user(db: AsyncSession, user_id: uuid.UUID) -> User | None:
+    """Resolve a session user, caching a snapshot in Redis so the common authed
+    path skips a DB round-trip. Returns a session-attached instance (via
+    merge(load=False)) so downstream mutations still persist."""
+
+    async def snapshot() -> dict[str, Any] | None:
+        u = await db.get(User, user_id)
+        if u is None or not u.is_active:
+            return None
+        return {
+            "id": str(u.id),
+            "telegram_user_id": u.telegram_user_id,
+            "username": u.username,
+            "email": u.email,
+            "display_name": u.display_name,
+            "is_active": u.is_active,
+            "is_verified": u.is_verified,
+            "created_at": u.created_at.isoformat() if u.created_at else None,
+        }
+
+    data = await cached_json(_user_cache_key(user_id), _USER_CACHE_TTL, snapshot)
+    if data is None:
+        return None
+    ghost = User(
+        id=uuid.UUID(data["id"]),
+        telegram_user_id=data["telegram_user_id"],
+        username=data["username"],
+        email=data["email"],
+        display_name=data["display_name"],
+        is_active=data["is_active"],
+        is_verified=data["is_verified"],
+        created_at=datetime.fromisoformat(data["created_at"]) if data["created_at"] else None,
+    )
+    # Present the snapshot as a previously-loaded (detached) row, then merge with
+    # load=False so there's no SELECT. The result is session-attached, so a later
+    # field change + commit (e.g. set_username) still persists correctly.
+    make_transient_to_detached(ghost)
+    return await db.merge(ghost, load=False)
 
 _bearer = HTTPBearer(auto_error=False)
 _API_KEY_SCHEME = "byosk_"
@@ -78,8 +132,8 @@ async def get_principal(
             user_id = uuid.UUID(str(payload.get("sub")))
         except (ValueError, TypeError):
             raise _unauthorized from None
-        db_user = await db.get(User, user_id)
-        if db_user is None or not db_user.is_active:
+        db_user = await _load_active_user(db, user_id)
+        if db_user is None:
             raise _unauthorized
         principal = Principal(user=db_user, auth_type="session", scopes=None)
 

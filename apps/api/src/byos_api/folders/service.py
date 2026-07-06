@@ -54,6 +54,47 @@ async def subtree_sizes(db: AsyncSession, user: User) -> dict[uuid.UUID, int]:
     return sizes
 
 
+async def list_children_with_sizes(
+    db: AsyncSession, user: User, parent_id: uuid.UUID | None
+) -> list[tuple[Folder, int]]:
+    """Direct children of a folder + each one's recursive byte total, in TWO
+    queries (all folders once + file sums), rolled up in memory. Replaces
+    list_children + subtree_sizes (which was 3 queries) for the listing path."""
+    all_folders = (
+        (await db.execute(select(Folder).where(Folder.owner_id == user.id))).scalars().all()
+    )
+    sums = (
+        await db.execute(
+            select(File.folder_id, func.coalesce(func.sum(File.size), 0))
+            .where(File.owner_id == user.id, File.folder_id.is_not(None))
+            .group_by(File.folder_id)
+        )
+    ).all()
+    direct = {fid: int(total) for fid, total in sums}
+    children: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
+    for f in all_folders:
+        children[f.parent_id].append(f.id)
+
+    sizes: dict[uuid.UUID, int] = {}
+
+    def roll_up(fid: uuid.UUID) -> int:
+        total = direct.get(fid, 0)
+        for child in children.get(fid, []):
+            total += roll_up(child)
+        sizes[fid] = total
+        return total
+
+    ids = {f.id for f in all_folders}
+    for f in all_folders:
+        if f.parent_id is None or f.parent_id not in ids:
+            roll_up(f.id)
+
+    kids = sorted(
+        (f for f in all_folders if f.parent_id == parent_id), key=lambda f: f.name.lower()
+    )
+    return [(f, sizes.get(f.id, 0)) for f in kids]
+
+
 class FolderNotFound(Exception):
     pass
 
@@ -153,19 +194,6 @@ async def create_folder(
     await db.commit()
     await db.refresh(folder)
     return folder
-
-
-async def list_children(
-    db: AsyncSession, user: User, parent_id: uuid.UUID | None
-) -> list[Folder]:
-    stmt = select(Folder).where(Folder.owner_id == user.id)
-    stmt = (
-        stmt.where(Folder.parent_id == parent_id)
-        if parent_id is not None
-        else stmt.where(Folder.parent_id.is_(None))
-    )
-    result = await db.execute(stmt.order_by(Folder.name))
-    return list(result.scalars())
 
 
 async def update_folder(

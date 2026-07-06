@@ -51,6 +51,7 @@ import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { clearDuplicatesCache } from "@/lib/duplicates-cache";
 import { FOLDER_COLORS } from "@/lib/folder-colors";
 import {
   addRecentFile,
@@ -379,6 +380,7 @@ export default function DashboardPage() {
           setUploads((p) =>
             p.map((u) => (u.id === job.id ? { ...u, status: "done", progress: 100 } : u)),
           );
+          clearDuplicatesCache(); // a new file may change the duplicate set
           // Refresh as each file lands so it shows up immediately, not only
           // once the whole batch is done.
           await load();
@@ -419,6 +421,7 @@ export default function DashboardPage() {
     setFiles((prev) => prev.filter((f) => f.id !== file.id));
     setResults((r) => (r ? r.filter((f) => f.id !== file.id) : r));
     removeRecentFile(file.id); // keep the palette's recents in sync
+    clearDuplicatesCache();
     run(async () => {
       await authed((t) => api.deleteFile(t, file.id));
     }, "File deleted");
@@ -426,6 +429,7 @@ export default function DashboardPage() {
 
   const removeFolder = (folder: FolderItem) => {
     removeRecentFolder(folder.id);
+    clearDuplicatesCache();
     run(async () => {
       await authed((t) => api.deleteFolder(t, folder.id));
       await load();
@@ -515,6 +519,7 @@ export default function DashboardPage() {
         await authed((t) => api.deleteFolder(t, id));
         removeRecentFolder(id);
       }
+      clearDuplicatesCache();
       clearSelection();
       await load();
     }, "Deleted");

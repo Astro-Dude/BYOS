@@ -71,9 +71,10 @@ def _folder_out(folder: Folder, sizes: dict[uuid.UUID, int]) -> FolderOut:
 async def list_folders(
     user: CurrentUser, db: DbDep, parent_id: uuid.UUID | None = None
 ) -> list[FolderOut]:
-    folders = await service.list_children(db, user, parent_id)
-    sizes = await service.subtree_sizes(db, user)
-    return [_folder_out(f, sizes) for f in folders]
+    return [
+        _folder_out(folder, {folder.id: size})
+        for folder, size in await service.list_children_with_sizes(db, user, parent_id)
+    ]
 
 
 @router.get("/{folder_id}/breadcrumb", response_model=list[BreadcrumbItem])
