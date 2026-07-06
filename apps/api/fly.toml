@@ -9,8 +9,9 @@ primary_region = "bom"      # Mumbai
   target = "prod"
 
 # Run DB migrations once per deploy, before the new version goes live.
+# (Direct venv binary — no `uv run`, which would re-sync at runtime.)
 [deploy]
-  release_command = "uv run alembic upgrade head"
+  release_command = ".venv/bin/alembic upgrade head"
 
 [env]
   ENVIRONMENT = "production"
