@@ -15,7 +15,45 @@ app fetches from the browser, so it can live on any edge/CDN host.
 
 ---
 
-## 1. Deploy the API (Fly.io, Mumbai)
+## Option B — API on Google Cloud Run (Mumbai, free tier)
+
+Cloud Run has a real free tier in `asia-south1` (Mumbai) and scales to zero. It
+still needs a **billing account linked** (a card on file), but free-tier usage is
+$0. Same Docker image (it now honors `$PORT`).
+
+```bash
+brew install --cask google-cloud-sdk    # or: https://cloud.google.com/sdk/docs/install
+gcloud auth login
+gcloud config set project <YOUR_PROJECT_ID>       # create one at console.cloud.google.com
+gcloud services enable run.googleapis.com cloudbuild.googleapis.com
+
+# Secrets: put values in a git-ignored YAML (keeps them off the command line).
+# Keys: DATABASE_URL (Supabase), BYOS_ENCRYPTION_KEY (must match apps/api/.env),
+# TELEGRAM_API_ID, TELEGRAM_API_HASH, JWT_SECRET_KEY, ENVIRONMENT: production,
+# WEB_CONCURRENCY: "2", REFRESH_COOKIE_SECURE: "true",
+# REFRESH_COOKIE_SAMESITE: none, CORS_ORIGINS + WEB_BASE_URL (Vercel URL later).
+cd apps/api
+gcloud run deploy byos-api \
+  --source . \
+  --region asia-south1 \
+  --allow-unauthenticated \
+  --min-instances 0 \
+  --port 8080 \
+  --env-vars-file cloudrun.env.yaml
+
+gcloud run services describe byos-api --region asia-south1 --format 'value(status.url)'
+curl <that-url>/health     # -> {"status":"ok","environment":"production",...}
+```
+
+- **Migrations:** Supabase is already at head (`alembic upgrade head` was run
+  against it). Re-run locally after any new migration — there's no release hook.
+- **Keep warm:** point a 5-min cron at `<url>/ping` (see Notes).
+- **min-instances 0** = free/scale-to-zero (rely on the cron); `1` = always warm
+  but billed continuously.
+
+---
+
+## Option A — API on Fly.io (Mumbai)
 
 ```bash
 # one-time

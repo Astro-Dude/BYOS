@@ -29,4 +29,4 @@ EXPOSE 8000
 # Run uvicorn directly from the pre-built venv (no `uv run`, which would re-sync
 # at startup). Worker count is env-driven (WEB_CONCURRENCY, default 2) so small
 # VMs don't OOM; shell form so the var expands.
-CMD ["sh", "-c", ".venv/bin/uvicorn byos_api.main:app --host 0.0.0.0 --port 8000 --workers ${WEB_CONCURRENCY:-2}"]
+CMD ["sh", "-c", ".venv/bin/uvicorn byos_api.main:app --host 0.0.0.0 --port ${PORT:-8000} --workers ${WEB_CONCURRENCY:-2}"]

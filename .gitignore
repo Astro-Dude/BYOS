@@ -41,3 +41,6 @@ packages/api-client/src/generated/
 coverage/
 .idea/
 .vscode/
+
+# Cloud Run secrets file (generated locally, never commit)
+apps/api/cloudrun.env.yaml
