@@ -8,7 +8,7 @@ from telethon.errors import FloodWaitError
 
 from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
-from byos_api.auth.dependencies import CurrentUser, invalidate_user
+from byos_api.auth.dependencies import CurrentUser
 from byos_api.auth.schemas import (
     PhoneRequest,
     TelegramLoginResult,
@@ -166,5 +166,4 @@ async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -
         ) from None
     except service.UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
-    await invalidate_user(user.id)
     return UserResponse.model_validate(updated)

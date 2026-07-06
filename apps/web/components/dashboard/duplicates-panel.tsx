@@ -7,22 +7,17 @@ import { useCallback, useEffect, useState } from "react";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
-import { getCachedDuplicates, setCachedDuplicates } from "@/lib/duplicates-cache";
 
 export function DuplicatesPanel() {
   const authed = useAuthed();
-  const cached = getCachedDuplicates();
-  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>(cached ?? []);
-  // Skeleton only on a true cold start; with a cache we paint instantly and
-  // revalidate quietly in the background.
-  const [loading, setLoading] = useState(cached === null);
+  const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
+  const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
+    setLoading(true);
     try {
-      const fresh = await authed((t) => api.listDuplicates(t));
-      setDuplicates(fresh);
-      setCachedDuplicates(fresh);
+      setDuplicates(await authed((t) => api.listDuplicates(t)));
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Failed to load duplicates");
     } finally {
