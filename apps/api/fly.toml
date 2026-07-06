@@ -1,0 +1,35 @@
+# Fly.io config for the BYOS API. Deploy from apps/api:  fly deploy
+# Region MUST match Supabase (Mumbai / ap-south-1) — that co-location is the
+# whole latency fix (API↔DB drops from ~59ms to ~1ms).
+app = "byos-api"            # change to your chosen app name (fly apps create)
+primary_region = "bom"      # Mumbai
+
+[build]
+  dockerfile = "Dockerfile"
+  target = "prod"
+
+# Run DB migrations once per deploy, before the new version goes live.
+[deploy]
+  release_command = "uv run alembic upgrade head"
+
+[env]
+  ENVIRONMENT = "production"
+  WEB_CONCURRENCY = "2"
+
+[http_service]
+  internal_port = 8000
+  force_https = true
+  auto_start_machines = true
+  auto_stop_machines = "stop"
+  min_machines_running = 1   # keep one warm so there's no cold-start latency
+
+  [[http_service.checks]]
+    method = "GET"
+    path = "/health"
+    interval = "15s"
+    timeout = "2s"
+    grace_period = "10s"
+
+[[vm]]
+  size = "shared-cpu-1x"
+  memory = "512mb"

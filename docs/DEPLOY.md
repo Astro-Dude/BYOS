@@ -1,0 +1,99 @@
+# BYOS — Deployment
+
+**Architecture (why):** the API must sit in the **same region as Supabase
+(Mumbai / ap-south-1)** — that's the whole latency fix (API↔DB ~1 ms). The web
+app fetches from the browser, so it can live on any edge/CDN host.
+
+- **API** → Fly.io, region `bom` (Mumbai). Config: `apps/api/fly.toml`.
+- **Web** → Vercel (global edge). Points at the API via `NEXT_PUBLIC_API_URL`.
+- **Redis** → skipped for now (rate-limit + caches degrade gracefully). Add later
+  only if co-located in `bom` (`fly redis create --region bom`).
+
+> ⚠️ **`BYOS_ENCRYPTION_KEY` must be the exact value currently in
+> `apps/api/.env`.** It encrypted the Telegram session that's already in
+> Supabase — a different key means uploads/downloads can't decrypt it.
+
+---
+
+## 1. Deploy the API (Fly.io, Mumbai)
+
+```bash
+# one-time
+brew install flyctl        # or: curl -L https://fly.io/install.sh | sh
+fly auth login
+
+cd apps/api
+
+# Create the app (pick a unique name; update `app = ` in fly.toml to match)
+fly apps create byos-api        # or your name
+
+# Set secrets. Pull values from apps/api/.env and .env.production:
+fly secrets set \
+  DATABASE_URL="<.env.production DATABASE_URL — the Supabase pooler URL>" \
+  BYOS_ENCRYPTION_KEY="<.env BYOS_ENCRYPTION_KEY — MUST match>" \
+  TELEGRAM_API_ID="<.env TELEGRAM_API_ID>" \
+  TELEGRAM_API_HASH="<.env TELEGRAM_API_HASH>" \
+  JWT_SECRET_KEY="$(python3 -c 'import secrets; print(secrets.token_urlsafe(48))')" \
+  REFRESH_COOKIE_SECURE="true" \
+  REFRESH_COOKIE_SAMESITE="none" \
+  CORS_ORIGINS="https://REPLACE-with-your-vercel-domain.vercel.app" \
+  WEB_BASE_URL="https://REPLACE-with-your-vercel-domain.vercel.app"
+
+# Deploy (runs `alembic upgrade head` as the release command, then starts)
+fly deploy
+
+fly status                 # note the hostname, e.g. https://byos-api.fly.dev
+curl https://byos-api.fly.dev/health   # -> {"status":"ok",...}
+```
+
+`ENVIRONMENT=production` and `WEB_CONCURRENCY=2` are already set in `fly.toml`.
+(You don't know the Vercel domain yet — set `CORS_ORIGINS`/`WEB_BASE_URL` now as a
+placeholder and fix them in step 3.)
+
+## 2. Deploy the web app (Vercel)
+
+Easiest via the dashboard: **New Project → import the repo → Root Directory =
+`apps/web`.** Vercel auto-detects Next.js. Add an env var:
+
+```
+NEXT_PUBLIC_API_URL = https://byos-api.fly.dev      # your Fly API URL
+```
+
+Deploy. Note the resulting domain, e.g. `https://byos.vercel.app`.
+
+(CLI alternative: `npm i -g vercel && cd apps/web && vercel --prod`, then set the
+env var in the project settings and redeploy.)
+
+## 3. Wire the two together
+
+Point the API's CORS + folder-share redirect at the real web domain:
+
+```bash
+cd apps/api
+fly secrets set \
+  CORS_ORIGINS="https://byos.vercel.app" \
+  WEB_BASE_URL="https://byos.vercel.app"    # triggers a rolling restart
+```
+
+If you set `NEXT_PUBLIC_API_URL` after the first Vercel build, redeploy the web
+app so it bakes in (it's a build-time public var).
+
+## 4. Verify
+
+- `https://byos.vercel.app` loads, Telegram login works, and **stays logged in on
+  reload** (confirms the cross-site `SameSite=None` refresh cookie).
+- Upload a file → appears; open it → downloads (confirms the encryption key +
+  Supabase + Telegram all line up).
+- p50 for a folder navigation should be well under ~100 ms now that API↔DB is
+  co-located.
+
+## Notes
+- **Migrations** run automatically on every `fly deploy` (release command). To run
+  manually: `fly ssh console -C "uv run alembic upgrade head"`.
+- **Scaling:** `fly scale count 2` adds instances; use Supabase's pooler (already
+  handled by `prepare_asyncpg`) so extra instances don't exhaust connections.
+- **Cold starts:** `min_machines_running = 1` keeps one machine warm. Set it to 0
+  to save cost at the price of a cold start after idle.
+- **Custom domain (optional):** putting web + API under one registrable domain
+  (`app.example.com` + `api.example.com`) lets you use `SameSite=Lax` instead of
+  `None` — slightly stricter. Not required.

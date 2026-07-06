@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from functools import lru_cache
+from typing import Literal
 
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -26,6 +27,10 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 30
     refresh_cookie_name: str = "byos_refresh"
     refresh_cookie_secure: bool = False
+    # Cross-site cookie policy. When web and API are on different domains
+    # (e.g. Vercel + Fly), this must be "none" (with secure=true) or the refresh
+    # cookie won't be sent and sessions break on reload. Same-domain: keep "lax".
+    refresh_cookie_samesite: Literal["lax", "strict", "none"] = "lax"
 
     # Provider-credential encryption (Fernet key)
     byos_encryption_key: str = ""

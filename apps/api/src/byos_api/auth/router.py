@@ -39,7 +39,7 @@ def _set_refresh_cookie(response: Response, raw: str) -> None:
         value=raw,
         httponly=True,
         secure=_settings.refresh_cookie_secure,
-        samesite="lax",
+        samesite=_settings.refresh_cookie_samesite,
         max_age=_settings.refresh_token_expire_days * 24 * 3600,
         path="/",
     )
@@ -147,7 +147,12 @@ async def logout(request: Request, response: Response, db: DbDep) -> None:
     raw = request.cookies.get(_settings.refresh_cookie_name)
     if raw:
         await service.revoke_refresh_token(db, raw)
-    response.delete_cookie(_settings.refresh_cookie_name, path="/")
+    response.delete_cookie(
+        _settings.refresh_cookie_name,
+        path="/",
+        samesite=_settings.refresh_cookie_samesite,
+        secure=_settings.refresh_cookie_secure,
+    )
 
 
 @router.get("/me", response_model=UserResponse)
