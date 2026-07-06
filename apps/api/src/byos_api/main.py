@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
 from fastapi.middleware.cors import CORSMiddleware
 
 from byos_api.aliases.router import public_api_router as alias_public_api_router
@@ -76,6 +76,12 @@ def create_app() -> FastAPI:
             "environment": settings.environment,
             "providers": available_providers(),
         }
+
+    # Minimal keep-alive endpoint for a warm-up cron: no body, no DB, no auth.
+    # Any request keeps the Cloud Run instance warm; this is just the cheapest one.
+    @app.get("/ping", include_in_schema=False)
+    async def ping() -> Response:
+        return Response(status_code=204)
 
     app.include_router(auth_router)
     app.include_router(providers_router)

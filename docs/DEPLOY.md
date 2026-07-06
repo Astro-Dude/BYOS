@@ -94,6 +94,11 @@ app so it bakes in (it's a build-time public var).
   handled by `prepare_asyncpg`) so extra instances don't exhaust connections.
 - **Cold starts:** `min_machines_running = 1` keeps one machine warm. Set it to 0
   to save cost at the price of a cold start after idle.
+- **Keep-alive (scale-to-zero hosts, e.g. Cloud Run):** hit `GET /ping` (returns
+  `204`, no DB/auth) every ~5 min from a free cron (UptimeRobot / cron-job.org /
+  Cloud Scheduler). Cloud Run keeps an instance warm ~15 min after a request, so
+  a 5-min ping keeps it warm continuously — and you're billed only per (tiny)
+  request, not for idle time, so it stays within the free tier.
 - **Custom domain (optional):** putting web + API under one registrable domain
   (`app.example.com` + `api.example.com`) lets you use `SameSite=Lax` instead of
   `None` — slightly stricter. Not required.
