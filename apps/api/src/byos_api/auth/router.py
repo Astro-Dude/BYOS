@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -24,8 +25,19 @@ from byos_api.core.ratelimit import limit
 from byos_api.core.security import create_access_token
 from byos_api.db.models import User
 
+logger = logging.getLogger("byos")
 _settings = get_settings()
 router = APIRouter(prefix="/auth", tags=["auth"])
+
+
+def _telegram_unavailable(op: str, exc: Exception) -> HTTPException:
+    """Log the real error and return a clean, retryable message instead of a 500
+    for any non-FloodWait Telegram/connection failure."""
+    logger.error("telegram %s failed: %s", op, type(exc).__name__, exc_info=True)
+    return HTTPException(
+        status.HTTP_502_BAD_GATEWAY,
+        "Telegram is having trouble right now — please try again in a moment.",
+    )
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -84,6 +96,8 @@ async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResul
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
+    except Exception as exc:
+        raise _telegram_unavailable("start", exc) from exc
     return TelegramLoginResult(status="code_sent", ticket=ticket)
 
 
@@ -103,6 +117,8 @@ async def telegram_verify(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
+    except Exception as exc:
+        raise _telegram_unavailable("verify", exc) from exc
     if result == "password_needed":
         return TelegramLoginResult(status="password_needed", ticket=ticket)
     assert user is not None
@@ -125,6 +141,8 @@ async def telegram_password(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
+    except Exception as exc:
+        raise _telegram_unavailable("password", exc) from exc
     assert user is not None
     return await _issue_session(db, user, response, request)
 
