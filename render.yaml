@@ -1,0 +1,55 @@
+# Render Blueprint — deploys the whole BYOS monorepo (API + web) on Render.
+# Dashboard: New → Blueprint → connect this repo → it reads this file.
+# Region: Singapore (closest free region to Supabase Mumbai — we accept the
+# ~40-60ms API↔DB latency for a no-card, one-platform deploy).
+#
+# After the first deploy, set the cross-referencing URLs (marked sync:false):
+#   byos-api:  CORS_ORIGINS + WEB_BASE_URL  → the byos-web URL
+#   byos-web:  NEXT_PUBLIC_API_URL          → the byos-api URL   (then redeploy web)
+services:
+  # ── API (FastAPI, Docker) ───────────────────────────────────────────────────
+  - type: web
+    name: byos-api
+    runtime: docker
+    dockerfilePath: apps/api/Dockerfile
+    dockerContext: apps/api
+    region: singapore
+    plan: free
+    healthCheckPath: /health
+    envVars:
+      - key: ENVIRONMENT
+        value: production
+      - key: WEB_CONCURRENCY
+        value: "1"                # free tier is small — keep it lean
+      - key: REFRESH_COOKIE_SECURE
+        value: "true"
+      - key: REFRESH_COOKIE_SAMESITE
+        value: none               # web + API are different domains
+      - key: JWT_SECRET_KEY
+        generateValue: true       # Render generates a strong value
+      - key: DATABASE_URL
+        sync: false               # Supabase pooler URL
+      - key: BYOS_ENCRYPTION_KEY
+        sync: false               # MUST match apps/api/.env (decrypts Telegram session)
+      - key: TELEGRAM_API_ID
+        sync: false
+      - key: TELEGRAM_API_HASH
+        sync: false
+      - key: CORS_ORIGINS
+        sync: false               # set to the byos-web URL after first deploy
+      - key: WEB_BASE_URL
+        sync: false               # set to the byos-web URL after first deploy
+
+  # ── Web (Next.js standalone, Docker; context = repo root for the pnpm workspace)
+  - type: web
+    name: byos-web
+    runtime: docker
+    dockerfilePath: apps/web/Dockerfile
+    dockerContext: .
+    region: singapore
+    plan: free
+    envVars:
+      - key: HOSTNAME
+        value: "0.0.0.0"          # Next standalone must bind all interfaces
+      - key: NEXT_PUBLIC_API_URL
+        sync: false               # set to the byos-api URL, then redeploy (build-time)

@@ -15,6 +15,43 @@ app fetches from the browser, so it can live on any edge/CDN host.
 
 ---
 
+## Option C — Everything on Render (no card, one platform) ← current plan
+
+Render deploys the whole monorepo from `render.yaml` (both services), needs **no
+credit card**, and is dashboard-driven. Trade-off: free region is **Singapore**
+(not Mumbai), so API↔Supabase is ~40-60ms, and free services **cold-start**
+(~30-60s) after ~15 min idle. Fine for a demo/personal app.
+
+**Steps:**
+1. Push `render.yaml` (done).
+2. Render dashboard → **New → Blueprint** → connect this repo → it reads
+   `render.yaml` and creates **byos-api** + **byos-web**.
+3. It'll prompt for the `sync:false` env vars. Set on **byos-api**:
+   - `DATABASE_URL` = Supabase pooler URL (from `apps/api/.env.production`)
+   - `BYOS_ENCRYPTION_KEY` = the exact value in `apps/api/.env`
+   - `TELEGRAM_API_ID`, `TELEGRAM_API_HASH` = from `apps/api/.env`
+   - `CORS_ORIGINS`, `WEB_BASE_URL` = leave blank for now
+   (`JWT_SECRET_KEY` is auto-generated.)
+   Leave **byos-web**'s `NEXT_PUBLIC_API_URL` blank for now.
+4. First deploy runs. Note the two URLs (e.g. `https://byos-api.onrender.com`,
+   `https://byos-web.onrender.com`).
+5. Fill the cross-refs and redeploy:
+   - byos-api → `CORS_ORIGINS` and `WEB_BASE_URL` = the **web** URL
+   - byos-web → `NEXT_PUBLIC_API_URL` = the **api** URL (this triggers a rebuild,
+     since it's baked into the client bundle)
+6. Verify: open the web URL, log in via Telegram, confirm it **stays logged in on
+   reload** (cross-site cookie), upload + open a file.
+
+**Migrations:** Supabase is already at head. After any new migration, run it
+locally against Supabase (`cd apps/api && uv run alembic upgrade head` with `.env`
+pointing at Supabase) — Render free has no release hook.
+
+**Cold starts:** don't bother with a keep-alive cron on Render free — the account
+only gets 750 instance-hours/month total, so you can't keep both services warm
+24/7 anyway. Accept the cold start, or upgrade one service later.
+
+---
+
 ## Option B — API on Google Cloud Run (Mumbai, free tier)
 
 Cloud Run has a real free tier in `asia-south1` (Mumbai) and scales to zero. It

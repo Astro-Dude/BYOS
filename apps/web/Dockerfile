@@ -18,6 +18,10 @@ CMD ["pnpm", "--filter", "@byos/web", "dev"]
 
 # ── Build: Next standalone output ─────────────────────────────────────────────
 FROM base AS build
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so the API URL
+# must be present here. Render passes service env vars as build args.
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @byos/web build
