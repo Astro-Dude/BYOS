@@ -6,6 +6,11 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
 from sqlalchemy.ext.asyncio import AsyncSession
 from telethon.errors import FloodWaitError
+from telethon.errors.rpcerrorlist import (
+    PhoneNumberBannedError,
+    PhoneNumberFloodError,
+    PhoneNumberInvalidError,
+)
 
 from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
@@ -93,6 +98,21 @@ async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResul
     except telegram.TelegramNotConfigured:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Telegram login is not configured"
+        ) from None
+    except PhoneNumberInvalidError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            "That phone number looks invalid. Use full international format, "
+            "e.g. +919812345678 (country code, no spaces or leading zeros).",
+        ) from None
+    except PhoneNumberBannedError:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Telegram has banned this phone number."
+        ) from None
+    except PhoneNumberFloodError:
+        raise HTTPException(
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            "Too many code requests for this number — wait a while before trying again.",
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
