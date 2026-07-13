@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
@@ -193,6 +194,11 @@ async def public_folder_file(
         size=version.size,
         checksum=version.hash,
     )
+
+    async def _mark_missing() -> None:
+        file.missing_at = datetime.now(UTC)
+        await db.commit()
+
     return await stream_object(
         get_provider(file.provider),
         account,
@@ -202,6 +208,7 @@ async def public_folder_file(
         disposition="attachment" if dl else "inline",
         etag=version.hash,
         request=request,
+        on_missing=_mark_missing,
     )
 
 
@@ -233,6 +240,11 @@ async def resolve_alias(username: str, slug: str, request: Request, db: DbDep) -
         size=version.size,
         checksum=version.hash,
     )
+
+    async def _mark_missing() -> None:
+        file.missing_at = datetime.now(UTC)
+        await db.commit()
+
     return await stream_object(
         get_provider(file.provider),
         account,
@@ -242,4 +254,5 @@ async def resolve_alias(username: str, slug: str, request: Request, db: DbDep) -
         disposition="inline",
         etag=version.hash,
         request=request,
+        on_missing=_mark_missing,
     )

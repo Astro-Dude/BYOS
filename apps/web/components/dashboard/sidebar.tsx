@@ -4,6 +4,7 @@ import type { ProviderStatus } from "@byos/api-client";
 import {
   Code2,
   Copy,
+  FileWarning,
   FolderPlus,
   HardDrive,
   Link2,
@@ -33,7 +34,14 @@ function formatBytes(n: number): string {
   return `${value.toFixed(1)} ${units[i]}`;
 }
 
-export type DriveView = "drive" | "starred" | "links" | "duplicates" | "developer";
+export type DriveView =
+  | "drive"
+  | "starred"
+  | "links"
+  | "duplicates"
+  | "missing"
+  | "developer"
+  | "profile";
 
 export function Sidebar({
   view,
@@ -121,6 +129,7 @@ export function Sidebar({
         {navItem("starred", "Starred", <Star className={iconClass} />)}
         {navItem("links", "Links", <Link2 className={iconClass} />)}
         {navItem("duplicates", "Duplicates", <Copy className={iconClass} />)}
+        {navItem("missing", "Missing", <FileWarning className={iconClass} />)}
       </nav>
 
       {/* Developer + theme toggle + storage pinned to the bottom. */}

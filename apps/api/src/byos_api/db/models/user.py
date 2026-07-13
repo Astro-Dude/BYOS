@@ -16,8 +16,13 @@ class User(UUIDPrimaryKey, TimestampMixin, Base):
 
     telegram_user_id: Mapped[int | None] = mapped_column(BigInteger, unique=True, index=True)
     username: Mapped[str | None] = mapped_column(String(30), unique=True, index=True)
+    phone: Mapped[str | None] = mapped_column(String(32), unique=True, index=True)
     email: Mapped[str | None] = mapped_column(String(320), unique=True, index=True)
     password_hash: Mapped[str | None] = mapped_column(String(255))
     display_name: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+
+    @property
+    def has_password(self) -> bool:
+        return self.password_hash is not None

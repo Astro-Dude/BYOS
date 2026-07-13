@@ -61,6 +61,10 @@ class File(UUIDPrimaryKey, TimestampMixin, Base):
         Boolean, server_default=text("false"), nullable=False
     )
 
+    # Set when the underlying bytes are found gone from the provider (deleted in
+    # Telegram directly); null = available. Surfaced in the "Missing" section.
+    missing_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
     modified_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),

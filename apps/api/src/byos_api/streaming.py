@@ -7,7 +7,7 @@ Used by file downloads, alias resolution, version downloads, and share links.
 
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import Response, StreamingResponse
@@ -50,6 +50,7 @@ async def stream_object(
     disposition: str = "attachment",
     etag: str | None = None,
     request: Request | None = None,
+    on_missing: Callable[[], Awaitable[None]] | None = None,
 ) -> Response:
     from telethon.errors import FloodWaitError
 
@@ -65,6 +66,8 @@ async def stream_object(
         first_chunk, exhausted = b"", True
     except FileNotFoundError:
         await _aclose(stream)
+        if on_missing is not None:
+            await on_missing()  # flag the record as gone-from-provider
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "File content no longer exists in the provider"
         ) from None

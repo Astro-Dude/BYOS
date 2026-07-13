@@ -11,6 +11,8 @@ export interface User {
   email: string | null;
   display_name: string | null;
   is_verified: boolean;
+  phone: string | null;
+  has_password: boolean;
 }
 
 export interface TokenResponse {
@@ -55,6 +57,9 @@ export interface FileItem {
   tags: string[];
   created_at: string;
   modified_at: string;
+  // Set when the underlying bytes are gone from the provider (deleted directly
+  // in Telegram); null while the file is available.
+  missing_at: string | null;
 }
 
 export interface FolderItem {
@@ -276,6 +281,23 @@ export class ByosClient {
     });
   }
 
+  /** Set or change the account password (requires an interactive session). */
+  setPassword(token: string, password: string): Promise<User> {
+    return this.request<User>("/auth/password", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ password }),
+    });
+  }
+
+  /** Log in with username-or-phone + password, skipping the Telegram OTP flow. */
+  passwordLogin(identifier: string, password: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/login/password", {
+      method: "POST",
+      body: JSON.stringify({ identifier, password }),
+    });
+  }
+
   health(): Promise<HealthResponse> {
     return this.request<HealthResponse>("/health");
   }
@@ -394,6 +416,19 @@ export class ByosClient {
 
   listDuplicates(token: string): Promise<DuplicateGroup[]> {
     return this.request<DuplicateGroup[]>("/files/duplicates", { token });
+  }
+
+  /** Files whose bytes are gone from the provider (deleted directly in Telegram). */
+  listMissing(token: string): Promise<FileItem[]> {
+    return this.request<FileItem[]>("/files/missing", { token });
+  }
+
+  /** Scan every file against the provider and flag/unflag missing ones. */
+  verifyFiles(token: string): Promise<{ checked: number; missing: number }> {
+    return this.request<{ checked: number; missing: number }>("/files/verify", {
+      method: "POST",
+      token,
+    });
   }
 
   /** Upload a file. Uses XHR so real byte-progress (0–100) is reported via

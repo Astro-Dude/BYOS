@@ -239,6 +239,67 @@ async def find_duplicates(db: AsyncSession, user: User) -> list[tuple[str, list[
     return list(groups.items())
 
 
+async def find_missing(db: AsyncSession, user: User) -> list[File]:
+    """Files flagged as gone from the provider (deleted directly in Telegram)."""
+    return list(
+        (
+            await db.execute(
+                select(File)
+                .where(File.owner_id == user.id, File.missing_at.is_not(None))
+                .order_by(File.missing_at.desc())
+            )
+        ).scalars()
+    )
+
+
+async def verify_missing(db: AsyncSession, user: User) -> dict[str, int]:
+    """Check each of the user's files against the provider (cheap exists() — no
+    download) and set/clear `missing_at`. Stops gracefully on FloodWait and
+    returns partial progress."""
+    from telethon.errors import FloodWaitError
+
+    files = list(
+        (
+            await db.execute(
+                select(File).where(
+                    File.owner_id == user.id, File.current_version_id.is_not(None)
+                )
+            )
+        ).scalars()
+    )
+    checked = 0
+    missing = 0
+    for record in files:
+        account = await account_for_file(db, user, record)
+        if account is None:
+            continue
+        version = await db.get(FileVersion, record.current_version_id)
+        if version is None:
+            continue
+        ref = StoredObjectRef(
+            provider=record.provider,
+            locator=version.provider_locator,
+            size=version.size,
+            checksum=version.hash,
+        )
+        try:
+            exists = await get_provider(record.provider).exists(account, ref)
+        except FloodWaitError:
+            break  # Telegram rate-limited us — return what we've verified so far
+        except Exception:
+            logger.warning("verify: exists() failed for file %s", record.id, exc_info=True)
+            continue
+        checked += 1
+        if not exists:
+            missing += 1
+            if record.missing_at is None:
+                record.missing_at = datetime.now(UTC)
+        elif record.missing_at is not None:
+            record.missing_at = None  # came back
+    await db.commit()
+    return {"checked": checked, "missing": missing}
+
+
 async def set_favorite(db: AsyncSession, user: User, file_id: uuid.UUID, favorite: bool) -> File:
     file = await get_owned_file(db, user, file_id)
     file.is_favorite = favorite

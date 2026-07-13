@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import logging
 import uuid
+from datetime import UTC, datetime
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Query, Request, UploadFile, status
@@ -13,7 +14,11 @@ from telethon.errors import FloodWaitError, RPCError
 from byos_api.ai import nl_search
 from byos_api.ai.tagging import suggest_tags
 from byos_api.audit import recorder as audit
-from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
+from byos_api.auth.dependencies import (
+    CurrentUser,
+    api_key_rate_limit,
+    require_scope,
+)
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.db.models import File, FileVersion, Folder, Tag
@@ -236,6 +241,19 @@ async def list_duplicates(user: CurrentUser, db: DbDep) -> list[DuplicateGroup]:
     ]
 
 
+@router.get("/missing", response_model=list[FileOut])
+async def list_missing(user: CurrentUser, db: DbDep) -> list[FileOut]:
+    """Files whose bytes are gone from the provider (deleted in Telegram)."""
+    return [FileOut.model_validate(f) for f in await service.find_missing(db, user)]
+
+
+@router.post("/verify")
+async def verify_files(user: CurrentUser, db: DbDep) -> dict[str, int]:
+    """Scan the user's files against the provider and flag/unflag missing ones.
+    Returns {checked, missing}."""
+    return await service.verify_missing(db, user)
+
+
 @router.get("/nl-search", response_model=list[FileOut])
 async def natural_language_search(
     user: CurrentUser,
@@ -300,6 +318,10 @@ async def download_file(
         size=version.size,
         checksum=version.hash,
     )
+    async def _mark_missing() -> None:
+        record.missing_at = datetime.now(UTC)
+        await db.commit()
+
     return await stream_object(
         get_provider(record.provider),
         account,
@@ -308,6 +330,7 @@ async def download_file(
         mime=record.mime,
         etag=version.hash,
         request=request,
+        on_missing=_mark_missing,
     )
 
 

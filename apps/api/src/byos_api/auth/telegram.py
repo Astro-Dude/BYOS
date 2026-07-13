@@ -117,11 +117,12 @@ async def _complete(db: AsyncSession, client, phone: str) -> User:
         await db.execute(select(User).where(User.telegram_user_id == tg_id))
     ).scalar_one_or_none()
     if user is None:
-        user = User(telegram_user_id=tg_id, display_name=display, is_verified=True)
+        user = User(telegram_user_id=tg_id, display_name=display, phone=phone, is_verified=True)
         db.add(user)
         await db.flush()
     else:
         user.display_name = display
+        user.phone = phone
 
     account = (
         await db.execute(

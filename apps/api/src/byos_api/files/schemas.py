@@ -21,6 +21,7 @@ class FileOut(BaseModel):
     tags: list[str] = []
     created_at: datetime
     modified_at: datetime
+    missing_at: datetime | None = None
 
     @field_validator("tags", mode="before")
     @classmethod

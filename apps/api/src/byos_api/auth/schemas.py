@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, EmailStr
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class PhoneRequest(BaseModel):
@@ -11,6 +11,15 @@ class PhoneRequest(BaseModel):
 
 class UsernameRequest(BaseModel):
     username: str
+
+
+class SetPasswordRequest(BaseModel):
+    password: str = Field(min_length=8, max_length=128)
+
+
+class PasswordLoginRequest(BaseModel):
+    identifier: str = Field(min_length=1)  # username or phone
+    password: str = Field(min_length=1)
 
 
 class TicketCodeRequest(BaseModel):
@@ -44,4 +53,6 @@ class UserResponse(BaseModel):
     username: str | None = None
     display_name: str | None = None
     email: EmailStr | None = None
+    phone: str | None = None
     is_verified: bool
+    has_password: bool = False

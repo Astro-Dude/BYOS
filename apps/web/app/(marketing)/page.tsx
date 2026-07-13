@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/logo";
 import { RedirectIfAuthed } from "@/components/redirect-if-authed";
+import { ThemeToggle } from "@/components/theme-toggle";
 
 const features = [
   ["Bring your own storage", "Your files stay in your Telegram, Drive, S3 — BYOS never holds the bytes."],
@@ -17,6 +18,7 @@ export default function LandingPage() {
       <header className="flex items-center justify-between py-6">
         <Logo markClassName="h-9 w-9" wordClassName="text-lg" />
         <nav className="flex items-center gap-4 text-sm">
+          <ThemeToggle />
           <Link href="/login" className="text-zinc-600 hover:text-zinc-900 dark:text-zinc-100">
             Log in
           </Link>
@@ -36,7 +38,7 @@ export default function LandingPage() {
         <h1 className="mt-3 max-w-3xl text-5xl font-bold tracking-tight text-zinc-900 dark:text-zinc-100">
           The operating system for your personal cloud storage.
         </h1>
-        <p className="mt-6 max-w-2xl text-lg text-zinc-600">
+        <p className="mt-6 max-w-2xl text-lg text-zinc-600 dark:text-zinc-400">
           You already own storage. BYOS adds the layer on top — organization, search, preview,
           versioning, sharing, and permanent links — without locking you into any single provider.
         </p>
@@ -59,7 +61,7 @@ export default function LandingPage() {
           {features.map(([title, body]) => (
             <div key={title}>
               <dt className="font-semibold text-zinc-900 dark:text-zinc-100">{title}</dt>
-              <dd className="mt-1 text-sm text-zinc-600">{body}</dd>
+              <dd className="mt-1 text-sm text-zinc-600 dark:text-zinc-400">{body}</dd>
             </div>
           ))}
         </dl>

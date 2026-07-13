@@ -373,25 +373,48 @@ function CodeBlock({ children }: { children: string }) {
 
 function DocsSection() {
   const [open, setOpen] = useState(false);
+  // Swagger UI (/docs) is gated off in production, so the external link would
+  // 404 there — only offer it once we've confirmed a non-prod environment.
+  const [interactiveDocs, setInteractiveDocs] = useState(false);
   const base = api.apiBase;
+
+  useEffect(() => {
+    let active = true;
+    api
+      .health()
+      .then((h) => {
+        if (active) setInteractiveDocs(h.environment !== "production");
+      })
+      .catch(() => {
+        if (active) setInteractiveDocs(false);
+      });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   return (
     <section className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-5">
       <div className="flex items-center justify-between gap-4">
         <div>
           <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Documentation</h2>
           <p className="text-sm text-zinc-500">
-            Everything you need to build against the BYOS API.
+            {interactiveDocs
+              ? "Everything you need to build against the BYOS API."
+              : "Interactive docs are disabled in production — use the guide below."}
           </p>
         </div>
         <div className="flex shrink-0 gap-2">
-          <a
-            href={api.docsUrl()}
-            target="_blank"
-            rel="noreferrer"
-            className="rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
-          >
-            Interactive API reference ↗
-          </a>
+          {interactiveDocs ? (
+            <a
+              href={api.docsUrl()}
+              target="_blank"
+              rel="noreferrer"
+              className="rounded-md border border-zinc-300 dark:border-zinc-700 px-3 py-1.5 text-sm font-medium text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            >
+              Interactive API reference ↗
+            </a>
+          ) : null}
           <Button onClick={() => setOpen((v) => !v)}>
             {open ? "Hide guide" : "Show guide"}
           </Button>
@@ -526,13 +549,15 @@ X-BYOS-Signature: sha256=...
 }`}</CodeBlock>
           </div>
 
-          <p className="text-xs text-zinc-400">
-            Full schemas, response bodies, and every parameter are in the{" "}
-            <a href={api.docsUrl()} target="_blank" rel="noreferrer" className="underline">
-              interactive API reference
-            </a>
-            .
-          </p>
+          {interactiveDocs ? (
+            <p className="text-xs text-zinc-400">
+              Full schemas, response bodies, and every parameter are in the{" "}
+              <a href={api.docsUrl()} target="_blank" rel="noreferrer" className="underline">
+                interactive API reference
+              </a>
+              .
+            </p>
+          ) : null}
         </div>
       ) : null}
     </section>

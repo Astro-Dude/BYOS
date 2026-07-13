@@ -40,6 +40,8 @@ import { fileIcon } from "@/components/dashboard/file-icon";
 import { SearchPalette } from "@/components/dashboard/search-palette";
 import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
 import { DuplicatesPanel } from "@/components/dashboard/duplicates-panel";
+import { MissingPanel } from "@/components/dashboard/missing-panel";
+import { ProfilePanel } from "@/components/dashboard/profile-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
 import { RenameModal } from "@/components/dashboard/rename-modal";
 import { UsernameSetup } from "@/components/dashboard/username-setup";
@@ -224,7 +226,7 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
-    if (["links", "duplicates", "developer"].includes(view)) return;
+    if (["links", "duplicates", "missing", "developer", "profile"].includes(view)) return;
     setLoading(true);
     setError(null);
     try {
@@ -341,7 +343,9 @@ export default function DashboardPage() {
     })();
   };
 
-  const upload = (fileList: FileList | null) => {
+  // targetFolderId lets a Finder drop land in the folder it was dropped on;
+  // defaults to the folder currently being viewed.
+  const upload = (fileList: FileList | null, targetFolderId: string | undefined = folderId) => {
     if (!fileList || fileList.length === 0) return;
     const all = Array.from(fileList).map((file) => ({
       id: (uploadIdRef.current += 1),
@@ -372,7 +376,7 @@ export default function DashboardPage() {
       for (const job of jobs) {
         try {
           await authed((t) =>
-            api.uploadFile(t, job.file, folderId, (pct) =>
+            api.uploadFile(t, job.file, targetFolderId, (pct) =>
               setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
             ),
           );
@@ -742,7 +746,11 @@ export default function DashboardPage() {
           }}
           onDragOver={(e) => {
             const t = e.dataTransfer.types;
-            if (t.includes(FILE_DRAG_TYPE) || t.includes(FOLDER_DRAG_TYPE)) {
+            if (
+              t.includes(FILE_DRAG_TYPE) ||
+              t.includes(FOLDER_DRAG_TYPE) ||
+              t.includes("Files")
+            ) {
               e.preventDefault();
               setDragFolder(folder.id);
             }
@@ -750,15 +758,21 @@ export default function DashboardPage() {
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
             const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            const folderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
-            if (fileId) {
+            const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (e.dataTransfer.files.length > 0) {
+              // Finder drop → upload straight into this folder.
+              e.preventDefault();
+              e.stopPropagation();
+              setDragFolder(null);
+              upload(e.dataTransfer.files, folder.id);
+            } else if (fileId) {
               e.preventDefault();
               e.stopPropagation();
               moveFileToFolder(fileId, folder.id);
-            } else if (folderId) {
+            } else if (draggedFolderId) {
               e.preventDefault();
               e.stopPropagation();
-              moveFolderIntoFolder(folderId, folder.id);
+              moveFolderIntoFolder(draggedFolderId, folder.id);
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
@@ -854,7 +868,11 @@ export default function DashboardPage() {
           }}
           onDragOver={(e) => {
             const t = e.dataTransfer.types;
-            if (t.includes(FILE_DRAG_TYPE) || t.includes(FOLDER_DRAG_TYPE)) {
+            if (
+              t.includes(FILE_DRAG_TYPE) ||
+              t.includes(FOLDER_DRAG_TYPE) ||
+              t.includes("Files")
+            ) {
               e.preventDefault();
               setDragFolder(folder.id);
             }
@@ -862,15 +880,21 @@ export default function DashboardPage() {
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
             const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            const folderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
-            if (fileId) {
+            const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (e.dataTransfer.files.length > 0) {
+              // Finder drop → upload straight into this folder.
+              e.preventDefault();
+              e.stopPropagation();
+              setDragFolder(null);
+              upload(e.dataTransfer.files, folder.id);
+            } else if (fileId) {
               e.preventDefault();
               e.stopPropagation();
               moveFileToFolder(fileId, folder.id);
-            } else if (folderId) {
+            } else if (draggedFolderId) {
               e.preventDefault();
               e.stopPropagation();
-              moveFolderIntoFolder(folderId, folder.id);
+              moveFolderIntoFolder(draggedFolderId, folder.id);
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
@@ -994,6 +1018,7 @@ export default function DashboardPage() {
                 <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-2 text-xs text-zinc-500">
                   {user.display_name ?? "Signed in"}
                 </div>
+                <MenuItem label="Profile" onClick={() => { close(); setView("profile"); }} />
                 <MenuItem label="Log out" onClick={() => { close(); void onLogout(); }} />
               </>
             )}
@@ -1020,6 +1045,10 @@ export default function DashboardPage() {
         >
           {view === "duplicates" ? (
             <DuplicatesPanel />
+          ) : view === "missing" ? (
+            <MissingPanel />
+          ) : view === "profile" ? (
+            <ProfilePanel />
           ) : view === "developer" ? (
             <DeveloperPanel />
           ) : view === "links" ? (

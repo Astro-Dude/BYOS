@@ -14,9 +14,11 @@ from telethon.errors.rpcerrorlist import (
 
 from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, SessionUser
 from byos_api.auth.schemas import (
+    PasswordLoginRequest,
     PhoneRequest,
+    SetPasswordRequest,
     TelegramLoginResult,
     TicketCodeRequest,
     TicketPasswordRequest,
@@ -210,3 +212,27 @@ async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -
     except service.UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
     return UserResponse.model_validate(updated)
+
+
+@router.post("/password", response_model=UserResponse)
+async def set_password(
+    payload: SetPasswordRequest, user: SessionUser, db: DbDep
+) -> UserResponse:
+    """Set or change the account password. Requires an interactive login."""
+    updated = await service.set_password(db, user, payload.password)
+    return UserResponse.model_validate(updated)
+
+
+@router.post(
+    "/login/password", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
+async def login_password(
+    payload: PasswordLoginRequest, request: Request, response: Response, db: DbDep
+) -> TelegramLoginResult:
+    """Log in with username-or-phone + password (skips Telegram OTP)."""
+    user = await service.authenticate_password(db, payload.identifier, payload.password)
+    if user is None:
+        raise HTTPException(
+            status.HTTP_401_UNAUTHORIZED, "Invalid credentials"
+        )
+    return await _issue_session(db, user, response, request)

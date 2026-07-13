@@ -10,11 +10,17 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core.config import get_settings
-from byos_api.core.security import generate_refresh_token, hash_refresh_token
+from byos_api.core.security import (
+    generate_refresh_token,
+    hash_password,
+    hash_refresh_token,
+    needs_rehash,
+    verify_password,
+)
 from byos_api.db.models import RefreshToken, User
 
 _settings = get_settings()
@@ -50,6 +56,35 @@ async def set_username(db: AsyncSession, user: User, raw: str) -> User:
     user.username = username
     await db.commit()
     await db.refresh(user)
+    return user
+
+
+async def set_password(db: AsyncSession, user: User, raw: str) -> User:
+    """Set/replace the account password (hashed with Argon2)."""
+    user.password_hash = hash_password(raw)
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
+async def authenticate_password(
+    db: AsyncSession, identifier: str, password: str
+) -> User | None:
+    """Resolve a user by username OR phone and verify the password. Returns None
+    for any miss (generic — never reveal which part failed)."""
+    ident = identifier.strip()
+    user = (
+        await db.execute(
+            select(User).where(or_(User.username == ident.lower(), User.phone == ident))
+        )
+    ).scalar_one_or_none()
+    if user is None or not user.is_active or user.password_hash is None:
+        return None
+    if not verify_password(password, user.password_hash):
+        return None
+    if needs_rehash(user.password_hash):  # opportunistic upgrade
+        user.password_hash = hash_password(password)
+        await db.commit()
     return user
 
 
