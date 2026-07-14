@@ -79,7 +79,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
@@ -97,7 +97,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt={file.name} className="max-h-full max-w-full object-contain" />
           ) : kind === "pdf" && url ? (
-            <iframe src={url} title={file.name} className="h-[70vh] w-full" />
+            <iframe src={url} title={file.name} className="h-[82vh] w-full" />
           ) : kind === "video" && url ? (
             <video src={url} controls className="max-h-full max-w-full" />
           ) : kind === "audio" && url ? (
