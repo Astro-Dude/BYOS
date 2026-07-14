@@ -61,11 +61,18 @@ def _error_detail(response: httpx.Response) -> str:
     return hints.get(response.status_code, f"The endpoint returned HTTP {response.status_code}.")
 
 
-async def _post(base_url: str, api_key: str, payload: dict, *, timeout_s: float) -> httpx.Response:
+async def _post(
+    base_url: str,
+    api_key: str,
+    payload: dict,
+    *,
+    timeout_s: float,
+    path: str = "/chat/completions",
+) -> httpx.Response:
     try:
         async with httpx.AsyncClient(timeout=timeout_s) as client:
             response = await client.post(
-                _endpoint(base_url),
+                base_url.rstrip("/") + path,
                 headers={
                     "Authorization": f"Bearer {api_key}",
                     "Content-Type": "application/json",
@@ -149,6 +156,27 @@ async def stream_chat(
                         yield delta
     except httpx.HTTPError as exc:
         raise LLMError(f"Couldn't reach the model endpoint: {exc}") from exc
+
+
+async def embed(
+    base_url: str, api_key: str, model: str, inputs: list[str], *, batch: int = 64
+) -> list[list[float]]:
+    """Embed texts via an OpenAI-compatible /embeddings endpoint, batched."""
+    vectors: list[list[float]] = []
+    for i in range(0, len(inputs), batch):
+        response = await _post(
+            base_url,
+            api_key,
+            {"model": model, "input": inputs[i : i + batch]},
+            timeout_s=60,
+            path="/embeddings",
+        )
+        try:
+            data = response.json()["data"]
+            vectors.extend(item["embedding"] for item in data)
+        except (KeyError, IndexError, TypeError) as exc:
+            raise LLMError("Unexpected response from the embeddings endpoint.") from exc
+    return vectors
 
 
 async def validate(base_url: str, api_key: str, model: str) -> None:

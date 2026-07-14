@@ -23,6 +23,7 @@ async def set_config(
     base_url: str,
     model: str,
     api_key: str | None,
+    embedding_model: str | None,
     system_prompt: str | None,
     temperature: float,
     max_tokens: int,
@@ -41,6 +42,7 @@ async def set_config(
         cfg.encrypted_api_key = crypto.encrypt(api_key)
     cfg.base_url = base_url.strip()
     cfg.model = model.strip()
+    cfg.embedding_model = (embedding_model or "").strip() or None
     cfg.system_prompt = (system_prompt or "").strip() or None
     cfg.temperature = temperature
     cfg.max_tokens = max_tokens

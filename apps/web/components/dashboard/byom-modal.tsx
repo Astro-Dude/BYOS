@@ -62,6 +62,7 @@ export function ByomModal({
   };
   const [model, setModel] = useState(config?.model ?? "");
   const [apiKey, setApiKey] = useState("");
+  const [embeddingModel, setEmbeddingModel] = useState(config?.embedding_model ?? "");
   const [systemPrompt, setSystemPrompt] = useState(config?.system_prompt ?? "");
   const [temperature, setTemperature] = useState(String(config?.temperature ?? 0.2));
   const [maxTokens, setMaxTokens] = useState(String(config?.max_tokens ?? 1024));
@@ -80,6 +81,7 @@ export function ByomModal({
           base_url: baseUrl.trim(),
           model: model.trim(),
           api_key: apiKey.trim() || undefined,
+          embedding_model: embeddingModel.trim() || null,
           system_prompt: systemPrompt.trim() || null,
           temperature: Number(temperature),
           max_tokens: Number(maxTokens),
@@ -105,6 +107,7 @@ export function ByomModal({
         configured: false,
         base_url: null,
         model: null,
+        embedding_model: null,
         system_prompt: null,
         temperature: null,
         max_tokens: null,
@@ -185,6 +188,19 @@ export function ByomModal({
               onChange={(e) => setApiKey(e.target.value)}
               placeholder={configured ? "•••••••• (leave blank to keep)" : "sk-…"}
             />
+          </div>
+          <div>
+            <span className={label}>Embedding model (optional)</span>
+            <Input
+              className={field}
+              value={embeddingModel}
+              onChange={(e) => setEmbeddingModel(e.target.value)}
+              placeholder="e.g. text-embedding-3-small"
+            />
+            <p className="mt-1 text-xs text-zinc-400">
+              Enables semantic search in long-document mode (synonyms, other languages). Needs a
+              provider that offers embeddings.
+            </p>
           </div>
           <div>
             <span className={label}>System prompt (optional)</span>

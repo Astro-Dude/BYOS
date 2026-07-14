@@ -197,6 +197,7 @@ export interface AiConfig {
   configured: boolean;
   base_url: string | null;
   model: string | null;
+  embedding_model: string | null;
   system_prompt: string | null;
   temperature: number | null;
   max_tokens: number | null;
@@ -207,6 +208,7 @@ export interface AiConfigInput {
   base_url: string;
   model: string;
   api_key?: string; // required first time; omit to keep the stored key
+  embedding_model?: string | null; // optional — enables semantic long-doc search
   system_prompt?: string | null;
   temperature: number;
   max_tokens: number;

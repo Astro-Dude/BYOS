@@ -29,6 +29,9 @@ class AiConfig(UUIDPrimaryKey, TimestampMixin, Base):
     base_url: Mapped[str] = mapped_column(String(500), nullable=False)
     model: Mapped[str] = mapped_column(String(200), nullable=False)
     encrypted_api_key: Mapped[str] = mapped_column(Text, nullable=False)
+    # Optional embedding model (same base_url + key) for semantic long-document
+    # retrieval; null → only lexical retrieval is available.
+    embedding_model: Mapped[str | None] = mapped_column(String(200))
     system_prompt: Mapped[str | None] = mapped_column(Text)
     temperature: Mapped[float] = mapped_column(
         Float, server_default=text("0.2"), nullable=False

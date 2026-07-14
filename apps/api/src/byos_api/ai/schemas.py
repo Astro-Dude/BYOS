@@ -12,6 +12,7 @@ class AiConfigOut(BaseModel):
     configured: bool
     base_url: str | None = None
     model: str | None = None
+    embedding_model: str | None = None
     system_prompt: str | None = None
     temperature: float | None = None
     max_tokens: int | None = None
@@ -23,6 +24,8 @@ class AiConfigIn(BaseModel):
     model: str = Field(min_length=1, max_length=200)
     # Required on first setup; omit on later edits to keep the stored key.
     api_key: str | None = Field(default=None, max_length=500)
+    # Optional embedding model for semantic long-document retrieval.
+    embedding_model: str | None = Field(default=None, max_length=200)
     system_prompt: str | None = Field(default=None, max_length=8000)
     temperature: float = Field(default=0.2, ge=0, le=2)
     max_tokens: int = Field(default=1024, ge=1, le=32000)

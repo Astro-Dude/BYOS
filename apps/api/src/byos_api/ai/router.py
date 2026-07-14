@@ -19,7 +19,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.ai import extract, llm, retrieval, service
+from byos_api.ai import extract, llm, retrieval, semantic, service
 from byos_api.ai.schemas import (
     AiConfigIn,
     AiConfigOut,
@@ -66,6 +66,7 @@ def _as_out(cfg: AiConfig | None) -> AiConfigOut:
         configured=True,
         base_url=cfg.base_url,
         model=cfg.model,
+        embedding_model=cfg.embedding_model,
         system_prompt=cfg.system_prompt,
         temperature=cfg.temperature,
         max_tokens=cfg.max_tokens,
@@ -99,6 +100,7 @@ async def put_config(payload: AiConfigIn, user: SessionUser, db: DbDep) -> AiCon
         base_url=payload.base_url,
         model=payload.model,
         api_key=payload.api_key,
+        embedding_model=payload.embedding_model,
         system_prompt=payload.system_prompt,
         temperature=payload.temperature,
         max_tokens=payload.max_tokens,
@@ -125,8 +127,8 @@ async def _require_config(db: AsyncSession, user: User) -> AiConfig:
 
 async def _load_text(
     db: AsyncSession, user: User, file_id: uuid.UUID, *, limit: int = extract.MAX_CHARS
-) -> tuple[str, str]:
-    """Return (filename, extracted_text) for an owned, text-readable file."""
+) -> tuple[str, str, uuid.UUID]:
+    """Return (filename, extracted_text, version_id) for an owned, text file."""
     try:
         record = await files_service.get_owned_file(db, user, file_id)
     except files_service.FileNotFound:
@@ -167,7 +169,7 @@ async def _load_text(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
             "Couldn't read any text from this file (it may be a scanned/image PDF).",
         )
-    return record.name, text
+    return record.name, text, version.id
 
 
 def _stream_params(cfg: AiConfig) -> dict:
@@ -187,7 +189,7 @@ def _stream_params(cfg: AiConfig) -> dict:
 @router.post("/summarize")
 async def summarize(payload: SummarizeRequest, user: CurrentUser, db: DbDep) -> StreamingResponse:
     cfg = await _require_config(db, user)
-    name, text = await _load_text(db, user, payload.file_id)
+    name, text, _ = await _load_text(db, user, payload.file_id)
     params = _stream_params(cfg)
     messages: list[llm.Message] = [
         {"role": "system", "content": cfg.system_prompt or _DEFAULT_SYSTEM},
@@ -240,12 +242,22 @@ _RETRIEVAL_LIMIT = 2_000_000
 async def chat(payload: ChatSendRequest, user: CurrentUser, db: DbDep) -> StreamingResponse:
     cfg = await _require_config(db, user)
     limit = _RETRIEVAL_LIMIT if payload.retrieval else extract.MAX_CHARS
-    name, text = await _load_text(db, user, payload.file_id, limit=limit)
+    name, text, version_id = await _load_text(db, user, payload.file_id, limit=limit)
     if payload.retrieval:
         # Send only the parts relevant to the question, not the whole book.
-        chunks = retrieval.chunk_text(text)
-        relevant = retrieval.top_chunks(chunks, payload.message, k=6)
-        text = "\n\n---\n\n".join(relevant)
+        # Prefer semantic (handles synonyms/other languages) when an embedding
+        # model is configured; fall back to lexical if it's unset or fails.
+        picked: list[str] = []
+        if cfg.embedding_model:
+            try:
+                await semantic.ensure_embedded(db, user, payload.file_id, version_id, text, cfg)
+                picked = await semantic.semantic_chunks(db, payload.file_id, cfg, payload.message)
+            except llm.LLMError:
+                await db.rollback()
+                picked = []
+        if not picked:
+            picked = retrieval.top_chunks(retrieval.chunk_text(text), payload.message, k=6)
+        text = "\n\n---\n\n".join(picked)
     params = _stream_params(cfg)
 
     prior = list(
