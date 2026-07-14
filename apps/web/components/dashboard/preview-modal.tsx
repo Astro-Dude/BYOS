@@ -1,9 +1,10 @@
 "use client";
 
 import { ApiError, type FileItem } from "@byos/api-client";
-import { X } from "lucide-react";
+import { Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
+import { AiPanel } from "@/components/dashboard/ai-panel";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
@@ -40,7 +41,10 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
   const [text, setText] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [aiOpen, setAiOpen] = useState(false);
   const kind = kindOf(file);
+  // AI works on text-readable docs (PDF + text formats).
+  const aiEligible = kind === "pdf" || kind === "text";
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -84,11 +88,30 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
       >
         <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
           <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300" aria-label="Close">
-            <X className="h-5 w-5" />
-          </button>
+          <div className="flex shrink-0 items-center gap-2">
+            {aiEligible ? (
+              <button
+                onClick={() => setAiOpen((v) => !v)}
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
+                  aiOpen
+                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                }`}
+              >
+                <Sparkles className="h-4 w-4" /> Ask AI
+              </button>
+            ) : null}
+            <button
+              onClick={onClose}
+              className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300"
+              aria-label="Close"
+            >
+              <X className="h-5 w-5" />
+            </button>
+          </div>
         </div>
-        <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
+        <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
+          <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
           {loading ? (
             <p className="text-sm text-zinc-500">Loading preview…</p>
           ) : error ? (
@@ -109,6 +132,8 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
           ) : (
             <p className="text-sm text-zinc-500">No inline preview for this file type — download it.</p>
           )}
+          </div>
+          {aiOpen && aiEligible ? <AiPanel file={file} /> : null}
         </div>
       </div>
     </div>

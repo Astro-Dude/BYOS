@@ -1,3 +1,5 @@
+from byos_api.db.models.ai_chat_message import AiChatMessage
+from byos_api.db.models.ai_config import AiConfig
 from byos_api.db.models.alias import Alias
 from byos_api.db.models.api_key import ApiKey
 from byos_api.db.models.audit_log import AuditLog
@@ -11,6 +13,8 @@ from byos_api.db.models.user import User
 from byos_api.db.models.webhook import Webhook
 
 __all__ = [
+    "AiChatMessage",
+    "AiConfig",
     "Alias",
     "ApiKey",
     "AuditLog",

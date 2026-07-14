@@ -9,6 +9,7 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from byos_api.ai.router import router as ai_router
 from byos_api.aliases.router import public_api_router as alias_public_api_router
 from byos_api.aliases.router import public_router as alias_public_router
 from byos_api.aliases.router import router as aliases_router
@@ -110,6 +111,7 @@ def create_app() -> FastAPI:
     app.include_router(apikeys_router)
     app.include_router(webhooks_router)
     app.include_router(audit_router)
+    app.include_router(ai_router)
     app.include_router(alias_public_api_router)  # /public/... folder browsing (JSON)
     # MUST be last: the public "/{username}/{slug}" catch-all would otherwise
     # shadow two-segment API paths (e.g. /analytics/overview).

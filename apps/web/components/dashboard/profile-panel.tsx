@@ -1,9 +1,10 @@
 "use client";
 
-import { ApiError } from "@byos/api-client";
+import { type AiConfig, ApiError } from "@byos/api-client";
 import { Pencil } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { type ReactNode, useEffect, useState } from "react";
 
+import { ByomModal } from "@/components/dashboard/byom-modal";
 import { RenameModal } from "@/components/dashboard/rename-modal";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -142,9 +143,16 @@ export function ProfilePanel() {
   const { user, refresh } = useAuth();
   const authed = useAuthed();
   const toast = useToast();
-  const [editing, setEditing] = useState<"name" | "password" | null>(null);
+  const [editing, setEditing] = useState<"name" | "password" | "byom" | null>(null);
+  const [aiConfig, setAiConfig] = useState<AiConfig | null>(null);
 
   const hasPassword = user?.has_password ?? false;
+
+  useEffect(() => {
+    authed((t) => api.getAiConfig(t))
+      .then(setAiConfig)
+      .catch(() => setAiConfig(null));
+  }, [authed]);
 
   const saveName = async (name: string) => {
     await authed((t) => api.setDisplayName(t, name));
@@ -177,6 +185,11 @@ export function ProfilePanel() {
             value={hasPassword ? "••••••••" : "Not set"}
             onEdit={() => setEditing("password")}
           />
+          <Row
+            label="AI model"
+            value={aiConfig?.configured ? aiConfig.model : "Not connected"}
+            onEdit={() => setEditing("byom")}
+          />
         </div>
       </section>
 
@@ -195,6 +208,13 @@ export function ProfilePanel() {
           hasPassword={hasPassword}
           onClose={() => setEditing(null)}
           onSubmit={savePassword}
+        />
+      ) : null}
+      {editing === "byom" ? (
+        <ByomModal
+          config={aiConfig}
+          onClose={() => setEditing(null)}
+          onSaved={setAiConfig}
         />
       ) : null}
     </div>

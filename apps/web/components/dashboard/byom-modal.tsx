@@ -1,0 +1,228 @@
+"use client";
+
+import { type AiConfig, ApiError } from "@byos/api-client";
+import { useState } from "react";
+
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { api } from "@/lib/api";
+import { useAuthed } from "@/lib/auth-context";
+import { useToast } from "@/lib/toast";
+
+// Quick-fill presets for common OpenAI-compatible endpoints. Any provider works
+// — this is just to save typing the base URL.
+const PRESETS: { label: string; url: string }[] = [
+  { label: "OpenAI", url: "https://api.openai.com/v1" },
+  { label: "OpenRouter", url: "https://openrouter.ai/api/v1" },
+  { label: "Groq", url: "https://api.groq.com/openai/v1" },
+  { label: "Together", url: "https://api.together.xyz/v1" },
+];
+
+export function ByomModal({
+  config,
+  onClose,
+  onSaved,
+}: {
+  config: AiConfig | null;
+  onClose: () => void;
+  onSaved: (cfg: AiConfig) => void;
+}) {
+  const authed = useAuthed();
+  const toast = useToast();
+  const configured = config?.configured ?? false;
+
+  const [baseUrl, setBaseUrl] = useState(config?.base_url ?? "https://api.openai.com/v1");
+  const [model, setModel] = useState(config?.model ?? "");
+  const [apiKey, setApiKey] = useState("");
+  const [systemPrompt, setSystemPrompt] = useState(config?.system_prompt ?? "");
+  const [temperature, setTemperature] = useState(String(config?.temperature ?? 0.2));
+  const [maxTokens, setMaxTokens] = useState(String(config?.max_tokens ?? 1024));
+  const [topP, setTopP] = useState(config?.top_p != null ? String(config.top_p) : "");
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const save = async () => {
+    setError(null);
+    if (!baseUrl.trim() || !model.trim()) return setError("Base URL and model are required.");
+    if (!configured && !apiKey.trim()) return setError("An API key is required.");
+    setBusy(true);
+    try {
+      const cfg = await authed((t) =>
+        api.setAiConfig(t, {
+          base_url: baseUrl.trim(),
+          model: model.trim(),
+          api_key: apiKey.trim() || undefined,
+          system_prompt: systemPrompt.trim() || null,
+          temperature: Number(temperature),
+          max_tokens: Number(maxTokens),
+          top_p: topP.trim() ? Number(topP) : null,
+        }),
+      );
+      toast("Model connected");
+      onSaved(cfg);
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Couldn't save. Check the URL, key, model.");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const remove = async () => {
+    setBusy(true);
+    try {
+      await authed((t) => api.deleteAiConfig(t));
+      toast("Model disconnected");
+      onSaved({
+        configured: false,
+        base_url: null,
+        model: null,
+        system_prompt: null,
+        temperature: null,
+        max_tokens: null,
+        top_p: null,
+      });
+      onClose();
+    } catch (err) {
+      setError(err instanceof ApiError ? err.detail : "Couldn't disconnect");
+      setBusy(false);
+    }
+  };
+
+  const field = "text-sm";
+  const label = "mb-1 block text-xs font-medium text-zinc-500";
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      onClick={onClose}
+    >
+      <div
+        className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-lg bg-white p-5 shadow-xl dark:bg-zinc-900"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+          Bring your own model
+        </h3>
+        <p className="mt-1 text-sm text-zinc-500">
+          Any OpenAI-compatible endpoint. Your key is encrypted and only used for your requests.
+        </p>
+
+        <div className="mt-4 space-y-3">
+          <div>
+            <span className={label}>Base URL</span>
+            <Input
+              className={field}
+              value={baseUrl}
+              onChange={(e) => setBaseUrl(e.target.value)}
+              placeholder="https://api.openai.com/v1"
+            />
+            <div className="mt-1.5 flex flex-wrap gap-1.5">
+              {PRESETS.map((p) => (
+                <button
+                  key={p.label}
+                  onClick={() => setBaseUrl(p.url)}
+                  className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div>
+            <span className={label}>Model</span>
+            <Input
+              className={field}
+              value={model}
+              onChange={(e) => setModel(e.target.value)}
+              placeholder="e.g. gpt-4o-mini, anthropic/claude-3.5-sonnet"
+            />
+          </div>
+          <div>
+            <span className={label}>API key</span>
+            <Input
+              type="password"
+              className={field}
+              value={apiKey}
+              onChange={(e) => setApiKey(e.target.value)}
+              placeholder={configured ? "•••••••• (leave blank to keep)" : "sk-…"}
+            />
+          </div>
+          <div>
+            <span className={label}>System prompt (optional)</span>
+            <textarea
+              value={systemPrompt}
+              onChange={(e) => setSystemPrompt(e.target.value)}
+              rows={3}
+              placeholder="Set the assistant's behavior…"
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            />
+          </div>
+          <div className="grid grid-cols-3 gap-2">
+            <div>
+              <span className={label}>Temperature</span>
+              <Input
+                className={field}
+                type="number"
+                step="0.1"
+                min="0"
+                max="2"
+                value={temperature}
+                onChange={(e) => setTemperature(e.target.value)}
+              />
+            </div>
+            <div>
+              <span className={label}>Max tokens</span>
+              <Input
+                className={field}
+                type="number"
+                min="1"
+                value={maxTokens}
+                onChange={(e) => setMaxTokens(e.target.value)}
+              />
+            </div>
+            <div>
+              <span className={label}>Top-p</span>
+              <Input
+                className={field}
+                type="number"
+                step="0.05"
+                min="0"
+                max="1"
+                value={topP}
+                onChange={(e) => setTopP(e.target.value)}
+                placeholder="—"
+              />
+            </div>
+          </div>
+          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        </div>
+
+        <div className="mt-5 flex items-center justify-between gap-2">
+          {configured ? (
+            <button
+              onClick={remove}
+              disabled={busy}
+              className="text-sm font-medium text-red-600 hover:text-red-500 disabled:opacity-60"
+            >
+              Disconnect
+            </button>
+          ) : (
+            <span />
+          )}
+          <div className="flex gap-2">
+            <Button
+              onClick={onClose}
+              className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            >
+              Cancel
+            </Button>
+            <Button onClick={save} disabled={busy}>
+              {busy ? "Saving…" : "Save"}
+            </Button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}

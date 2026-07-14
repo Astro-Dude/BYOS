@@ -193,6 +193,33 @@ export interface DuplicateGroup {
   files: FileItem[];
 }
 
+export interface AiConfig {
+  configured: boolean;
+  base_url: string | null;
+  model: string | null;
+  system_prompt: string | null;
+  temperature: number | null;
+  max_tokens: number | null;
+  top_p: number | null;
+}
+
+export interface AiConfigInput {
+  base_url: string;
+  model: string;
+  api_key?: string; // required first time; omit to keep the stored key
+  system_prompt?: string | null;
+  temperature: number;
+  max_tokens: number;
+  top_p?: number | null;
+}
+
+export interface AiChatMessage {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  created_at: string;
+}
+
 export class ApiError extends Error {
   constructor(
     public status: number,
@@ -786,5 +813,76 @@ export class ByosClient {
     if (opts?.offset != null) params.set("offset", String(opts.offset));
     const qs = params.toString();
     return this.request<AuditItem[]>(`/audit${qs ? `?${qs}` : ""}`, { token });
+  }
+
+  // ── AI: Bring Your Own Model (BYOM) ───────────────────────────────────────
+  getAiConfig(token: string): Promise<AiConfig> {
+    return this.request<AiConfig>("/ai/config", { token });
+  }
+
+  setAiConfig(token: string, input: AiConfigInput): Promise<AiConfig> {
+    return this.request<AiConfig>("/ai/config", {
+      method: "PUT",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  deleteAiConfig(token: string): Promise<void> {
+    return this.request<void>("/ai/config", { method: "DELETE", token });
+  }
+
+  getChatHistory(token: string, fileId: string): Promise<AiChatMessage[]> {
+    return this.request<AiChatMessage[]>(`/ai/chat/${fileId}`, { token });
+  }
+
+  clearChat(token: string, fileId: string): Promise<void> {
+    return this.request<void>(`/ai/chat/${fileId}`, { method: "DELETE", token });
+  }
+
+  /** POST a JSON body and stream the plain-text response, invoking onToken for
+   *  each chunk (typing effect). Resolves with the full accumulated text. */
+  private async streamText(
+    path: string,
+    token: string,
+    body: unknown,
+    onToken: (chunk: string) => void,
+  ): Promise<string> {
+    const res = await fetch(`${this.baseUrl}${path}`, {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) throw await this.errorFrom(res);
+    if (!res.body) throw new ApiError(0, "No response stream");
+    const reader = res.body.getReader();
+    const decoder = new TextDecoder();
+    let full = "";
+    for (;;) {
+      const { done, value } = await reader.read();
+      if (done) break;
+      const chunk = decoder.decode(value, { stream: true });
+      if (chunk) {
+        full += chunk;
+        onToken(chunk);
+      }
+    }
+    return full;
+  }
+
+  /** Stream a summary of a document. */
+  summarizeStream(token: string, fileId: string, onToken: (chunk: string) => void): Promise<string> {
+    return this.streamText("/ai/summarize", token, { file_id: fileId }, onToken);
+  }
+
+  /** Send a chat message about a document and stream the reply (stateful thread). */
+  chatStream(
+    token: string,
+    fileId: string,
+    message: string,
+    onToken: (chunk: string) => void,
+  ): Promise<string> {
+    return this.streamText("/ai/chat", token, { file_id: fileId, message }, onToken);
   }
 }
