@@ -47,7 +47,13 @@ def _error_detail(response: httpx.Response) -> str:
         500: "The provider had a server error (500) — try again shortly.",
         503: "The provider is temporarily unavailable (503) — try again shortly.",
     }
-    return hints.get(response.status_code, f"Model endpoint returned HTTP {response.status_code}.")
+    hint = hints.get(response.status_code, f"Model endpoint returned HTTP {response.status_code}.")
+    # Surface a short raw body when the provider sent a non-JSON error, so the
+    # real reason isn't hidden behind a bare status code.
+    raw = (response.text or "").strip()
+    if raw and len(raw) <= 300 and "<html" not in raw[:200].lower():
+        return f"{hint} — {raw}"
+    return hint
 
 
 async def _post(base_url: str, api_key: str, payload: dict, *, timeout_s: float) -> httpx.Response:
