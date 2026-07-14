@@ -184,7 +184,8 @@ async def _complete(
         db.add(user)
         await db.flush()
     else:
-        user.display_name = display
+        # Don't overwrite display_name on re-login — the user may have set their
+        # own in Profile. (Telegram first_name is only the initial default.)
         user.phone = phone
 
     account = (
