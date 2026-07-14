@@ -11,6 +11,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
+import { truncateMiddle } from "@/lib/utils";
 
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, {
@@ -142,7 +143,7 @@ export function MissingPanel() {
       {removing ? (
         <ConfirmModal
           title="Remove record?"
-          message={`“${removing.name}” is already gone from Telegram. This removes its record (and versions) from BYOS. This can't be undone.`}
+          message={`“${truncateMiddle(removing.name)}” is already gone from Telegram. This removes its record (and versions) from BYOS. This can't be undone.`}
           confirmLabel="Remove record"
           onCancel={() => setRemoving(null)}
           onConfirm={() => {

@@ -25,7 +25,7 @@ export function ConfirmModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">{title}</h3>
-        <p className="mt-2 text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
+        <p className="mt-2 break-words text-sm text-zinc-600 dark:text-zinc-400">{message}</p>
         <div className="mt-5 flex justify-end gap-2">
           <Button
             onClick={onCancel}

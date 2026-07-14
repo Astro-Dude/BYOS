@@ -61,6 +61,7 @@ import {
   removeRecentFolder,
 } from "@/lib/recents";
 import { useToast } from "@/lib/toast";
+import { truncateMiddle } from "@/lib/utils";
 
 type Category = "all" | "folder" | "image" | "pdf" | "doc" | "video";
 const CATEGORIES: { key: Category; label: string }[] = [
@@ -523,6 +524,36 @@ export default function DashboardPage() {
       await load();
     }, "Deleted");
 
+  // Download each selected file individually (no zip) — one browser download
+  // per file, streamed straight from the provider.
+  const bulkDownload = async () => {
+    const targets = rawFiles.filter((f) => selFiles.has(f.id));
+    if (targets.length === 0) return;
+    let ok = 0;
+    for (const file of targets) {
+      try {
+        const blob = await authed((t) => api.downloadBlob(t, file.id));
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+        ok += 1;
+      } catch {
+        // Skip this one and keep going; summarised in the toast below.
+      }
+    }
+    toast(
+      ok === targets.length
+        ? `Downloading ${ok} file${ok === 1 ? "" : "s"}`
+        : `Downloaded ${ok} of ${targets.length} — some failed`,
+      ok === targets.length ? undefined : "error",
+    );
+  };
+
   const moveFileToFolder = (fileId: string, folderId: string | null) => {
     setDragFolder(null);
     // Optimistic: it leaves the current folder view; a failed move resyncs on reload.
@@ -619,6 +650,13 @@ export default function DashboardPage() {
       : [];
   const shownFiles = sortItems(filteredFiles, sortField, sortDir);
   const shownFolders = sortItems(rawFolders, sortField, sortDir);
+  const visibleCount = shownFiles.length + shownFolders.length;
+  const allSelected = visibleCount > 0 && selCount === visibleCount;
+  const selectAll = () => {
+    setSelFiles(new Set(shownFiles.map((f) => f.id)));
+    setSelFolders(new Set(shownFolders.map((f) => f.id)));
+  };
+  const toggleSelectAll = () => (allSelected ? clearSelection() : selectAll());
   const sortLabel =
     SORT_OPTIONS.find((o) => o.field === sortField && o.dir === sortDir)?.label ?? "Sort";
 
@@ -716,12 +754,21 @@ export default function DashboardPage() {
   const listView = (
     <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
       <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-100 dark:border-zinc-800 px-4 py-2.5 text-xs font-medium text-zinc-500">
-        <button
-          onClick={() => cycleSort("name")}
-          className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "name" ? "text-indigo-600" : ""}`}
-        >
-          Name{sortArrow("name")}
-        </button>
+        <div className="flex items-center gap-2">
+          <input
+            type="checkbox"
+            checked={allSelected}
+            onChange={toggleSelectAll}
+            aria-label="Select all"
+            className="h-4 w-4 shrink-0 accent-indigo-600"
+          />
+          <button
+            onClick={() => cycleSort("name")}
+            className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "name" ? "text-indigo-600" : ""}`}
+          >
+            Name{sortArrow("name")}
+          </button>
+        </div>
         <button
           onClick={() => cycleSort("modified")}
           className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "modified" ? "text-indigo-600" : ""}`}
@@ -1076,6 +1123,12 @@ export default function DashboardPage() {
                     {selFiles.size > 0 ? (
                       <>
                         <button
+                          onClick={bulkDownload}
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                        >
+                          <Download className="h-4 w-4" /> Download
+                        </button>
+                        <button
                           onClick={bulkStar}
                           className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
                         >
@@ -1205,6 +1258,14 @@ export default function DashboardPage() {
 
               {/* Filter chips */}
               <div className="flex flex-wrap items-center gap-2 pb-4">
+                {visibleCount > 0 ? (
+                  <button
+                    onClick={toggleSelectAll}
+                    className="rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                  >
+                    {allSelected ? "Deselect all" : "Select all"}
+                  </button>
+                ) : null}
                 <Menu
                   align="left"
                   trigger={() => (
@@ -1320,8 +1381,8 @@ export default function DashboardPage() {
           title={confirming.kind === "file" ? "Delete file?" : "Delete folder?"}
           message={
             confirming.kind === "file"
-              ? `“${confirming.file.name}” will be permanently removed from your drive.`
-              : `“${confirming.folder.name}” and everything inside it — subfolders and files — will be permanently deleted.`
+              ? `“${truncateMiddle(confirming.file.name)}” will be permanently removed from your drive.`
+              : `“${truncateMiddle(confirming.folder.name)}” and everything inside it — subfolders and files — will be permanently deleted.`
           }
           onCancel={() => setConfirming(null)}
           onConfirm={() => {
