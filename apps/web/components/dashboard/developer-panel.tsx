@@ -465,11 +465,11 @@ function DocsSection() {
                   {[
                     ["GET", "/files", "List files (paginated, filterable)"],
                     ["POST", "/files", "Upload a file"],
-                    ["PUT", "/files/{id}", "Replace a file (new version)"],
+                    ["POST", "/files/{id}/replace", "Replace a file (new version)"],
                     ["PATCH", "/files/{id}", "Rename a file"],
                     ["POST", "/files/{id}/move", "Move a file to a folder"],
-                    ["GET", "/files/{id}/download", "Stream file bytes"],
-                    ["GET", "/search?q=", "Full-text + fuzzy search"],
+                    ["GET", "/files/{id}/content", "Stream file bytes"],
+                    ["GET", "/files/search?q=", "Full-text + fuzzy search"],
                     ["POST", "/folders", "Create a folder (name + color)"],
                     ["PATCH", "/folders/{id}", "Rename / recolor a folder"],
                     ["POST", "/aliases", "Create a link to a file OR folder"],
@@ -500,7 +500,7 @@ curl -X POST ${base}/files \\
   -F "file=@report.pdf"
 
 # Replace (link stays identical, version bumps)
-curl -X PUT ${base}/files/FILE_ID \\
+curl -X POST ${base}/files/FILE_ID/replace \\
   -H "Authorization: Bearer byosk_..." \\
   -F "file=@report-v2.pdf"`}</CodeBlock>
           </div>
