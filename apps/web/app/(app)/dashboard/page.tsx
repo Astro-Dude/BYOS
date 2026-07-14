@@ -148,6 +148,51 @@ const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
+// Replace the default single-row drag ghost with a small badge that makes the
+// count obvious when several items are dragged at once.
+function setMultiDragImage(dt: DataTransfer, count: number): void {
+  const chip = document.createElement("div");
+  Object.assign(chip.style, {
+    position: "absolute",
+    top: "-1000px",
+    left: "-1000px",
+    display: "flex",
+    alignItems: "center",
+    gap: "10px",
+    padding: "10px 14px",
+    borderRadius: "12px",
+    background: "#4f46e5",
+    color: "#fff",
+    font: "600 13px ui-sans-serif, system-ui, sans-serif",
+    boxShadow: "0 10px 28px rgba(0,0,0,.35)",
+    whiteSpace: "nowrap",
+  } satisfies Partial<CSSStyleDeclaration>);
+
+  const badge = document.createElement("div");
+  badge.textContent = String(count);
+  Object.assign(badge.style, {
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    minWidth: "28px",
+    height: "28px",
+    padding: "0 6px",
+    borderRadius: "8px",
+    background: "rgba(255,255,255,.22)",
+    fontSize: "14px",
+    fontWeight: "700",
+  } satisfies Partial<CSSStyleDeclaration>);
+
+  const label = document.createElement("span");
+  label.textContent = "items";
+
+  chip.append(badge, label);
+  document.body.appendChild(chip);
+  dt.setDragImage(chip, 18, 18);
+  // Remove after the browser has snapshotted it for the drag cursor.
+  setTimeout(() => chip.remove(), 0);
+}
+
 export default function DashboardPage() {
   const router = useRouter();
   const { user, loading: authLoading, logout } = useAuth();
@@ -817,6 +862,8 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             if (fileIds.length) e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             e.dataTransfer.effectAllowed = "move";
+            const count = fileIds.length + folderIds.length;
+            if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onDragOver={(e) => {
             const t = e.dataTransfer.types;
@@ -891,6 +938,8 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             if (folderIds.length) e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             e.dataTransfer.effectAllowed = "move";
+            const count = fileIds.length + folderIds.length;
+            if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
           className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
@@ -949,6 +998,8 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             if (fileIds.length) e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             e.dataTransfer.effectAllowed = "move";
+            const count = fileIds.length + folderIds.length;
+            if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onDragOver={(e) => {
             const t = e.dataTransfer.types;
@@ -1028,6 +1079,8 @@ export default function DashboardPage() {
             e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             if (folderIds.length) e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             e.dataTransfer.effectAllowed = "move";
+            const count = fileIds.length + folderIds.length;
+            if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
           className={`group cursor-pointer rounded-xl border bg-white dark:bg-zinc-900 p-4 hover:shadow-sm ${
