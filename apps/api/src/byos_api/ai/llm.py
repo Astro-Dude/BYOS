@@ -29,31 +29,36 @@ def _endpoint(base_url: str) -> str:
 
 
 def _error_detail(response: httpx.Response) -> str:
+    # Pull just the human-readable message out of the provider's error body
+    # (which may be a dict or, for Google, a single-element list) — never dump
+    # the raw JSON at the user.
     try:
         body = response.json()
-        err = body.get("error")
-        msg = err.get("message") if isinstance(err, dict) else err
-        msg = msg or body.get("message")
-        if msg:
-            return f"Model error: {msg}"
+        if isinstance(body, list) and body:
+            body = body[0]
+        if isinstance(body, dict):
+            err = body.get("error")
+            msg = None
+            if isinstance(err, dict):
+                msg = err.get("message")
+            elif isinstance(err, str):
+                msg = err
+            msg = msg or body.get("message")
+            if isinstance(msg, str) and msg.strip():
+                clean = msg.strip()
+                return clean if len(clean) <= 300 else clean[:297] + "…"
     except Exception:
         pass
-    # No usable body message — explain the common statuses in plain terms.
+    # No usable message — a short, plain-language fallback per status.
     hints = {
-        429: "Rate limited (429) — the provider is throttling you or you've hit its "
-        "free-tier quota. Wait a minute and retry, or check your usage limits.",
-        402: "Payment required (402) — this model needs credits on your account.",
-        404: "Not found (404) — check the model name and base URL.",
-        500: "The provider had a server error (500) — try again shortly.",
-        503: "The provider is temporarily unavailable (503) — try again shortly.",
+        429: "Rate limited — you've hit the provider's rate limit or quota. "
+        "Wait a moment and retry.",
+        402: "This model needs credits on your account.",
+        404: "Model not found — check the model name.",
+        500: "The provider had a server error — try again shortly.",
+        503: "The provider is temporarily unavailable — try again shortly.",
     }
-    hint = hints.get(response.status_code, f"Model endpoint returned HTTP {response.status_code}.")
-    # Surface a short raw body when the provider sent a non-JSON error, so the
-    # real reason isn't hidden behind a bare status code.
-    raw = (response.text or "").strip()
-    if raw and len(raw) <= 300 and "<html" not in raw[:200].lower():
-        return f"{hint} — {raw}"
-    return hint
+    return hints.get(response.status_code, f"The endpoint returned HTTP {response.status_code}.")
 
 
 async def _post(base_url: str, api_key: str, payload: dict, *, timeout_s: float) -> httpx.Response:
