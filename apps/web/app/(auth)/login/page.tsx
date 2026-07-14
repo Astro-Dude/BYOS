@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
@@ -232,6 +233,12 @@ export default function LoginPage() {
               ← Start over
             </button>
           )}
+          <p className="text-zinc-500">
+            New to BYOS?{" "}
+            <Link href="/register" className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+              Create an account
+            </Link>
+          </p>
         </div>
       </div>
     </main>

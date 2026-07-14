@@ -247,6 +247,16 @@ export class ByosClient {
     });
   }
 
+  /** Begin sign-up: reserves the username + carries the password in the OTP
+   *  ticket. The account is created only when the OTP verifies (telegramVerify
+   *  / telegramPassword), so nothing is stored until then. */
+  telegramSignup(phone: string, username: string, password: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/telegram/signup", {
+      method: "POST",
+      body: JSON.stringify({ phone, username, password }),
+    });
+  }
+
   telegramVerify(ticket: string, code: string): Promise<TelegramLoginResult> {
     return this.request<TelegramLoginResult>("/auth/telegram/verify", {
       method: "POST",

@@ -8,6 +8,7 @@ Refresh tokens are opaque and stored only as SHA-256 hashes.
 from __future__ import annotations
 
 import re
+import uuid
 from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import or_, select
@@ -44,16 +45,24 @@ class UsernameTaken(Exception):
     pass
 
 
-async def set_username(db: AsyncSession, user: User, raw: str) -> User:
+async def ensure_username_available(
+    db: AsyncSession, raw: str, *, exclude_user_id: uuid.UUID | None = None
+) -> str:
+    """Normalize + validate a username and confirm it's free. Returns the
+    canonical (lowercased) form. Raises InvalidUsername / UsernameTaken."""
     username = raw.strip().lower()
     if not USERNAME_RE.match(username) or username in RESERVED_USERNAMES:
         raise InvalidUsername
     clash = (
         await db.execute(select(User).where(User.username == username))
     ).scalar_one_or_none()
-    if clash is not None and clash.id != user.id:
+    if clash is not None and clash.id != exclude_user_id:
         raise UsernameTaken
-    user.username = username
+    return username
+
+
+async def set_username(db: AsyncSession, user: User, raw: str) -> User:
+    user.username = await ensure_username_available(db, raw, exclude_user_id=user.id)
     await db.commit()
     await db.refresh(user)
     return user

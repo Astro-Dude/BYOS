@@ -21,7 +21,9 @@ from telethon.errors import (
     SessionPasswordNeededError,
 )
 
+from byos_api.auth import service
 from byos_api.core import crypto
+from byos_api.core.security import hash_password
 from byos_api.db.models import StorageAccount, User
 from byos_api.providers.service import TelegramNotConfigured, _new_client
 
@@ -54,7 +56,7 @@ def _read_ticket(ticket: str, expected: str) -> dict:
     return data
 
 
-async def start_login(phone: str) -> str:
+async def _send_code(phone: str, extra: dict) -> str:
     client = _new_client()
     try:
         await client.connect()
@@ -63,7 +65,27 @@ async def start_login(phone: str) -> str:
     finally:
         await client.disconnect()
     return _make_ticket(
-        {"phone": phone, "hash": sent.phone_code_hash, "session": session, "awaiting": "code"}
+        {
+            "phone": phone,
+            "hash": sent.phone_code_hash,
+            "session": session,
+            "awaiting": "code",
+            **extra,
+        }
+    )
+
+
+async def start_login(phone: str) -> str:
+    return await _send_code(phone, {})
+
+
+async def start_signup(db: AsyncSession, phone: str, username: str, password: str) -> str:
+    """Begin sign-up: validate the username and carry it (plus the hashed
+    password) inside the encrypted ticket. NOTHING is written to the DB here —
+    the account is created atomically only when the OTP verifies."""
+    clean = await service.ensure_username_available(db, username)
+    return await _send_code(
+        phone, {"username": clean, "password_hash": hash_password(password)}
     )
 
 
@@ -78,12 +100,25 @@ async def verify_code(
             await client.sign_in(phone=data["phone"], code=code, phone_code_hash=data["hash"])
         except SessionPasswordNeededError:
             new_ticket = _make_ticket(
-                {"phone": data["phone"], "session": client.session.save(), "awaiting": "password"}
+                {
+                    "phone": data["phone"],
+                    "session": client.session.save(),
+                    "awaiting": "password",
+                    # Carry sign-up details forward through the 2FA step.
+                    "username": data.get("username"),
+                    "password_hash": data.get("password_hash"),
+                }
             )
             return "password_needed", new_ticket, None
         except (PhoneCodeInvalidError, PhoneCodeExpiredError) as exc:
             raise InvalidCode(str(exc) or "Invalid or expired code") from exc
-        user = await _complete(db, client, data["phone"])
+        user = await _complete(
+            db,
+            client,
+            data["phone"],
+            signup_username=data.get("username"),
+            signup_password_hash=data.get("password_hash"),
+        )
     finally:
         await client.disconnect()
     return "connected", None, user
@@ -100,13 +135,26 @@ async def verify_password(
             await client.sign_in(password=password)
         except PasswordHashInvalidError as exc:
             raise InvalidCode("Invalid two-factor password") from exc
-        user = await _complete(db, client, data["phone"])
+        user = await _complete(
+            db,
+            client,
+            data["phone"],
+            signup_username=data.get("username"),
+            signup_password_hash=data.get("password_hash"),
+        )
     finally:
         await client.disconnect()
     return "connected", None, user
 
 
-async def _complete(db: AsyncSession, client, phone: str) -> User:
+async def _complete(
+    db: AsyncSession,
+    client,
+    phone: str,
+    *,
+    signup_username: str | None = None,
+    signup_password_hash: str | None = None,
+) -> User:
     me = await client.get_me()
     session = client.session.save()
     tg_id = int(me.id)
@@ -117,7 +165,22 @@ async def _complete(db: AsyncSession, client, phone: str) -> User:
         await db.execute(select(User).where(User.telegram_user_id == tg_id))
     ).scalar_one_or_none()
     if user is None:
-        user = User(telegram_user_id=tg_id, display_name=display, phone=phone, is_verified=True)
+        # New account — persist the sign-up username + password now, atomically
+        # with the Telegram identity, in a single transaction.
+        chosen = signup_username
+        if chosen is not None:
+            try:
+                chosen = await service.ensure_username_available(db, chosen)
+            except (service.InvalidUsername, service.UsernameTaken):
+                chosen = None  # taken in the meantime → fall back to the setup gate
+        user = User(
+            telegram_user_id=tg_id,
+            display_name=display,
+            phone=phone,
+            is_verified=True,
+            username=chosen,
+            password_hash=signup_password_hash,
+        )
         db.add(user)
         await db.flush()
     else:
@@ -150,6 +213,7 @@ __all__ = [
     "LoginStateError",
     "TelegramNotConfigured",
     "start_login",
+    "start_signup",
     "verify_code",
     "verify_password",
 ]

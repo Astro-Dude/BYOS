@@ -24,6 +24,12 @@ class PasswordLoginRequest(BaseModel):
     password: str = Field(min_length=1)
 
 
+class SignupStartRequest(BaseModel):
+    phone: str = Field(min_length=1)
+    username: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class TicketCodeRequest(BaseModel):
     ticket: str
     code: str
