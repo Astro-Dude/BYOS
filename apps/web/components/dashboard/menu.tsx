@@ -3,7 +3,13 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 
-type Pos = { top?: number; bottom?: number; left?: number; right?: number };
+type Pos = {
+  top?: number;
+  bottom?: number;
+  left?: number;
+  right?: number;
+  maxHeight?: number;
+};
 
 /** Lightweight dropdown. Renders the panel in a portal with fixed positioning
  *  so it's never clipped by an ancestor's overflow (list container, scroll
@@ -47,16 +53,22 @@ export function Menu({
   const place = () => {
     const r = triggerRef.current?.getBoundingClientRect();
     if (!r) return;
+    const margin = 8; // keep clear of the viewport edges
+    const gap = 4; // between trigger and panel
     const horizontal: Pos =
       align === "right"
-        ? { right: Math.max(8, window.innerWidth - r.right) }
-        : { left: r.left };
-    // Flip up when the trigger is in the lower part of the viewport.
-    const openUp = r.bottom > window.innerHeight - 220;
+        ? { right: Math.max(margin, window.innerWidth - r.right) }
+        : { left: Math.max(margin, Math.min(r.left, window.innerWidth - 220)) };
+    // Open toward whichever side has more room; clamp the height to that space so
+    // the panel scrolls instead of overflowing the screen.
+    const spaceBelow = window.innerHeight - r.bottom - margin - gap;
+    const spaceAbove = r.top - margin - gap;
+    const openUp = spaceAbove > spaceBelow;
+    const maxHeight = Math.max(140, openUp ? spaceAbove : spaceBelow);
     setPos(
       openUp
-        ? { bottom: window.innerHeight - r.top + 4, ...horizontal }
-        : { top: r.bottom + 4, ...horizontal },
+        ? { bottom: window.innerHeight - r.top + gap, ...horizontal, maxHeight }
+        : { top: r.bottom + gap, ...horizontal, maxHeight },
     );
   };
 
@@ -78,8 +90,15 @@ export function Menu({
         ? createPortal(
             <div
               ref={menuRef}
-              style={{ position: "fixed", top: pos.top, bottom: pos.bottom, left: pos.left, right: pos.right }}
-              className="z-[100] min-w-[11rem] overflow-hidden rounded-xl border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
+              style={{
+                position: "fixed",
+                top: pos.top,
+                bottom: pos.bottom,
+                left: pos.left,
+                right: pos.right,
+                maxHeight: pos.maxHeight,
+              }}
+              className="z-[100] min-w-[11rem] overflow-y-auto overscroll-contain rounded-xl border border-zinc-200 bg-white py-1 shadow-lg dark:border-zinc-800 dark:bg-zinc-900"
             >
               {children(() => setOpen(false))}
             </div>,

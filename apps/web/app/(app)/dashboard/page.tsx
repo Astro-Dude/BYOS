@@ -897,6 +897,10 @@ export default function DashboardPage() {
             aria-label="Select all"
             className="h-4 w-4 shrink-0 accent-indigo-600"
           />
+          {/* Spacers matching the row's star + file-type icon so "Name" lines up
+              with where the file/folder names actually start. */}
+          <span className="h-4 w-4 shrink-0" aria-hidden />
+          <span className="h-5 w-5 shrink-0" aria-hidden />
           <button
             onClick={() => cycleSort("name")}
             className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "name" ? "text-indigo-600" : ""}`}
@@ -983,6 +987,8 @@ export default function DashboardPage() {
               onChange={() => toggleSelFolder(folder.id)}
               className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             />
+            {/* Folders have no star — reserve the column so names align with files. */}
+            <span className="h-4 w-4 shrink-0" aria-hidden />
             <Folder
               className="h-5 w-5 shrink-0 text-indigo-500"
               fill={folder.color ?? "none"}
