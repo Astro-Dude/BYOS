@@ -38,7 +38,16 @@ def _error_detail(response: httpx.Response) -> str:
             return f"Model error: {msg}"
     except Exception:
         pass
-    return f"Model endpoint returned HTTP {response.status_code}."
+    # No usable body message — explain the common statuses in plain terms.
+    hints = {
+        429: "Rate limited (429) — the provider is throttling you or you've hit its "
+        "free-tier quota. Wait a minute and retry, or check your usage limits.",
+        402: "Payment required (402) — this model needs credits on your account.",
+        404: "Not found (404) — check the model name and base URL.",
+        500: "The provider had a server error (500) — try again shortly.",
+        503: "The provider is temporarily unavailable (503) — try again shortly.",
+    }
+    return hints.get(response.status_code, f"Model endpoint returned HTTP {response.status_code}.")
 
 
 async def _post(base_url: str, api_key: str, payload: dict, *, timeout_s: float) -> httpx.Response:
