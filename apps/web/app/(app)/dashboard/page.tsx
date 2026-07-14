@@ -142,6 +142,9 @@ const PAGE_SIZE = 100;
 // Telegram's per-file ceiling for a standard account. Keep in sync with the
 // API's max_upload_bytes so oversized files are caught before uploading.
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
+// Upload several files at once, but capped — unbounded parallelism risks
+// Telegram flood limits and exhausts the browser's per-host connection pool.
+const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
@@ -374,7 +377,7 @@ export default function DashboardPage() {
     if (inputRef.current) inputRef.current.value = "";
     if (jobs.length === 0) return;
     (async () => {
-      for (const job of jobs) {
+      const uploadOne = async (job: (typeof jobs)[number]) => {
         try {
           await authed((t) =>
             api.uploadFile(t, job.file, targetFolderId, (pct) =>
@@ -393,7 +396,20 @@ export default function DashboardPage() {
             p.map((u) => (u.id === job.id ? { ...u, status: "error", note } : u)),
           );
         }
-      }
+      };
+      // Bounded-parallel: a pool of workers pulls from the shared job queue so
+      // at most UPLOAD_CONCURRENCY files transfer at once.
+      let next = 0;
+      const worker = async () => {
+        while (next < jobs.length) {
+          const job = jobs[next++];
+          if (!job) break;
+          await uploadOne(job);
+        }
+      };
+      await Promise.all(
+        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker),
+      );
       // Auto-dismiss the finished panel a few seconds after everything settles.
       setTimeout(() => setUploads((p) => p.filter((u) => u.status === "uploading")), 4000);
     })();
