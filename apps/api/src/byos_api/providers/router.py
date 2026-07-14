@@ -25,6 +25,19 @@ async def list_providers(user: CurrentUser, db: DbDep) -> list[ProviderStatus]:
     return [ProviderStatus(provider=a.provider, status=a.status, label=a.label) for a in accounts]
 
 
+@router.get("/telegram/session")
+async def telegram_session_status(user: CurrentUser, db: DbDep) -> dict[str, bool]:
+    """Lightweight liveness probe used on app load: reports whether the stored
+    Telegram session was revoked (e.g. the user terminated their sessions) and
+    the account needs re-auth. A user who never connected storage is NOT flagged
+    — that's a separate "connect storage" state, not a terminated session."""
+    account = await service.get_telegram_account(db, user)
+    if account is None:
+        return {"connected": False, "needs_reauth": False}
+    alive = await service.telegram_session_alive(db, user)
+    return {"connected": True, "needs_reauth": not alive}
+
+
 @router.delete("/telegram", status_code=status.HTTP_204_NO_CONTENT)
 async def disconnect(user: CurrentUser, db: DbDep) -> None:
     await service.disconnect(db, user)

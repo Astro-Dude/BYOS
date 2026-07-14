@@ -35,17 +35,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }, []);
 
-  useEffect(() => {
-    let cancelled = false;
-    (async () => {
-      await refresh();
-      if (!cancelled) setLoading(false);
-    })();
-    return () => {
-      cancelled = true;
-    };
-  }, [refresh]);
-
   const establishSession = useCallback(async (accessToken: string) => {
     setToken(accessToken);
     setUser(await api.me(accessToken));
@@ -59,6 +48,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setUser(null);
     }
   }, []);
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      const t = await refresh();
+      if (!cancelled) setLoading(false);
+      // Proactively catch a terminated Telegram session on app load, so the
+      // user is bounced to login immediately instead of only when they first
+      // touch a file (browsing reads the DB and never hits Telegram).
+      if (t && !cancelled) {
+        try {
+          const { needs_reauth } = await api.telegramSessionStatus(t);
+          if (needs_reauth && !cancelled) {
+            try {
+              sessionStorage.setItem(
+                RECONNECT_NOTICE_KEY,
+                "Your Telegram access was logged out. Please sign in again to reconnect your storage.",
+              );
+            } catch {
+              // sessionStorage unavailable — the login page just won't show a reason
+            }
+            await logout();
+          }
+        } catch {
+          // Probe failure shouldn't block the app; runtime detection still applies.
+        }
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [refresh, logout]);
 
   return (
     <AuthContext.Provider value={{ user, token, loading, logout, refresh, establishSession }}>

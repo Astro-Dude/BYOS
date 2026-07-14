@@ -337,6 +337,15 @@ export class ByosClient {
     return this.request<void>("/providers/telegram", { method: "DELETE", token });
   }
 
+  /** Liveness probe for the Telegram storage session. `needs_reauth` is true
+   *  when a previously-connected session was revoked (user terminated it). */
+  telegramSessionStatus(token: string): Promise<{ connected: boolean; needs_reauth: boolean }> {
+    return this.request<{ connected: boolean; needs_reauth: boolean }>(
+      "/providers/telegram/session",
+      { token },
+    );
+  }
+
   // ── Folders ───────────────────────────────────────────────────────────────
   listFolders(token: string, parentId?: string): Promise<FolderItem[]> {
     const qs = parentId ? `?parent_id=${encodeURIComponent(parentId)}` : "";
