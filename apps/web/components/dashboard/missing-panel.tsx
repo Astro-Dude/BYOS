@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, type FileItem } from "@byos/api-client";
-import { FileWarning, Loader2, RefreshCw } from "lucide-react";
+import { FileWarning, Loader2, RefreshCw, Trash2 } from "lucide-react";
 import { useCallback, useEffect, useState } from "react";
 
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
@@ -32,6 +32,8 @@ export function MissingPanel() {
   const [scanning, setScanning] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [removing, setRemoving] = useState<FileItem | null>(null);
+  const [confirmAll, setConfirmAll] = useState(false);
+  const [clearing, setClearing] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -80,6 +82,20 @@ export function MissingPanel() {
       });
   };
 
+  const removeAll = async () => {
+    setClearing(true);
+    setMissing([]); // optimistic; resync from the server if it fails
+    try {
+      const { removed } = await authed((t) => api.clearMissing(t));
+      toast(`Removed ${removed} record${removed === 1 ? "" : "s"}`);
+    } catch (err) {
+      toast(err instanceof ApiError ? err.detail : "Failed to remove records", "error");
+      await load();
+    } finally {
+      setClearing(false);
+    }
+  };
+
   return (
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
@@ -89,14 +105,26 @@ export function MissingPanel() {
             Files whose contents were deleted directly in Telegram. Scan to re-check every file.
           </p>
         </div>
-        <Button onClick={scan} disabled={scanning} className="flex items-center gap-2">
-          {scanning ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
-          ) : (
-            <RefreshCw className="h-4 w-4" />
-          )}
-          {scanning ? "Scanning…" : "Scan now"}
-        </Button>
+        <div className="flex items-center gap-2">
+          {missing.length > 0 ? (
+            <button
+              onClick={() => setConfirmAll(true)}
+              disabled={clearing}
+              className="flex items-center gap-2 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:hover:bg-red-500/10"
+            >
+              <Trash2 className="h-4 w-4" />
+              Remove all
+            </button>
+          ) : null}
+          <Button onClick={scan} disabled={scanning} className="flex items-center gap-2">
+            {scanning ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RefreshCw className="h-4 w-4" />
+            )}
+            {scanning ? "Scanning…" : "Scan now"}
+          </Button>
+        </div>
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
@@ -149,6 +177,19 @@ export function MissingPanel() {
           onConfirm={() => {
             remove(removing);
             setRemoving(null);
+          }}
+        />
+      ) : null}
+
+      {confirmAll ? (
+        <ConfirmModal
+          title={`Remove all ${missing.length} missing record${missing.length === 1 ? "" : "s"}?`}
+          message="These files are already gone from Telegram. This removes their records (and versions) from BYOS. This can't be undone."
+          confirmLabel="Remove all"
+          onCancel={() => setConfirmAll(false)}
+          onConfirm={() => {
+            setConfirmAll(false);
+            void removeAll();
           }}
         />
       ) : null}

@@ -456,6 +456,11 @@ export class ByosClient {
     });
   }
 
+  /** Remove all flagged-missing file records at once (records-only). */
+  clearMissing(token: string): Promise<{ removed: number }> {
+    return this.request<{ removed: number }>("/files/missing", { method: "DELETE", token });
+  }
+
   /** Upload a file. Uses XHR so real byte-progress (0–100) is reported via
    *  onProgress; falls back gracefully if the size isn't known. */
   uploadFile(

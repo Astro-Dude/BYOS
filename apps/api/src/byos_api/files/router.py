@@ -254,6 +254,13 @@ async def verify_files(user: CurrentUser, db: DbDep) -> dict[str, int]:
     return await service.verify_missing(db, user)
 
 
+@router.delete("/missing")
+async def clear_missing(user: CurrentUser, db: DbDep) -> dict[str, int]:
+    """Remove all flagged-missing file records at once (records-only — the bytes
+    are already gone from the provider). Returns {removed}."""
+    return {"removed": await service.delete_missing(db, user)}
+
+
 @router.get("/nl-search", response_model=list[FileOut])
 async def natural_language_search(
     user: CurrentUser,

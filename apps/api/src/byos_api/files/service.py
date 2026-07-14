@@ -253,6 +253,25 @@ async def find_missing(db: AsyncSession, user: User) -> list[File]:
     )
 
 
+async def delete_missing(db: AsyncSession, user: User) -> int:
+    """Remove ALL of the user's flagged-missing file records at once. The bytes
+    are already gone from the provider (that's why they're missing), so this is a
+    records-only cleanup — no provider calls. Returns how many were removed."""
+    records = list(
+        (
+            await db.execute(
+                select(File).where(File.owner_id == user.id, File.missing_at.is_not(None))
+            )
+        ).scalars()
+    )
+    for record in records:
+        record.current_version_id = None
+        await db.flush()
+        await db.delete(record)  # cascades to file_versions and aliases
+    await db.commit()
+    return len(records)
+
+
 async def verify_missing(db: AsyncSession, user: User) -> dict[str, int]:
     """Check each of the user's files against the provider (cheap exists() — no
     download) and set/clear `missing_at`. Stops gracefully on FloodWait and

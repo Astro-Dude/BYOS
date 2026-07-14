@@ -7,12 +7,16 @@ Used by file downloads, alias resolution, version downloads, and share links.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import AsyncIterator, Awaitable, Callable
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import Response, StreamingResponse
 
 from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef
+from byos_api.storage.base import ProviderAuthError
+
+logger = logging.getLogger("byos")
 
 
 async def _aclose(stream: AsyncIterator[bytes]) -> None:
@@ -75,6 +79,19 @@ async def stream_object(
         await _aclose(stream)
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS, f"Telegram rate limit — retry in {exc.seconds}s"
+        ) from exc
+    except ProviderAuthError:
+        await _aclose(stream)
+        raise  # → global handler → 409 "sign in again to reconnect"
+    except Exception as exc:
+        # Anything else (malformed locator, unexpected provider error) — log the
+        # real cause and return a clear message instead of a bare 500.
+        await _aclose(stream)
+        logger.exception("stream_object: failed to fetch %r from provider", filename)
+        raise HTTPException(
+            status.HTTP_502_BAD_GATEWAY,
+            "Couldn't load this file from its storage provider. It may be corrupted "
+            "or was uploaded incompletely.",
         ) from exc
 
     async def body() -> AsyncIterator[bytes]:
