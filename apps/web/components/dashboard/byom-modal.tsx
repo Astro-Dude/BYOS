@@ -11,6 +11,17 @@ import { useToast } from "@/lib/toast";
 
 // Quick-fill presets for common OpenAI-compatible endpoints. Any provider works
 // — this is just to save typing the base URL.
+// Model-name format depends on the provider (OpenAI: `gpt-4o-mini`; OpenRouter:
+// `openai/gpt-4o-mini`), so the hint follows the chosen base URL.
+function modelHint(baseUrl: string): string {
+  const u = baseUrl.toLowerCase();
+  if (u.includes("openrouter")) return "e.g. openai/gpt-4o-mini, google/gemini-2.5-flash";
+  if (u.includes("generativelanguage")) return "e.g. gemini-2.5-flash";
+  if (u.includes("groq")) return "e.g. llama-3.3-70b-versatile";
+  if (u.includes("together")) return "e.g. meta-llama/Llama-3.3-70B-Instruct-Turbo";
+  return "e.g. gpt-4o-mini";
+}
+
 const PRESETS: { label: string; url: string }[] = [
   { label: "OpenAI", url: "https://api.openai.com/v1" },
   { label: "OpenRouter", url: "https://openrouter.ai/api/v1" },
@@ -136,7 +147,7 @@ export function ByomModal({
               className={field}
               value={model}
               onChange={(e) => setModel(e.target.value)}
-              placeholder="e.g. gpt-4o-mini, anthropic/claude-3.5-sonnet"
+              placeholder={modelHint(baseUrl)}
             />
           </div>
           <div>
