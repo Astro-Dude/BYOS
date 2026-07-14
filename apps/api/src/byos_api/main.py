@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import asyncio
+import contextlib
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
@@ -33,14 +36,38 @@ from byos_api.storage.base import ProviderAuthError
 from byos_api.webhooks.router import router as webhooks_router
 
 settings = get_settings()
+logger = logging.getLogger("byos")
+
+_CLEANUP_INTERVAL_S = 24 * 3600
+
+
+async def _chat_cleanup_loop() -> None:
+    """Expire AI chat threads older than the retention window — runs on startup
+    and daily. Best-effort; failures are logged, not fatal."""
+    from byos_api.ai import service as ai_service
+    from byos_api.core.db import SessionLocal
+
+    while True:
+        try:
+            async with SessionLocal() as db:
+                removed = await ai_service.purge_old_chats(db)
+            if removed:
+                logger.info("purged %d expired AI chat message(s)", removed)
+        except Exception:
+            logger.warning("AI chat cleanup failed", exc_info=True)
+        await asyncio.sleep(_CLEANUP_INTERVAL_S)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     register_default_providers()
+    cleanup = asyncio.create_task(_chat_cleanup_loop())
     try:
         yield
     finally:
+        cleanup.cancel()
+        with contextlib.suppress(asyncio.CancelledError):
+            await cleanup
         await shutdown_providers()
 
 

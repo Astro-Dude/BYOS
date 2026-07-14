@@ -3,11 +3,16 @@ The API key is Fernet-encrypted at rest and never returned in plaintext."""
 
 from __future__ import annotations
 
-from sqlalchemy import select
+from datetime import UTC, datetime, timedelta
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core import crypto
-from byos_api.db.models import AiConfig, User
+from byos_api.db.models import AiChatMessage, AiConfig, User
+
+# Chat threads are transient — expire them after this many days.
+CHAT_RETENTION_DAYS = 7
 
 
 async def get_config(db: AsyncSession, user: User) -> AiConfig | None:
@@ -57,3 +62,12 @@ async def delete_config(db: AsyncSession, user: User) -> None:
     if cfg is not None:
         await db.delete(cfg)
         await db.commit()
+
+
+async def purge_old_chats(db: AsyncSession, *, days: int = CHAT_RETENTION_DAYS) -> int:
+    """Delete AI chat messages older than `days` (thread expiry). Returns the
+    number removed."""
+    cutoff = datetime.now(UTC) - timedelta(days=days)
+    result = await db.execute(delete(AiChatMessage).where(AiChatMessage.created_at < cutoff))
+    await db.commit()
+    return int(getattr(result, "rowcount", 0) or 0)
