@@ -44,8 +44,9 @@ def _pdf_text(data: bytes) -> str:
     return "\n".join(parts)
 
 
-def extract_text(data: bytes, mime: str | None, ext: str | None) -> str:
-    """Return extracted text (truncated to MAX_CHARS), or '' if unsupported."""
+def extract_text(data: bytes, mime: str | None, ext: str | None, *, limit: int = MAX_CHARS) -> str:
+    """Return extracted text (truncated to `limit`), or '' if unsupported.
+    Retrieval mode passes a much larger limit so the whole doc can be chunked."""
     m = (mime or "").lower()
     e = (ext or "").lower()
     if m == "application/pdf" or e == "pdf":
@@ -54,4 +55,4 @@ def extract_text(data: bytes, mime: str | None, ext: str | None) -> str:
         text = data.decode("utf-8", errors="replace")
     else:
         text = ""
-    return text[:MAX_CHARS].strip()
+    return text[:limit].strip()

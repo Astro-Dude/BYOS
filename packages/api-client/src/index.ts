@@ -876,13 +876,15 @@ export class ByosClient {
     return this.streamText("/ai/summarize", token, { file_id: fileId }, onToken);
   }
 
-  /** Send a chat message about a document and stream the reply (stateful thread). */
+  /** Send a chat message about a document and stream the reply (stateful thread).
+   *  `retrieval` = long-document mode (chunk + retrieve relevant parts). */
   chatStream(
     token: string,
     fileId: string,
     message: string,
     onToken: (chunk: string) => void,
+    retrieval = false,
   ): Promise<string> {
-    return this.streamText("/ai/chat", token, { file_id: fileId, message }, onToken);
+    return this.streamText("/ai/chat", token, { file_id: fileId, message, retrieval }, onToken);
   }
 }

@@ -48,6 +48,9 @@ export function AiPanel({ file }: { file: FileItem }) {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [openThoughts, setOpenThoughts] = useState<Set<number>>(new Set());
+  // Long-document mode: default on for large files (chunk + retrieve instead of
+  // truncating the whole thing into context).
+  const [longDoc, setLongDoc] = useState(() => (file.size ?? 0) > 400_000);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const toggleThought = (i: number) =>
@@ -99,7 +102,7 @@ export function AiPanel({ file }: { file: FileItem }) {
     setMessages((p) => [...p, { role: "user", content: q }, { role: "assistant", content: "" }]);
     setBusy(true);
     try {
-      await authed((t) => api.chatStream(t, file.id, q, appendToLast));
+      await authed((t) => api.chatStream(t, file.id, q, appendToLast, longDoc));
     } catch (err) {
       setError(err instanceof ApiError ? err.detail : "Something went wrong");
       // Drop the empty assistant placeholder if nothing streamed.
@@ -147,15 +150,28 @@ export function AiPanel({ file }: { file: FileItem }) {
         <span className="flex items-center gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
           <Sparkles className="h-4 w-4 text-indigo-500" /> Ask AI
         </span>
-        {messages.length > 0 ? (
+        <div className="flex items-center gap-2">
           <button
-            onClick={clear}
-            className="text-zinc-400 hover:text-red-600"
-            aria-label="Clear conversation"
+            onClick={() => setLongDoc((v) => !v)}
+            title="Long-document mode — for books/large files, finds the relevant sections instead of sending the whole file"
+            className={`rounded-full px-2 py-0.5 text-xs transition ${
+              longDoc
+                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
+                : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            }`}
           >
-            <Trash2 className="h-4 w-4" />
+            Long doc
           </button>
-        ) : null}
+          {messages.length > 0 ? (
+            <button
+              onClick={clear}
+              className="text-zinc-400 hover:text-red-600"
+              aria-label="Clear conversation"
+            >
+              <Trash2 className="h-4 w-4" />
+            </button>
+          ) : null}
+        </div>
       </div>
 
       <div ref={scrollRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto p-4">

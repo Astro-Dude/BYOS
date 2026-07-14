@@ -19,8 +19,7 @@ from fastapi.responses import StreamingResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.ai import llm, service
-from byos_api.ai.extract import extract_text, is_extractable
+from byos_api.ai import extract, llm, retrieval, service
 from byos_api.ai.schemas import (
     AiConfigIn,
     AiConfigOut,
@@ -124,13 +123,15 @@ async def _require_config(db: AsyncSession, user: User) -> AiConfig:
     return cfg
 
 
-async def _load_text(db: AsyncSession, user: User, file_id: uuid.UUID) -> tuple[str, str]:
+async def _load_text(
+    db: AsyncSession, user: User, file_id: uuid.UUID, *, limit: int = extract.MAX_CHARS
+) -> tuple[str, str]:
     """Return (filename, extracted_text) for an owned, text-readable file."""
     try:
         record = await files_service.get_owned_file(db, user, file_id)
     except files_service.FileNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
-    if not is_extractable(record.mime, record.ext):
+    if not extract.is_extractable(record.mime, record.ext):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "This file type can't be read as text yet."
         )
@@ -160,7 +161,7 @@ async def _load_text(db: AsyncSession, user: User, file_id: uuid.UUID) -> tuple[
         raise HTTPException(
             status.HTTP_404_NOT_FOUND, "File content no longer exists in the provider"
         ) from None
-    text = extract_text(bytes(buffer), record.mime, record.ext)
+    text = extract.extract_text(bytes(buffer), record.mime, record.ext, limit=limit)
     if not text:
         raise HTTPException(
             status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -231,10 +232,20 @@ async def clear_chat(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> None:
     await db.commit()
 
 
+# Long-document mode reads far more text so the whole doc can be chunked.
+_RETRIEVAL_LIMIT = 2_000_000
+
+
 @router.post("/chat")
 async def chat(payload: ChatSendRequest, user: CurrentUser, db: DbDep) -> StreamingResponse:
     cfg = await _require_config(db, user)
-    name, text = await _load_text(db, user, payload.file_id)
+    limit = _RETRIEVAL_LIMIT if payload.retrieval else extract.MAX_CHARS
+    name, text = await _load_text(db, user, payload.file_id, limit=limit)
+    if payload.retrieval:
+        # Send only the parts relevant to the question, not the whole book.
+        chunks = retrieval.chunk_text(text)
+        relevant = retrieval.top_chunks(chunks, payload.message, k=6)
+        text = "\n\n---\n\n".join(relevant)
     params = _stream_params(cfg)
 
     prior = list(

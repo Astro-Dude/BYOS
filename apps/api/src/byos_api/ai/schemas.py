@@ -36,6 +36,9 @@ class SummarizeRequest(BaseModel):
 class ChatSendRequest(BaseModel):
     file_id: uuid.UUID
     message: str = Field(min_length=1, max_length=16000)
+    # Long-document mode: chunk the file and retrieve only the relevant parts
+    # instead of stuffing (and truncating) the whole thing into context.
+    retrieval: bool = False
 
 
 class ChatMessageOut(BaseModel):
