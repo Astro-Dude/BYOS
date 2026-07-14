@@ -130,7 +130,7 @@ export function ByomModal({
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-          Bring your own model
+          Bring your own key
         </h3>
         <p className="mt-1 text-sm text-zinc-500">
           Any OpenAI-compatible endpoint. Your key is encrypted and only used for your requests.

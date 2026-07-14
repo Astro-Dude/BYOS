@@ -94,11 +94,11 @@ export function AiPanel({ file }: { file: FileItem }) {
       <div className="flex w-full flex-col items-center justify-center gap-2 p-6 text-center sm:w-96">
         <Sparkles className="h-7 w-7 text-indigo-400" />
         <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          Connect your own model
+          Bring your own key
         </p>
         <p className="text-sm text-zinc-500">
-          Add an LLM key in <span className="font-medium">Profile → AI model</span> to summarize and
-          chat with this document — using your own key.
+          Add your LLM key in <span className="font-medium">Profile → AI model</span> to summarize
+          and chat with this document — using your own key.
         </p>
       </div>
     );

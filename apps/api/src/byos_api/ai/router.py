@@ -108,7 +108,7 @@ async def _require_config(db: AsyncSession, user: User) -> AiConfig:
     if cfg is None:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "Connect a model first (Profile → Bring your own model).",
+            "Add your own key first (Profile → AI model).",
         )
     return cfg
 
