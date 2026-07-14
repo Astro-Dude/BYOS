@@ -151,17 +151,18 @@ export function AiPanel({ file }: { file: FileItem }) {
           <Sparkles className="h-4 w-4 text-indigo-500" /> Ask AI
         </span>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => setLongDoc((v) => !v)}
+          <label
             title="Long-document mode — for books/large files, finds the relevant sections instead of sending the whole file"
-            className={`rounded-full px-2 py-0.5 text-xs transition ${
-              longDoc
-                ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                : "text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
-            }`}
+            className="flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
           >
+            <input
+              type="checkbox"
+              checked={longDoc}
+              onChange={(e) => setLongDoc(e.target.checked)}
+              className="h-3.5 w-3.5 accent-indigo-600"
+            />
             Long doc
-          </button>
+          </label>
           {messages.length > 0 ? (
             <button
               onClick={clear}
