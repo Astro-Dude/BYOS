@@ -9,6 +9,7 @@ embeddings/vector layer — this ships single-document AI first.
 
 from __future__ import annotations
 
+import re
 import uuid
 from collections.abc import AsyncIterator
 from typing import Annotated
@@ -47,6 +48,16 @@ _DEFAULT_SYSTEM = (
 )
 
 _STREAM_MEDIA = "text/plain; charset=utf-8"
+# Tell proxies (Render/nginx) not to buffer, so tokens reach the client live.
+_STREAM_HEADERS = {"X-Accel-Buffering": "no", "Cache-Control": "no-cache"}
+
+# Some models emit their reasoning inline in <think>/<thought> tags — strip it
+# so it's neither shown nor fed back into the conversation as context.
+_THOUGHT_RE = re.compile(r"<(think|thought)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
+
+
+def _strip_thoughts(text: str) -> str:
+    return _THOUGHT_RE.sub("", text).strip()
 
 
 def _as_out(cfg: AiConfig | None) -> AiConfigOut:
@@ -190,7 +201,7 @@ async def summarize(payload: SummarizeRequest, user: CurrentUser, db: DbDep) -> 
         async for delta in llm.stream_chat(messages=messages, **params):
             yield delta
 
-    return StreamingResponse(body(), media_type=_STREAM_MEDIA)
+    return StreamingResponse(body(), media_type=_STREAM_MEDIA, headers=_STREAM_HEADERS)
 
 
 # ── Chat (stateful, streamed) ────────────────────────────────────────────────
@@ -254,7 +265,7 @@ async def chat(payload: ChatSendRequest, user: CurrentUser, db: DbDep) -> Stream
         async for delta in llm.stream_chat(messages=messages, **params):
             collected.append(delta)
             yield delta
-        answer = "".join(collected)
+        answer = _strip_thoughts("".join(collected))
         if answer:
             # Persist the turn once complete, in a fresh session (the request's
             # session is already torn down by the time the stream finishes).
@@ -269,4 +280,4 @@ async def chat(payload: ChatSendRequest, user: CurrentUser, db: DbDep) -> Stream
                 )
                 await store.commit()
 
-    return StreamingResponse(body(), media_type=_STREAM_MEDIA)
+    return StreamingResponse(body(), media_type=_STREAM_MEDIA, headers=_STREAM_HEADERS)
