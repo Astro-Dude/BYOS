@@ -1,6 +1,7 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
+import { Send } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
@@ -117,6 +118,15 @@ export default function RegisterPage() {
           {step === "code" && "Enter the login code Telegram just sent to your app."}
           {step === "password" && "Your Telegram account has two-factor auth — enter its password."}
         </p>
+        {step === "code" ? (
+          <div className="mt-3 flex items-start gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+            <Send className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Check your <strong>Telegram app</strong> — the code is sent there (in the
+              official “Telegram” chat), not by SMS.
+            </span>
+          </div>
+        ) : null}
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           {step === "details" && (
