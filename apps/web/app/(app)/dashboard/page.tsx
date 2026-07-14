@@ -1258,14 +1258,6 @@ export default function DashboardPage() {
 
               {/* Filter chips */}
               <div className="flex flex-wrap items-center gap-2 pb-4">
-                {visibleCount > 0 ? (
-                  <button
-                    onClick={toggleSelectAll}
-                    className="rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                  >
-                    {allSelected ? "Deselect all" : "Select all"}
-                  </button>
-                ) : null}
                 <Menu
                   align="left"
                   trigger={() => (

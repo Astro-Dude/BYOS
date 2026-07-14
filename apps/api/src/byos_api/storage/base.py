@@ -18,6 +18,13 @@ from dataclasses import dataclass, field
 from typing import Any, Protocol, runtime_checkable
 
 
+class ProviderAuthError(Exception):
+    """The provider rejected our stored credentials — e.g. the user terminated
+    their Telegram sessions, revoking the auth key. The account must be
+    reconnected (re-auth) before any storage operation can succeed. Callers map
+    this to a clear "sign in again" response rather than a generic 500."""
+
+
 @dataclass(frozen=True)
 class ProviderAccount:
     """Resolved, DECRYPTED credentials + config handed to a provider at call time.

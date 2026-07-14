@@ -78,6 +78,40 @@ async def list_accounts(db: AsyncSession, user: User) -> list[StorageAccount]:
     return list(result.scalars())
 
 
+async def telegram_session_alive(db: AsyncSession, user: User) -> bool:
+    """Best-effort check that the stored Telegram session is still authorized.
+    The user may have terminated it from their Telegram app, which revokes it
+    server-side. Returns False on any failure (missing account, decrypt error,
+    revoked auth key, connection trouble) so callers can force OTP re-auth."""
+    account = await get_telegram_account(db, user)
+    if account is None or account.status != "connected" or not account.encrypted_credentials:
+        return False
+    try:
+        session = crypto.decrypt(account.encrypted_credentials)
+    except Exception:
+        return False
+    try:
+        client = _new_client(session)
+    except TelegramNotConfigured:
+        return False
+    try:
+        await client.connect()
+        return bool(await client.is_user_authorized())
+    except Exception:
+        logger.warning("telegram session check failed for user %s", user.id, exc_info=True)
+        return False
+    finally:
+        await client.disconnect()
+
+
+async def mark_telegram_expired(db: AsyncSession, user: User) -> None:
+    """Flag the storage account as needing reconnect (session revoked)."""
+    account = await get_telegram_account(db, user)
+    if account is not None and account.status == "connected":
+        account.status = "expired"
+        await db.commit()
+
+
 async def start_login(db: AsyncSession, user: User, phone: str) -> str:
     client = _new_client()
     try:

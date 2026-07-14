@@ -12,7 +12,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { useAuth } from "@/lib/auth-context";
+import { RECONNECT_NOTICE_KEY, useAuth } from "@/lib/auth-context";
 import { COUNTRY_CODES } from "@/lib/country-codes";
 
 // "telegram" = OTP flow (phone → code → optional 2FA); "password" = username-or-
@@ -33,6 +33,7 @@ export default function LoginPage() {
   const [ticket, setTicket] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [notice, setNotice] = useState<string | null>(null);
 
   const run = async (fn: () => Promise<void>) => {
     setError(null);
@@ -51,6 +52,20 @@ export default function LoginPage() {
     if (!authLoading && user) router.replace("/dashboard");
   }, [authLoading, user, router]);
 
+  // Bounced here because the Telegram storage session was revoked mid-use?
+  // Show why, and default to the password flow (which re-sends an OTP to fix it).
+  useEffect(() => {
+    try {
+      const reason = sessionStorage.getItem(RECONNECT_NOTICE_KEY);
+      if (reason) {
+        setNotice(reason);
+        sessionStorage.removeItem(RECONNECT_NOTICE_KEY);
+      }
+    } catch {
+      // sessionStorage unavailable — no notice to show
+    }
+  }, []);
+
   const goToDashboard = async (accessToken: string) => {
     await establishSession(accessToken);
     router.push("/dashboard");
@@ -61,7 +76,18 @@ export default function LoginPage() {
     if (mode === "password") {
       void run(async () => {
         const r = await api.passwordLogin(identifier.trim(), password);
-        if (r.access_token) await goToDashboard(r.access_token);
+        if (r.status === "code_sent") {
+          // Telegram sessions were terminated — the storage session is dead, so
+          // finish via OTP to reconnect before we let them in.
+          setTicket(r.ticket ?? "");
+          setMode("telegram");
+          setStep("code");
+          setNotice(
+            "Your Telegram access was logged out. Enter the code we just sent to reconnect.",
+          );
+        } else if (r.access_token) {
+          await goToDashboard(r.access_token);
+        }
       });
       return;
     }
@@ -94,6 +120,7 @@ export default function LoginPage() {
     setMode(next);
     setStep("phone");
     setError(null);
+    setNotice(null);
     setPassword("");
   };
 
@@ -131,6 +158,11 @@ export default function LoginPage() {
                 ? "Enter the login code Telegram just sent to your app."
                 : "Your account has two-factor auth — enter your Telegram password."}
         </p>
+        {notice ? (
+          <p className="mt-3 rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+            {notice}
+          </p>
+        ) : null}
 
         <form onSubmit={onSubmit} className="mt-8 space-y-4">
           {passwordMode && (

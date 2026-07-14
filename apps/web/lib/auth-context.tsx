@@ -76,8 +76,11 @@ export function useAuth(): AuthState {
 export type Authed = <T>(fn: (token: string) => Promise<T>) => Promise<T>;
 
 /** Runs an API call with the current access token; on a 401, refreshes once and retries. */
+/** sessionStorage key the login page reads to show why the user was bounced. */
+export const RECONNECT_NOTICE_KEY = "byos:reconnect_notice";
+
 export function useAuthed(): Authed {
-  const { token, refresh } = useAuth();
+  const { token, refresh, logout } = useAuth();
   return useCallback(
     async <T,>(fn: (t: string) => Promise<T>): Promise<T> => {
       const current = token ?? (await refresh());
@@ -89,9 +92,20 @@ export function useAuthed(): Authed {
           const renewed = await refresh();
           if (renewed) return fn(renewed);
         }
+        // Storage credentials revoked (e.g. Telegram sessions terminated) — the
+        // app session is fine but nothing works until they reconnect. Bounce to
+        // login with a reason; password login there re-sends an OTP to repair.
+        if (err instanceof ApiError && err.code === "telegram_session_expired") {
+          try {
+            sessionStorage.setItem(RECONNECT_NOTICE_KEY, err.detail);
+          } catch {
+            // sessionStorage unavailable — the thrown error still surfaces a toast
+          }
+          void logout(); // clears user → the app's guards redirect to /login
+        }
         throw err;
       }
     },
-    [token, refresh],
+    [token, refresh, logout],
   ) as Authed;
 }

@@ -197,6 +197,9 @@ export class ApiError extends Error {
   constructor(
     public status: number,
     public detail: string,
+    /** Machine-readable error code from the API body, when present
+     *  (e.g. "telegram_session_expired"). */
+    public code?: string,
   ) {
     super(detail);
     this.name = "ApiError";
@@ -226,13 +229,15 @@ export class ByosClient {
 
     if (!res.ok) {
       let detail = res.statusText;
+      let code: string | undefined;
       try {
-        const body = (await res.json()) as { detail?: string };
+        const body = (await res.json()) as { detail?: string; code?: string };
         if (body?.detail) detail = body.detail;
+        if (body?.code) code = body.code;
       } catch {
         // non-JSON error body; keep statusText
       }
-      throw new ApiError(res.status, detail);
+      throw new ApiError(res.status, detail, code);
     }
 
     if (res.status === 204) return undefined as T;
@@ -466,12 +471,15 @@ export class ByosClient {
           resolve(JSON.parse(xhr.responseText) as FileItem);
         } else {
           let detail = xhr.statusText;
+          let code: string | undefined;
           try {
-            detail = (JSON.parse(xhr.responseText) as { detail?: string }).detail ?? detail;
+            const body = JSON.parse(xhr.responseText) as { detail?: string; code?: string };
+            detail = body.detail ?? detail;
+            code = body.code;
           } catch {
             // non-JSON error body
           }
-          reject(new ApiError(xhr.status, detail));
+          reject(new ApiError(xhr.status, detail, code));
         }
       };
       xhr.onerror = () => reject(new ApiError(0, "Network error during upload"));
@@ -545,12 +553,25 @@ export class ByosClient {
     });
   }
 
+  private async errorFrom(res: Response): Promise<ApiError> {
+    let detail = res.statusText;
+    let code: string | undefined;
+    try {
+      const body = (await res.json()) as { detail?: string; code?: string };
+      if (body?.detail) detail = body.detail;
+      if (body?.code) code = body.code;
+    } catch {
+      // non-JSON error body; keep statusText
+    }
+    return new ApiError(res.status, detail, code);
+  }
+
   async downloadBlob(token: string, id: string): Promise<Blob> {
     const res = await fetch(`${this.baseUrl}/files/${id}/content`, {
       credentials: "include",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    if (!res.ok) throw await this.errorFrom(res);
     return res.blob();
   }
 
@@ -588,7 +609,7 @@ export class ByosClient {
       credentials: "include",
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (!res.ok) throw new ApiError(res.status, res.statusText);
+    if (!res.ok) throw await this.errorFrom(res);
     return res.blob();
   }
 

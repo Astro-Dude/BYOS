@@ -16,6 +16,7 @@ from byos_api.core import crypto
 from byos_api.db.models import File, FileVersion, Folder, StorageAccount, Tag, User
 from byos_api.providers import service as providers_service
 from byos_api.storage import ProviderAccount, StoredObjectRef, get_provider
+from byos_api.storage.base import ProviderAuthError
 
 logger = logging.getLogger("byos")
 
@@ -286,6 +287,8 @@ async def verify_missing(db: AsyncSession, user: User) -> dict[str, int]:
             exists = await get_provider(record.provider).exists(account, ref)
         except FloodWaitError:
             break  # Telegram rate-limited us — return what we've verified so far
+        except ProviderAuthError:
+            raise  # dead session → surface "sign in again" instead of scanning
         except Exception:
             logger.warning("verify: exists() failed for file %s", record.id, exc_info=True)
             continue

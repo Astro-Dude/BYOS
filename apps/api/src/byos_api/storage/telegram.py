@@ -16,12 +16,14 @@ import tempfile
 from collections.abc import AsyncIterator
 
 from telethon import TelegramClient
+from telethon.errors import UnauthorizedError
 from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeFilename
 
 from byos_api.storage.base import (
     AccessHandle,
     ProviderAccount,
+    ProviderAuthError,
     ProviderObjectMeta,
     StoredObjectRef,
 )
@@ -108,6 +110,13 @@ class TelegramStorageProvider:
     async def shutdown(self) -> None:
         await self._pool.shutdown()
 
+    async def _auth_failed(self, session: str, exc: UnauthorizedError) -> ProviderAuthError:
+        # The stored auth key was revoked (user terminated their Telegram
+        # sessions). Drop the dead pooled client so a later reconnect starts
+        # clean, and surface a domain error the API turns into "sign in again".
+        await self._pool.release(session)
+        return ProviderAuthError("Telegram session is no longer authorized")
+
     async def upload(
         self,
         account: ProviderAccount,
@@ -117,7 +126,8 @@ class TelegramStorageProvider:
         size: int,
         mime: str | None = None,
     ) -> StoredObjectRef:
-        client = await self._pool.acquire(_session_of(account))
+        session = _session_of(account)
+        client = await self._pool.acquire(session)
         hasher = hashlib.sha256()
         written = 0
         # Buffer to a temp file so we never hold the whole file in memory and
@@ -128,14 +138,17 @@ class TelegramStorageProvider:
                 hasher.update(chunk)
                 written += len(chunk)
             tmp.flush()
-            message = await client.send_file(
-                _BUCKET,
-                tmp.name,
-                force_document=True,
-                caption=filename[:1024],
-                mime_type=mime,
-                attributes=[DocumentAttributeFilename(file_name=filename)],
-            )
+            try:
+                message = await client.send_file(
+                    _BUCKET,
+                    tmp.name,
+                    force_document=True,
+                    caption=filename[:1024],
+                    mime_type=mime,
+                    attributes=[DocumentAttributeFilename(file_name=filename)],
+                )
+            except UnauthorizedError as exc:
+                raise await self._auth_failed(session, exc) from exc
         return StoredObjectRef(
             provider=self.name,
             locator={
@@ -148,8 +161,11 @@ class TelegramStorageProvider:
             checksum=hasher.hexdigest(),
         )
 
-    async def _fetch_message(self, client: TelegramClient, ref: StoredObjectRef):
-        return await client.get_messages(ref.locator["chat"], ids=ref.locator["message_id"])
+    async def _fetch_message(self, client: TelegramClient, ref: StoredObjectRef, session: str):
+        try:
+            return await client.get_messages(ref.locator["chat"], ids=ref.locator["message_id"])
+        except UnauthorizedError as exc:
+            raise await self._auth_failed(session, exc) from exc
 
     async def download(
         self,
@@ -158,8 +174,9 @@ class TelegramStorageProvider:
         *,
         byte_range: tuple[int, int] | None = None,
     ) -> AsyncIterator[bytes]:
-        client = await self._pool.acquire(_session_of(account))
-        message = await self._fetch_message(client, ref)
+        session = _session_of(account)
+        client = await self._pool.acquire(session)
+        message = await self._fetch_message(client, ref, session)
         if message is None or message.media is None:
             raise FileNotFoundError("Telegram message or media no longer exists")
         # v1 streams the whole object; HTTP Range support arrives with previews (Phase 6).
@@ -167,20 +184,27 @@ class TelegramStorageProvider:
         try:
             async for chunk in download_iter:
                 yield chunk
+        except UnauthorizedError as exc:
+            raise await self._auth_failed(session, exc) from exc
         finally:
             # Always release the borrowed (possibly cross-DC) exported sender,
             # even when the client aborts the stream mid-download.
             await _aclose_iter(download_iter)
 
     async def delete(self, account: ProviderAccount, ref: StoredObjectRef) -> None:
-        client = await self._pool.acquire(_session_of(account))
-        await client.delete_messages(ref.locator["chat"], [ref.locator["message_id"]])
+        session = _session_of(account)
+        client = await self._pool.acquire(session)
+        try:
+            await client.delete_messages(ref.locator["chat"], [ref.locator["message_id"]])
+        except UnauthorizedError as exc:
+            raise await self._auth_failed(session, exc) from exc
 
     async def get_metadata(
         self, account: ProviderAccount, ref: StoredObjectRef
     ) -> ProviderObjectMeta:
-        client = await self._pool.acquire(_session_of(account))
-        message = await self._fetch_message(client, ref)
+        session = _session_of(account)
+        client = await self._pool.acquire(session)
+        message = await self._fetch_message(client, ref, session)
         if message is None or message.media is None:
             return ProviderObjectMeta(size=0, mime=ref.locator.get("mime"), exists=False)
         document = getattr(message, "document", None)
@@ -189,8 +213,9 @@ class TelegramStorageProvider:
         return ProviderObjectMeta(size=size, mime=mime, exists=True)
 
     async def exists(self, account: ProviderAccount, ref: StoredObjectRef) -> bool:
-        client = await self._pool.acquire(_session_of(account))
-        message = await self._fetch_message(client, ref)
+        session = _session_of(account)
+        client = await self._pool.acquire(session)
+        message = await self._fetch_message(client, ref, session)
         return message is not None and message.media is not None
 
     async def shareable_access(

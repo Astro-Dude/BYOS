@@ -5,8 +5,9 @@ from __future__ import annotations
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Response
+from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 
 from byos_api.aliases.router import public_api_router as alias_public_api_router
 from byos_api.aliases.router import public_router as alias_public_router
@@ -27,6 +28,7 @@ from byos_api.storage import (
     register_default_providers,
     shutdown_providers,
 )
+from byos_api.storage.base import ProviderAuthError
 from byos_api.webhooks.router import router as webhooks_router
 
 settings = get_settings()
@@ -68,6 +70,20 @@ def create_app() -> FastAPI:
         allow_methods=["*"],
         allow_headers=["*"],
     )
+
+    @app.exception_handler(ProviderAuthError)
+    async def _provider_auth_expired(_: Request, __: ProviderAuthError) -> JSONResponse:
+        # The user's storage credentials were revoked (e.g. they terminated all
+        # Telegram sessions). Surface a clear, machine-readable signal so the
+        # web app can prompt a re-login instead of showing a generic failure.
+        return JSONResponse(
+            status_code=status.HTTP_409_CONFLICT,
+            content={
+                "detail": "Your Telegram access was logged out. "
+                "Please sign in again to reconnect your storage.",
+                "code": "telegram_session_expired",
+            },
+        )
 
     @app.get("/health", tags=["meta"])
     async def health() -> dict[str, object]:

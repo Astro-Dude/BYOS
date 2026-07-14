@@ -32,6 +32,7 @@ from byos_api.core.db import get_db
 from byos_api.core.ratelimit import limit
 from byos_api.core.security import create_access_token
 from byos_api.db.models import User
+from byos_api.providers import service as providers_service
 
 logger = logging.getLogger("byos")
 _settings = get_settings()
@@ -281,10 +282,40 @@ async def set_password(
 async def login_password(
     payload: PasswordLoginRequest, request: Request, response: Response, db: DbDep
 ) -> TelegramLoginResult:
-    """Log in with username-or-phone + password (skips Telegram OTP)."""
+    """Log in with username-or-phone + password (skips Telegram OTP).
+
+    Password login never touches Telegram, so if the user terminated their
+    Telegram sessions the stored storage session is dead. Detect that here and
+    force OTP re-auth instead of letting them into a logged-in-but-broken state.
+    """
     user = await service.authenticate_password(db, payload.identifier, payload.password)
     if user is None:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Invalid credentials"
-        )
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "Invalid credentials")
+
+    if not await providers_service.telegram_session_alive(db, user):
+        await providers_service.mark_telegram_expired(db, user)
+        if not user.phone:
+            raise HTTPException(
+                status.HTTP_409_CONFLICT,
+                "Your Telegram access was logged out. Sign in with a Telegram code to reconnect.",
+            )
+        try:
+            ticket = await telegram.start_login(user.phone)
+        except telegram.TelegramNotConfigured:
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE, "Telegram login is not configured"
+            ) from None
+        except PhoneNumberInvalidError:
+            raise HTTPException(
+                status.HTTP_400_BAD_REQUEST,
+                "Your saved phone number looks invalid — sign in with a Telegram code.",
+            ) from None
+        except FloodWaitError as exc:
+            raise _flood(exc) from exc
+        except Exception as exc:
+            raise _telegram_unavailable("password-reauth", exc) from exc
+        # Not a normal login result: the client must complete the OTP step
+        # (/telegram/verify), which repairs the session and issues the session.
+        return TelegramLoginResult(status="code_sent", ticket=ticket)
+
     return await _issue_session(db, user, response, request)
