@@ -30,6 +30,15 @@ const PRESETS: { label: string; url: string }[] = [
   { label: "Together", url: "https://api.together.xyz/v1" },
 ];
 
+const CUSTOM = "Custom";
+
+// Map a stored base URL back to its provider (or "Custom" for anything else).
+function providerFor(url: string | null | undefined): string {
+  if (!url) return "OpenAI";
+  const norm = url.trim().replace(/\/+$/, "");
+  return PRESETS.find((p) => p.url === norm)?.label ?? CUSTOM;
+}
+
 export function ByomModal({
   config,
   onClose,
@@ -43,7 +52,14 @@ export function ByomModal({
   const toast = useToast();
   const configured = config?.configured ?? false;
 
+  const [provider, setProvider] = useState(() => providerFor(config?.base_url));
   const [baseUrl, setBaseUrl] = useState(config?.base_url ?? "https://api.openai.com/v1");
+
+  const selectProvider = (label: string) => {
+    setProvider(label);
+    const preset = PRESETS.find((p) => p.label === label);
+    if (preset) setBaseUrl(preset.url); // Custom keeps whatever's typed
+  };
   const [model, setModel] = useState(config?.model ?? "");
   const [apiKey, setApiKey] = useState("");
   const [systemPrompt, setSystemPrompt] = useState(config?.system_prompt ?? "");
@@ -122,24 +138,34 @@ export function ByomModal({
 
         <div className="mt-4 space-y-3">
           <div>
+            <span className={label}>Provider</span>
+            <select
+              value={provider}
+              onChange={(e) => selectProvider(e.target.value)}
+              className="w-full rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+            >
+              {PRESETS.map((p) => (
+                <option key={p.label} value={p.label}>
+                  {p.label}
+                </option>
+              ))}
+              <option value={CUSTOM}>Custom…</option>
+            </select>
+          </div>
+          <div>
             <span className={label}>Base URL</span>
             <Input
-              className={field}
+              className={`${field} ${provider !== CUSTOM ? "opacity-60" : ""}`}
               value={baseUrl}
               onChange={(e) => setBaseUrl(e.target.value)}
-              placeholder="https://api.openai.com/v1"
+              disabled={provider !== CUSTOM}
+              placeholder="https://your-endpoint/v1"
             />
-            <div className="mt-1.5 flex flex-wrap gap-1.5">
-              {PRESETS.map((p) => (
-                <button
-                  key={p.label}
-                  onClick={() => setBaseUrl(p.url)}
-                  className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-50 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800"
-                >
-                  {p.label}
-                </button>
-              ))}
-            </div>
+            {provider === CUSTOM ? (
+              <p className="mt-1 text-xs text-zinc-400">
+                Any OpenAI-compatible endpoint (including a local one).
+              </p>
+            ) : null}
           </div>
           <div>
             <span className={label}>Model</span>
