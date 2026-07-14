@@ -570,23 +570,30 @@ export default function DashboardPage() {
     );
   };
 
-  const moveFileToFolder = (fileId: string, folderId: string | null) => {
+  // Move a set of files and/or folders into a target folder. Handles both a
+  // single dragged item and a whole multi-selection dragged at once.
+  const moveItemsToFolder = (fileIds: string[], folderIds: string[], targetId: string) => {
     setDragFolder(null);
-    // Optimistic: it leaves the current folder view; a failed move resyncs on reload.
-    setFiles((prev) => prev.filter((f) => f.id !== fileId));
-    setResults((r) => (r ? r.filter((f) => f.id !== fileId) : r));
+    const folders = folderIds.filter((id) => id !== targetId); // can't move a folder into itself
+    if (fileIds.length === 0 && folders.length === 0) return;
+    // Optimistic: moved items leave the current view; a failed move resyncs on reload.
+    if (fileIds.length) {
+      const set = new Set(fileIds);
+      setFiles((prev) => prev.filter((f) => !set.has(f.id)));
+      setResults((r) => (r ? r.filter((f) => !set.has(f.id)) : r));
+    }
+    if (folders.length) {
+      const set = new Set(folders);
+      setFolders((prev) => prev.filter((f) => !set.has(f.id)));
+    }
+    clearSelection();
+    const count = fileIds.length + folders.length;
     run(async () => {
-      await authed((t) => api.moveFile(t, fileId, folderId));
-    }, "File moved");
-  };
-
-  const moveFolderIntoFolder = (folderId: string, targetId: string) => {
-    setDragFolder(null);
-    if (folderId === targetId) return; // can't drop a folder onto itself
-    setFolders((prev) => prev.filter((f) => f.id !== folderId));
-    run(async () => {
-      await authed((t) => api.moveFolder(t, folderId, targetId));
-    }, "Folder moved");
+      await Promise.all([
+        ...fileIds.map((id) => authed((t) => api.moveFile(t, id, targetId))),
+        ...folders.map((id) => authed((t) => api.moveFolder(t, id, targetId))),
+      ]);
+    }, count > 1 ? `${count} items moved` : "Moved");
   };
 
   const applyFolderColor = (folder: FolderItem, color: string | null) => {
@@ -804,7 +811,11 @@ export default function DashboardPage() {
           key={folder.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.id);
+            // Dragging a selected item moves the whole selection; otherwise just this one.
+            const folderIds = selFolders.has(folder.id) ? [...selFolders] : [folder.id];
+            const fileIds = selFolders.has(folder.id) ? [...selFiles] : [];
+            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
+            if (fileIds.length) e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             e.dataTransfer.effectAllowed = "move";
           }}
           onDragOver={(e) => {
@@ -820,22 +831,24 @@ export default function DashboardPage() {
           }}
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
-            const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
             if (e.dataTransfer.files.length > 0) {
               // Finder drop → upload straight into this folder.
               e.preventDefault();
               e.stopPropagation();
               setDragFolder(null);
               upload(e.dataTransfer.files, folder.id);
-            } else if (fileId) {
+              return;
+            }
+            const fileData = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            const folderData = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (fileData || folderData) {
               e.preventDefault();
               e.stopPropagation();
-              moveFileToFolder(fileId, folder.id);
-            } else if (draggedFolderId) {
-              e.preventDefault();
-              e.stopPropagation();
-              moveFolderIntoFolder(draggedFolderId, folder.id);
+              moveItemsToFolder(
+                fileData ? fileData.split(",") : [],
+                folderData ? folderData.split(",") : [],
+                folder.id,
+              );
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
@@ -872,7 +885,11 @@ export default function DashboardPage() {
           key={file.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
+            // Dragging a selected file moves the whole selection; otherwise just this one.
+            const fileIds = selFiles.has(file.id) ? [...selFiles] : [file.id];
+            const folderIds = selFiles.has(file.id) ? [...selFolders] : [];
+            e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
+            if (folderIds.length) e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             e.dataTransfer.effectAllowed = "move";
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
@@ -926,7 +943,11 @@ export default function DashboardPage() {
           key={folder.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folder.id);
+            // Dragging a selected item moves the whole selection; otherwise just this one.
+            const folderIds = selFolders.has(folder.id) ? [...selFolders] : [folder.id];
+            const fileIds = selFolders.has(folder.id) ? [...selFiles] : [];
+            e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
+            if (fileIds.length) e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
             e.dataTransfer.effectAllowed = "move";
           }}
           onDragOver={(e) => {
@@ -942,22 +963,24 @@ export default function DashboardPage() {
           }}
           onDragLeave={() => setDragFolder((d) => (d === folder.id ? null : d))}
           onDrop={(e) => {
-            const fileId = e.dataTransfer.getData(FILE_DRAG_TYPE);
-            const draggedFolderId = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
             if (e.dataTransfer.files.length > 0) {
               // Finder drop → upload straight into this folder.
               e.preventDefault();
               e.stopPropagation();
               setDragFolder(null);
               upload(e.dataTransfer.files, folder.id);
-            } else if (fileId) {
+              return;
+            }
+            const fileData = e.dataTransfer.getData(FILE_DRAG_TYPE);
+            const folderData = e.dataTransfer.getData(FOLDER_DRAG_TYPE);
+            if (fileData || folderData) {
               e.preventDefault();
               e.stopPropagation();
-              moveFileToFolder(fileId, folder.id);
-            } else if (draggedFolderId) {
-              e.preventDefault();
-              e.stopPropagation();
-              moveFolderIntoFolder(draggedFolderId, folder.id);
+              moveItemsToFolder(
+                fileData ? fileData.split(",") : [],
+                folderData ? folderData.split(",") : [],
+                folder.id,
+              );
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
@@ -999,7 +1022,11 @@ export default function DashboardPage() {
           key={file.id}
           draggable
           onDragStart={(e) => {
-            e.dataTransfer.setData(FILE_DRAG_TYPE, file.id);
+            // Dragging a selected file moves the whole selection; otherwise just this one.
+            const fileIds = selFiles.has(file.id) ? [...selFiles] : [file.id];
+            const folderIds = selFiles.has(file.id) ? [...selFolders] : [];
+            e.dataTransfer.setData(FILE_DRAG_TYPE, fileIds.join(","));
+            if (folderIds.length) e.dataTransfer.setData(FOLDER_DRAG_TYPE, folderIds.join(","));
             e.dataTransfer.effectAllowed = "move";
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
