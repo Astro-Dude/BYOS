@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import uuid
 
-from pydantic import BaseModel, ConfigDict, EmailStr, Field
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 
 class PhoneRequest(BaseModel):
@@ -11,6 +11,18 @@ class PhoneRequest(BaseModel):
 
 class UsernameRequest(BaseModel):
     username: str
+
+
+class DisplayNameRequest(BaseModel):
+    display_name: str = Field(min_length=1, max_length=120)
+
+    @field_validator("display_name")
+    @classmethod
+    def _strip(cls, value: str) -> str:
+        stripped = value.strip()
+        if not stripped:
+            raise ValueError("Display name cannot be empty")
+        return stripped
 
 
 class SetPasswordRequest(BaseModel):

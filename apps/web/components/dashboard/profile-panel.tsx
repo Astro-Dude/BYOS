@@ -26,6 +26,8 @@ export function ProfilePanel() {
   const { user, refresh } = useAuth();
   const authed = useAuthed();
   const toast = useToast();
+  const [name, setName] = useState(user?.display_name ?? "");
+  const [savingName, setSavingName] = useState(false);
   const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -33,6 +35,22 @@ export function ProfilePanel() {
   const [error, setError] = useState<string | null>(null);
 
   const hasPassword = user?.has_password ?? false;
+
+  const saveName = async (e: FormEvent) => {
+    e.preventDefault();
+    const trimmed = name.trim();
+    if (!trimmed || trimmed === (user?.display_name ?? "")) return;
+    setSavingName(true);
+    try {
+      await authed((t) => api.setDisplayName(t, trimmed));
+      toast("Display name updated");
+      await refresh();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.detail : "Couldn't update name", "error");
+    } finally {
+      setSavingName(false);
+    }
+  };
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -69,9 +87,27 @@ export function ProfilePanel() {
       <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Profile</h1>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
+        <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Display name</h2>
+        <p className="mt-1 text-sm text-zinc-500">The name shown across BYOS.</p>
+        <form onSubmit={saveName} className="mt-4 flex gap-2">
+          <Input
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder="Your name"
+            maxLength={120}
+          />
+          <Button
+            type="submit"
+            disabled={savingName || !name.trim() || name.trim() === (user?.display_name ?? "")}
+          >
+            {savingName ? "Saving…" : "Save"}
+          </Button>
+        </form>
+      </section>
+
+      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
         <h2 className="font-semibold text-zinc-900 dark:text-zinc-100">Account</h2>
         <div className="mt-2 divide-y divide-zinc-100 dark:divide-zinc-800">
-          <Field label="Display name" value={user?.display_name} />
           <Field label="Username" value={user?.username ? `@${user.username}` : null} />
           <Field label="Phone" value={user?.phone} />
           <Field label="Storage" value="Telegram" />

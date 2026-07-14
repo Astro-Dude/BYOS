@@ -72,6 +72,13 @@ class InvalidCurrentPassword(Exception):
     pass
 
 
+async def set_display_name(db: AsyncSession, user: User, raw: str) -> User:
+    user.display_name = raw.strip()
+    await db.commit()
+    await db.refresh(user)
+    return user
+
+
 async def set_password(
     db: AsyncSession, user: User, raw: str, current: str | None = None
 ) -> User:

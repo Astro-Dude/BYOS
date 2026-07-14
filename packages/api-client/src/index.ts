@@ -296,6 +296,15 @@ export class ByosClient {
     });
   }
 
+  /** Update the account's display name (shown across the app). */
+  setDisplayName(token: string, displayName: string): Promise<User> {
+    return this.request<User>("/auth/display-name", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ display_name: displayName }),
+    });
+  }
+
   /** Set or change the account password (requires an interactive session).
    *  Pass currentPassword when changing an existing one. */
   setPassword(token: string, password: string, currentPassword?: string): Promise<User> {

@@ -16,6 +16,7 @@ from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
 from byos_api.auth.dependencies import CurrentUser, SessionUser
 from byos_api.auth.schemas import (
+    DisplayNameRequest,
     PasswordLoginRequest,
     PhoneRequest,
     SetPasswordRequest,
@@ -257,6 +258,14 @@ async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -
         ) from None
     except service.UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
+    return UserResponse.model_validate(updated)
+
+
+@router.post("/display-name", response_model=UserResponse)
+async def set_display_name(
+    payload: DisplayNameRequest, user: CurrentUser, db: DbDep
+) -> UserResponse:
+    updated = await service.set_display_name(db, user, payload.display_name)
     return UserResponse.model_validate(updated)
 
 
