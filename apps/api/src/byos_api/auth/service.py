@@ -59,8 +59,19 @@ async def set_username(db: AsyncSession, user: User, raw: str) -> User:
     return user
 
 
-async def set_password(db: AsyncSession, user: User, raw: str) -> User:
-    """Set/replace the account password (hashed with Argon2)."""
+class InvalidCurrentPassword(Exception):
+    pass
+
+
+async def set_password(
+    db: AsyncSession, user: User, raw: str, current: str | None = None
+) -> User:
+    """Set/replace the account password (hashed with Argon2). Changing an
+    existing password requires the correct current one."""
+    if user.password_hash is not None and (
+        not current or not verify_password(current, user.password_hash)
+    ):
+        raise InvalidCurrentPassword
     user.password_hash = hash_password(raw)
     await db.commit()
     await db.refresh(user)

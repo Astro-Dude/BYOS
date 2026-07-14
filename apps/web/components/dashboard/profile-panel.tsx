@@ -26,6 +26,7 @@ export function ProfilePanel() {
   const { user, refresh } = useAuth();
   const authed = useAuthed();
   const toast = useToast();
+  const [current, setCurrent] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [busy, setBusy] = useState(false);
@@ -36,6 +37,10 @@ export function ProfilePanel() {
   const submit = async (e: FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (hasPassword && !current) {
+      setError("Enter your current password.");
+      return;
+    }
     if (password.length < 8) {
       setError("Password must be at least 8 characters.");
       return;
@@ -46,8 +51,9 @@ export function ProfilePanel() {
     }
     setBusy(true);
     try {
-      await authed((t) => api.setPassword(t, password));
+      await authed((t) => api.setPassword(t, password, hasPassword ? current : undefined));
       toast(hasPassword ? "Password changed" : "Password set");
+      setCurrent("");
       setPassword("");
       setConfirm("");
       await refresh(); // pick up has_password = true
@@ -59,7 +65,7 @@ export function ProfilePanel() {
   };
 
   return (
-    <div className="max-w-xl space-y-6 pt-2">
+    <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center space-y-6 py-8">
       <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Profile</h1>
 
       <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
@@ -82,6 +88,15 @@ export function ProfilePanel() {
             : "Set a password to sign in with your username or phone — no Telegram code needed."}
         </p>
         <form onSubmit={submit} className="mt-4 space-y-3">
+          {hasPassword ? (
+            <Input
+              type="password"
+              autoComplete="current-password"
+              value={current}
+              onChange={(e) => setCurrent(e.target.value)}
+              placeholder="Current password"
+            />
+          ) : null}
           <Input
             type="password"
             autoComplete="new-password"
@@ -97,7 +112,7 @@ export function ProfilePanel() {
             placeholder="Confirm password"
           />
           {error ? <p className="text-sm text-red-600">{error}</p> : null}
-          <Button type="submit" disabled={busy || !password || !confirm}>
+          <Button type="submit" disabled={busy || !password || !confirm || (hasPassword && !current)}>
             {busy ? "Saving…" : hasPassword ? "Change password" : "Set password"}
           </Button>
         </form>

@@ -219,7 +219,14 @@ async def set_password(
     payload: SetPasswordRequest, user: SessionUser, db: DbDep
 ) -> UserResponse:
     """Set or change the account password. Requires an interactive login."""
-    updated = await service.set_password(db, user, payload.password)
+    try:
+        updated = await service.set_password(
+            db, user, payload.password, payload.current_password
+        )
+    except service.InvalidCurrentPassword:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST, "Current password is incorrect"
+        ) from None
     return UserResponse.model_validate(updated)
 
 

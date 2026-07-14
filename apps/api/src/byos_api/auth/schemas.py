@@ -14,6 +14,8 @@ class UsernameRequest(BaseModel):
 
 
 class SetPasswordRequest(BaseModel):
+    # Required only when changing an existing password (verifies ownership).
+    current_password: str | None = None
     password: str = Field(min_length=8, max_length=128)
 
 

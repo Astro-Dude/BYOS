@@ -281,12 +281,13 @@ export class ByosClient {
     });
   }
 
-  /** Set or change the account password (requires an interactive session). */
-  setPassword(token: string, password: string): Promise<User> {
+  /** Set or change the account password (requires an interactive session).
+   *  Pass currentPassword when changing an existing one. */
+  setPassword(token: string, password: string, currentPassword?: string): Promise<User> {
     return this.request<User>("/auth/password", {
       method: "POST",
       token,
-      body: JSON.stringify({ password }),
+      body: JSON.stringify({ password, current_password: currentPassword ?? null }),
     });
   }
 
