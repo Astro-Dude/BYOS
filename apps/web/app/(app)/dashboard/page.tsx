@@ -26,6 +26,7 @@ import {
   Star,
   Tag,
   Trash2,
+  UploadCloud,
   X,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
@@ -148,47 +149,61 @@ const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
-// Replace the default single-row drag ghost with a small badge that makes the
-// count obvious when several items are dragged at once.
+// Replace the default single-row drag ghost with an on-brand "stack of cards"
+// badge that makes the count obvious when several items are dragged at once.
 function setMultiDragImage(dt: DataTransfer, count: number): void {
+  const style = (el: HTMLElement, s: Partial<CSSStyleDeclaration>) => Object.assign(el.style, s);
+
   const chip = document.createElement("div");
-  Object.assign(chip.style, {
+  style(chip, {
     position: "absolute",
     top: "-1000px",
     left: "-1000px",
     display: "flex",
     alignItems: "center",
-    gap: "10px",
-    padding: "10px 14px",
-    borderRadius: "12px",
-    background: "#4f46e5",
+    gap: "12px",
+    padding: "11px 16px 11px 12px",
+    borderRadius: "16px",
+    background: "#4f46e5", // indigo-600 — matches the app's accent
     color: "#fff",
     font: "600 13px ui-sans-serif, system-ui, sans-serif",
-    boxShadow: "0 10px 28px rgba(0,0,0,.35)",
+    boxShadow: "0 14px 34px rgba(79,70,229,.45)",
     whiteSpace: "nowrap",
-  } satisfies Partial<CSSStyleDeclaration>);
+  });
 
-  const badge = document.createElement("div");
-  badge.textContent = String(count);
-  Object.assign(badge.style, {
+  // Stacked squares → reads as "multiple items".
+  const stack = document.createElement("div");
+  style(stack, { position: "relative", width: "30px", height: "30px", flex: "0 0 auto" });
+  const back = document.createElement("div");
+  style(back, {
+    position: "absolute",
+    inset: "0",
+    transform: "translate(4px,4px)",
+    borderRadius: "8px",
+    background: "rgba(255,255,255,.35)",
+  });
+  const front = document.createElement("div");
+  front.textContent = String(count);
+  style(front, {
+    position: "absolute",
+    inset: "0",
     display: "flex",
     alignItems: "center",
     justifyContent: "center",
-    minWidth: "28px",
-    height: "28px",
-    padding: "0 6px",
     borderRadius: "8px",
-    background: "rgba(255,255,255,.22)",
+    background: "#fff",
+    color: "#4f46e5",
     fontSize: "14px",
     fontWeight: "700",
-  } satisfies Partial<CSSStyleDeclaration>);
+  });
+  stack.append(back, front);
 
   const label = document.createElement("span");
   label.textContent = "items";
 
-  chip.append(badge, label);
+  chip.append(stack, label);
   document.body.appendChild(chip);
-  dt.setDragImage(chip, 18, 18);
+  dt.setDragImage(chip, 22, 20);
   // Remove after the browser has snapshotted it for the drag cursor.
   setTimeout(() => chip.remove(), 0);
 }
@@ -935,6 +950,7 @@ export default function DashboardPage() {
               e.preventDefault();
               e.stopPropagation();
               setDragFolder(null);
+              setDragging(false);
               upload(e.dataTransfer.files, folder.id);
               return;
             }
@@ -1071,6 +1087,7 @@ export default function DashboardPage() {
               e.preventDefault();
               e.stopPropagation();
               setDragFolder(null);
+              setDragging(false);
               upload(e.dataTransfer.files, folder.id);
               return;
             }
@@ -1238,6 +1255,23 @@ export default function DashboardPage() {
             }
           }}
         >
+          {/* Drag-to-upload overlay (hidden while hovering a specific folder,
+              which shows its own drop highlight instead). */}
+          {dragging && !dragFolder ? (
+            <div className="pointer-events-none fixed bottom-0 left-64 right-0 top-16 z-30 flex items-center justify-center bg-indigo-500/5 p-6">
+              <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-indigo-400 bg-white/90 px-16 py-12 shadow-xl backdrop-blur-sm dark:border-indigo-500/60 dark:bg-zinc-900/85">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
+                  <UploadCloud className="h-7 w-7" />
+                </div>
+                <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                  Drop to upload
+                </p>
+                <p className="text-sm text-zinc-500">
+                  {folderId ? "Files will be added to this folder" : "Files will be added to My Drive"}
+                </p>
+              </div>
+            </div>
+          ) : null}
           {view === "duplicates" ? (
             <DuplicatesPanel />
           ) : view === "missing" ? (
@@ -1260,7 +1294,7 @@ export default function DashboardPage() {
               />
             </div>
           ) : (
-            <div className={dragging ? "rounded-2xl ring-2 ring-indigo-400 ring-offset-4" : ""}>
+            <div>
               {/* Bulk-action bar (multi-select) */}
               {selCount > 0 ? (
                 <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
