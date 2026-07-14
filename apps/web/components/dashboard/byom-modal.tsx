@@ -14,6 +14,7 @@ import { useToast } from "@/lib/toast";
 const PRESETS: { label: string; url: string }[] = [
   { label: "OpenAI", url: "https://api.openai.com/v1" },
   { label: "OpenRouter", url: "https://openrouter.ai/api/v1" },
+  { label: "Gemini", url: "https://generativelanguage.googleapis.com/v1beta/openai" },
   { label: "Groq", url: "https://api.groq.com/openai/v1" },
   { label: "Together", url: "https://api.together.xyz/v1" },
 ];
