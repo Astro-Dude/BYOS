@@ -248,6 +248,9 @@ export default function DashboardPage() {
   >([]);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  // Background delete progress (optimistic UI removes items immediately; the
+  // actual provider deletes run behind this indicator).
+  const [delProgress, setDelProgress] = useState<{ done: number; total: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileItem[]>([]);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
@@ -392,6 +395,42 @@ export default function DashboardPage() {
     })();
   };
 
+  // Run a batch of deletions in the background (bounded-parallel) behind a
+  // progress indicator. The UI has already removed the items optimistically;
+  // this just reconciles with the server and resyncs if anything failed.
+  const runDeletions = async (tasks: Array<() => Promise<void>>) => {
+    const total = tasks.length;
+    if (total === 0) return;
+    setDelProgress((p) => ({ done: p?.done ?? 0, total: (p?.total ?? 0) + total }));
+    const bump = () =>
+      setDelProgress((p) => {
+        if (!p) return p;
+        const done = p.done + 1;
+        return done >= p.total ? null : { ...p, done }; // clears when everything settles
+      });
+    let failed = 0;
+    let idx = 0;
+    const worker = async () => {
+      while (idx < total) {
+        const task = tasks[idx++];
+        if (!task) break;
+        try {
+          await task();
+        } catch {
+          failed += 1;
+        }
+        bump();
+      }
+    };
+    await Promise.all(Array.from({ length: Math.min(4, total) }, worker));
+    if (failed > 0) {
+      toast(`${failed} item${failed === 1 ? "" : "s"} failed to delete`, "error");
+      await load(); // resync so items that didn't actually delete reappear
+    } else {
+      toast(total > 1 ? `Deleted ${total} items` : "Deleted");
+    }
+  };
+
   // targetFolderId lets a Finder drop land in the folder it was dropped on;
   // defaults to the folder currently being viewed.
   const upload = (fileList: FileList | null, targetFolderId: string | undefined = folderId) => {
@@ -491,11 +530,15 @@ export default function DashboardPage() {
   };
 
   const removeFolder = (folder: FolderItem) => {
+    // Optimistic: drop it now (deleting a folder cascades and can be slow), then
+    // delete in the background behind the progress indicator.
     removeRecentFolder(folder.id);
-    run(async () => {
-      await authed((t) => api.deleteFolder(t, folder.id));
-      await load();
-    }, "Folder deleted");
+    setFolders((prev) => prev.filter((f) => f.id !== folder.id));
+    void runDeletions([
+      async () => {
+        await authed((t) => api.deleteFolder(t, folder.id));
+      },
+    ]);
   };
 
   const toggleFavorite = (file: FileItem) =>
@@ -571,19 +614,28 @@ export default function DashboardPage() {
       await load();
     }, "Tagged");
 
-  const bulkDelete = () =>
-    run(async () => {
-      for (const id of selFiles) {
+  const bulkDelete = () => {
+    const fileIds = [...selFiles];
+    const folderIds = [...selFolders];
+    // Optimistic: everything disappears at once, then deletes run in the
+    // background (parallel) so a big selection never feels frozen.
+    const fset = new Set(fileIds);
+    const foset = new Set(folderIds);
+    setFiles((prev) => prev.filter((f) => !fset.has(f.id)));
+    setResults((r) => (r ? r.filter((f) => !fset.has(f.id)) : r));
+    setFolders((prev) => prev.filter((f) => !foset.has(f.id)));
+    fileIds.forEach(removeRecentFile);
+    folderIds.forEach(removeRecentFolder);
+    clearSelection();
+    void runDeletions([
+      ...fileIds.map((id) => async () => {
         await authed((t) => api.deleteFile(t, id));
-        removeRecentFile(id);
-      }
-      for (const id of selFolders) {
+      }),
+      ...folderIds.map((id) => async () => {
         await authed((t) => api.deleteFolder(t, id));
-        removeRecentFolder(id);
-      }
-      clearSelection();
-      await load();
-    }, "Deleted");
+      }),
+    ]);
+  };
 
   // Download each selected file individually (no zip) — one browser download
   // per file, streamed straight from the provider.
@@ -1529,6 +1581,23 @@ export default function DashboardPage() {
       ) : null}
       {movingFile ? (
         <MoveModal file={movingFile} onClose={() => setMovingFile(null)} onMoved={() => load()} />
+      ) : null}
+
+      {delProgress ? (
+        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-red-600" />
+          <div>
+            <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+              Deleting {delProgress.done}/{delProgress.total}…
+            </div>
+            <div className="mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+              <div
+                className="h-full rounded-full bg-red-500 transition-all duration-200"
+                style={{ width: `${Math.round((delProgress.done / delProgress.total) * 100)}%` }}
+              />
+            </div>
+          </div>
+        </div>
       ) : null}
 
       {uploads.length > 0 ? (
