@@ -3,8 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 
 const GRID_BASE =
-  "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(113,113,122,0.15) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(113,113,122,0.15) 1px, transparent 1px)";
 const GRID_GLOW =
   "linear-gradient(to right, rgba(74,129,119,0.55) 1px, transparent 1px)," +
   "linear-gradient(to bottom, rgba(74,129,119,0.55) 1px, transparent 1px)";
@@ -80,7 +80,7 @@ export function IntroSplash({
             }
           : undefined
       }
-      className={`fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden bg-black transition-all duration-700 ${
+      className={`fixed inset-0 z-[200] flex flex-col items-center justify-center overflow-hidden bg-white dark:bg-black transition-all duration-700 ${
         skippable ? "cursor-pointer" : ""
       } ${leaving ? "scale-110 opacity-0" : "opacity-100"}`}
     >
@@ -105,15 +105,15 @@ export function IntroSplash({
         className="pointer-events-none absolute h-[36rem] w-[36rem] rounded-full blur-3xl"
         style={{ background: "radial-gradient(circle, rgba(74,129,119,0.35), transparent 68%)" }}
       />
-      <h1 className="animate-byok-zoom relative z-10 font-brand text-6xl font-bold tracking-[0.3em] text-white sm:text-8xl">
+      <h1 className="animate-byok-zoom relative z-10 font-brand text-6xl font-bold tracking-[0.3em] text-zinc-900 dark:text-white sm:text-8xl">
         {word}
       </h1>
-      <p className="animate-byok-fade-up relative z-10 mt-5 text-[0.7rem] uppercase tracking-[0.45em] text-zinc-400 sm:text-xs">
+      <p className="animate-byok-fade-up relative z-10 mt-5 text-[0.7rem] uppercase tracking-[0.45em] text-zinc-500 dark:text-zinc-400 sm:text-xs">
         {subtitle}
       </p>
       {skippable ? (
-        <p className="absolute bottom-8 right-8 text-[0.65rem] uppercase tracking-[0.3em] text-zinc-600">
-          Press <span className="rounded border border-zinc-700 px-1.5 py-0.5">Enter</span> to skip
+        <p className="absolute bottom-8 right-8 text-[0.65rem] uppercase tracking-[0.3em] text-zinc-400 dark:text-zinc-600">
+          Press <span className="rounded border border-zinc-300 dark:border-zinc-700 px-1.5 py-0.5">Enter</span> to skip
         </p>
       ) : null}
     </div>

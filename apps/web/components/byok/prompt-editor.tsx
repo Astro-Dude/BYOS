@@ -7,9 +7,10 @@ import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
 const field =
-  "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 " +
-  "outline-none placeholder:text-zinc-500 focus:border-indigo-500";
-const label = "mb-1 block text-xs font-medium text-zinc-400";
+  "w-full rounded-md border border-zinc-200 bg-black/[0.03] px-3 py-2 text-sm text-zinc-900 " +
+  "outline-none placeholder:text-zinc-500 focus:border-indigo-500 " +
+  "dark:border-white/10 dark:bg-white/5 dark:text-zinc-100";
+const label = "mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400";
 
 export function PromptEditor({
   existing,
@@ -51,10 +52,10 @@ export function PromptEditor({
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl backdrop-blur-xl"
+        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-100">
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           {existing ? "Edit prompt" : "Add a system prompt"}
         </h3>
         <div className="mt-4 space-y-3">
@@ -82,7 +83,7 @@ export function PromptEditor({
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5"
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-black/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
           >
             Cancel
           </button>

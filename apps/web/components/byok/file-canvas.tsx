@@ -76,12 +76,12 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
   const kind = file ? kindOf(file) : "unsupported";
 
   return (
-    <aside className="flex min-h-0 w-1/2 max-w-2xl shrink-0 flex-col border-l border-white/10 bg-zinc-950/60">
-      <div className="flex items-center justify-between gap-2 border-b border-white/10 px-4 py-3">
-        <span className="truncate text-sm font-medium text-zinc-200">{source.name}</span>
+    <aside className="flex min-h-0 w-1/2 max-w-2xl shrink-0 flex-col border-l border-zinc-200 bg-white/60 dark:border-white/10 dark:bg-zinc-950/60">
+      <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3 dark:border-white/10">
+        <span className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200">{source.name}</span>
         <button
           onClick={onClose}
-          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+          className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-black/10 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
           aria-label="Close preview"
         >
           <X className="h-4 w-4" />
@@ -105,7 +105,7 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
         ) : kind === "video" && url ? (
           <video src={url} controls className="max-h-full w-full rounded-lg" />
         ) : kind === "text" && text != null ? (
-          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-zinc-300">
+          <pre className="whitespace-pre-wrap break-words text-xs leading-relaxed text-zinc-700 dark:text-zinc-300">
             {text}
           </pre>
         ) : (

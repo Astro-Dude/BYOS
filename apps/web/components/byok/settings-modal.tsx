@@ -65,14 +65,14 @@ export function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-white/10 bg-zinc-900/95 shadow-2xl backdrop-blur-xl"
+        className="flex h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left rail */}
-        <aside className="flex w-56 shrink-0 flex-col border-r border-white/10 bg-black/20 p-3">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-black/[0.03] p-3 dark:border-white/10 dark:bg-black/20">
           <button
             onClick={onClose}
-            className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+            className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-black/10 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -84,8 +84,8 @@ export function SettingsModal({
                 onClick={() => setTab(s.id)}
                 className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
                   tab === s.id
-                    ? "bg-white/10 text-zinc-100"
-                    : "text-zinc-400 hover:bg-white/5 hover:text-zinc-200"
+                    ? "bg-black/10 text-zinc-900 dark:bg-white/10 dark:text-zinc-100"
+                    : "text-zinc-500 hover:bg-black/5 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-200"
                 }`}
               >
                 <s.icon className="h-4 w-4 shrink-0" />
@@ -97,8 +97,8 @@ export function SettingsModal({
 
         {/* Right pane */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-white/10 px-6 py-4">
-            <h2 className="text-lg font-semibold text-zinc-100">{activeLabel}</h2>
+          <div className="border-b border-zinc-200 px-6 py-4 dark:border-white/10">
+            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{activeLabel}</h2>
           </div>
           <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-6">
           {tab === "keys" ? (
@@ -115,11 +115,11 @@ export function SettingsModal({
                 keys.map((k) => (
                   <div
                     key={k.id}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]"
                   >
                     <KeyRound className="h-4 w-4 shrink-0 text-indigo-400" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-zinc-100">{k.name}</p>
+                      <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{k.name}</p>
                       <p className="truncate text-xs text-zinc-500">
                         {k.model}
                         {k.embedding_model ? ` · ${k.embedding_model}` : ""}
@@ -127,14 +127,14 @@ export function SettingsModal({
                     </div>
                     <button
                       onClick={() => setKeyEditor(k)}
-                      className="text-zinc-400 hover:text-zinc-200"
+                      className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                       aria-label="Edit key"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => void removeKey(k.id)}
-                      className="text-zinc-400 hover:text-red-500"
+                      className="text-zinc-500 hover:text-red-500 dark:text-zinc-400"
                       aria-label="Delete key"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -159,23 +159,23 @@ export function SettingsModal({
                 prompts.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center gap-2 rounded-lg border border-white/10 bg-white/[0.03] px-3 py-2"
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]"
                   >
                     <MessageSquareText className="h-4 w-4 shrink-0 text-indigo-400" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-zinc-100">{p.name}</p>
+                      <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{p.name}</p>
                       <p className="truncate text-xs text-zinc-500">{p.content}</p>
                     </div>
                     <button
                       onClick={() => setPromptEditor(p)}
-                      className="text-zinc-400 hover:text-zinc-200"
+                      className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                       aria-label="Edit prompt"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => void removePrompt(p.id)}
-                      className="text-zinc-400 hover:text-red-500"
+                      className="text-zinc-500 hover:text-red-500 dark:text-zinc-400"
                       aria-label="Delete prompt"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -189,15 +189,15 @@ export function SettingsModal({
           {tab === "index" ? (
             <div className="space-y-3">
               {keys.length > 1 ? (
-                <label className="block text-xs text-zinc-400">
+                <label className="block text-xs text-zinc-500 dark:text-zinc-400">
                   Index with key
                   <select
                     value={indexKeyId}
                     onChange={(e) => setIndexKeyId(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-white/10 bg-white/5 px-2 py-1.5 text-sm text-zinc-100 outline-none focus:border-indigo-500"
+                    className="mt-1 block w-full rounded-md border border-zinc-200 bg-black/[0.03] px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                   >
                     {keys.map((k) => (
-                      <option key={k.id} value={k.id} className="bg-zinc-900">
+                      <option key={k.id} value={k.id} className="bg-white dark:bg-zinc-900">
                         {k.name}
                       </option>
                     ))}

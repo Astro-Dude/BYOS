@@ -83,7 +83,7 @@ export default function ByokPage() {
     setConversations((prev) => prev.map((c) => (c.id === id ? updated : c)));
   };
 
-  if (loading || !user) return <div className="min-h-screen bg-zinc-950" />;
+  if (loading || !user) return <div className="min-h-screen bg-white dark:bg-zinc-950" />;
 
   return (
     <>
@@ -98,14 +98,14 @@ export default function ByokPage() {
         />
       ) : null}
 
-      <Glow className="h-screen bg-zinc-950 text-zinc-100">
+      <Glow className="h-screen bg-white text-zinc-900 dark:bg-zinc-950 dark:text-zinc-100">
         <div className="flex h-screen">
           {/* Collapsed rail — expand + quick new chat */}
           {!sidebarOpen ? (
-            <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-white/10 bg-zinc-900/95 py-4 backdrop-blur-xl">
+            <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white/95 py-4 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-black/10 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                 title="Open sidebar"
                 aria-label="Open sidebar"
               >
@@ -113,7 +113,7 @@ export default function ByokPage() {
               </button>
               <button
                 onClick={newChat}
-                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-400 transition hover:bg-white/10 hover:text-zinc-200"
+                className="flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-black/10 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
                 title="New chat"
                 aria-label="New chat"
               >
@@ -121,7 +121,7 @@ export default function ByokPage() {
               </button>
               <button
                 onClick={() => setSidebarOpen(true)}
-                className="mt-auto flex h-8 w-8 items-center justify-center rounded-full bg-white/10 text-xs font-semibold text-zinc-200 transition hover:bg-white/20"
+                className="mt-auto flex h-8 w-8 items-center justify-center rounded-full bg-black/10 text-xs font-semibold text-zinc-800 transition hover:bg-black/20 dark:bg-white/10 dark:text-zinc-200 dark:hover:bg-white/20"
                 title={user.display_name || user.username || "Account"}
                 aria-label="Account"
               >
@@ -132,21 +132,21 @@ export default function ByokPage() {
 
           {/* Sidebar */}
           <aside
-            className={`${sidebarOpen ? "flex w-72" : "hidden"} shrink-0 flex-col border-r border-white/10 bg-zinc-900/95 backdrop-blur-xl`}
+            className={`${sidebarOpen ? "flex w-72" : "hidden"} shrink-0 flex-col border-r border-zinc-200 bg-white/95 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95`}
           >
             <div className="flex items-center gap-2 px-4 py-4">
-              <span className="flex-1 font-brand text-lg font-bold tracking-[0.3em] text-white">
+              <span className="flex-1 font-brand text-lg font-bold tracking-[0.3em] text-zinc-900 dark:text-white">
                 BYOK
               </span>
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-200"
+                className="flex items-center gap-1 text-xs text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Drive
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-400 transition hover:text-zinc-200"
+                className="text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
                 title="Collapse sidebar"
                 aria-label="Collapse sidebar"
               >
@@ -157,7 +157,7 @@ export default function ByokPage() {
             <div className="px-3">
               <button
                 onClick={newChat}
-                className="flex w-full items-center gap-2 rounded-lg border border-white/10 bg-white/5 px-3 py-2 text-sm font-medium text-zinc-100 transition hover:bg-white/10"
+                className="flex w-full items-center gap-2 rounded-lg border border-zinc-200 bg-black/5 px-3 py-2 text-sm font-medium text-zinc-900 transition hover:bg-black/10 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100 dark:hover:bg-white/10"
               >
                 <Plus className="h-4 w-4" /> New chat
               </button>
@@ -168,7 +168,9 @@ export default function ByokPage() {
                 <div
                   key={c.id}
                   className={`group flex items-center gap-1 rounded-lg px-2 py-2 text-sm ${
-                    activeId === c.id ? "bg-white/10 text-zinc-100" : "text-zinc-400 hover:bg-white/5"
+                    activeId === c.id
+                      ? "bg-black/10 text-zinc-900 dark:bg-white/10 dark:text-zinc-100"
+                      : "text-zinc-500 hover:bg-black/5 dark:text-zinc-400 dark:hover:bg-white/5"
                   }`}
                 >
                   {renamingId === c.id ? (
@@ -181,7 +183,7 @@ export default function ByokPage() {
                         if (e.key === "Escape") setRenamingId(null);
                       }}
                       onBlur={() => void saveRename(c.id)}
-                      className="min-w-0 flex-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-sm text-zinc-100 outline-none"
+                      className="min-w-0 flex-1 rounded border border-zinc-200 bg-black/[0.03] px-1.5 py-0.5 text-sm text-zinc-900 outline-none dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
                     />
                   ) : (
                     <>
@@ -196,7 +198,7 @@ export default function ByokPage() {
                           setRenamingId(c.id);
                           setRenameText(c.title);
                         }}
-                        className="shrink-0 text-zinc-500 opacity-0 hover:text-zinc-200 group-hover:opacity-100"
+                        className="shrink-0 text-zinc-500 opacity-0 hover:text-zinc-800 group-hover:opacity-100 dark:hover:text-zinc-200"
                         aria-label="Rename"
                       >
                         <Pencil className="h-3.5 w-3.5" />
@@ -213,11 +215,11 @@ export default function ByokPage() {
                 </div>
               ))}
               {conversations.length === 0 ? (
-                <p className="px-2 py-4 text-xs text-zinc-600">No conversations yet.</p>
+                <p className="px-2 py-4 text-xs text-zinc-400 dark:text-zinc-600">No conversations yet.</p>
               ) : null}
             </nav>
 
-            <div className="border-t border-white/10 p-2">
+            <div className="border-t border-zinc-200 p-2 dark:border-white/10">
               <AccountMenu onSettings={() => setShowSettings(true)} />
             </div>
           </aside>

@@ -4,8 +4,8 @@ import { type ReactNode, useRef } from "react";
 
 const CELL = "46px";
 const GRID_BASE =
-  "linear-gradient(to right, rgba(255,255,255,0.04) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(255,255,255,0.04) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(113,113,122,0.15) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(113,113,122,0.15) 1px, transparent 1px)";
 const GRID_GLOW =
   "linear-gradient(to right, rgba(74,129,119,0.55) 1px, transparent 1px)," +
   "linear-gradient(to bottom, rgba(74,129,119,0.55) 1px, transparent 1px)";
@@ -53,4 +53,4 @@ export function Glow({ children, className = "" }: { children: ReactNode; classN
 
 /** Shared glass-card classes for the BYOK world. */
 export const GLASS =
-  "rounded-2xl border border-white/10 bg-white/[0.04] backdrop-blur-xl shadow-xl shadow-black/20";
+  "rounded-2xl border border-zinc-200 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04] backdrop-blur-xl shadow-xl shadow-black/20";

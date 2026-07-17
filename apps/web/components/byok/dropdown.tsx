@@ -51,11 +51,11 @@ export function Dropdown({
         className={`flex items-center gap-1.5 ${className}`}
       >
         <span className="truncate">{selected?.label ?? placeholder}</span>
-        <ChevronDown className="h-4 w-4 shrink-0 text-zinc-400" />
+        <ChevronDown className="h-4 w-4 shrink-0 text-zinc-500 dark:text-zinc-400" />
       </button>
       {open ? (
         <div
-          className={`thin-scroll absolute z-30 mt-1 max-h-72 min-w-[10rem] overflow-y-auto rounded-lg border border-white/10 bg-zinc-900/90 p-0.5 shadow-xl shadow-black/40 backdrop-blur-xl ${
+          className={`thin-scroll absolute z-30 mt-1 max-h-72 min-w-[10rem] overflow-y-auto rounded-lg border border-zinc-200 bg-white/90 p-0.5 shadow-xl shadow-black/40 backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/90 ${
             align === "right" ? "right-0" : "left-0"
           }`}
         >
@@ -72,8 +72,8 @@ export function Dropdown({
                 }}
                 className={`flex w-full items-center gap-1.5 rounded-md px-2 py-1 text-left text-xs transition ${
                   o.value === value
-                    ? "bg-indigo-500/15 text-indigo-200"
-                    : "text-zinc-300 hover:bg-white/5"
+                    ? "bg-indigo-500/10 text-indigo-700 dark:bg-indigo-500/15 dark:text-indigo-200"
+                    : "text-zinc-700 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/5"
                 }`}
               >
                 <Check

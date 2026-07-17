@@ -32,9 +32,10 @@ function modelHint(baseUrl: string): string {
 }
 
 const field =
-  "w-full rounded-md border border-white/10 bg-white/5 px-3 py-2 text-sm text-zinc-100 " +
-  "outline-none placeholder:text-zinc-500 focus:border-indigo-500";
-const label = "mb-1 block text-xs font-medium text-zinc-400";
+  "w-full rounded-md border border-zinc-200 bg-black/[0.03] px-3 py-2 text-sm text-zinc-900 " +
+  "outline-none placeholder:text-zinc-500 focus:border-indigo-500 " +
+  "dark:border-white/10 dark:bg-white/5 dark:text-zinc-100";
+const label = "mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400";
 
 export function KeyEditor({
   existing,
@@ -100,13 +101,13 @@ export function KeyEditor({
       onClick={onClose}
     >
       <div
-        className="thin-scroll max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-white/10 bg-zinc-900/95 p-5 shadow-2xl backdrop-blur-xl"
+        className="thin-scroll max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-100">
+        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
           {existing ? "Edit key" : "Add a key"}
         </h3>
-        <p className="mt-1 text-sm text-zinc-400">
+        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
           Any OpenAI-compatible endpoint. Your key is encrypted and only used for your requests.
         </p>
         <div className="mt-4 space-y-3">
@@ -127,11 +128,11 @@ export function KeyEditor({
               className={field}
             >
               {PRESETS.map((p) => (
-                <option key={p.label} value={p.label} className="bg-zinc-900">
+                <option key={p.label} value={p.label} className="bg-white dark:bg-zinc-900">
                   {p.label}
                 </option>
               ))}
-              <option value={CUSTOM} className="bg-zinc-900">
+              <option value={CUSTOM} className="bg-white dark:bg-zinc-900">
                 Custom…
               </option>
             </select>
@@ -170,7 +171,7 @@ export function KeyEditor({
                 tabIndex={-1}
                 onClick={() => setShowKey((s) => !s)}
                 aria-label={showKey ? "Hide key" : "Show key"}
-                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-400 hover:text-zinc-200"
+                className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 {showKey ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -227,7 +228,7 @@ export function KeyEditor({
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-md border border-white/10 px-3 py-1.5 text-sm text-zinc-300 hover:bg-white/5"
+            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-black/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
           >
             Cancel
           </button>
