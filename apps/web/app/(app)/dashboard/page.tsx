@@ -51,6 +51,10 @@ import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { IntroSplash } from "@/components/intro-splash";
 import { TagsModal } from "@/components/dashboard/tags-modal";
+import {
+  type ConflictResolution,
+  UploadConflictModal,
+} from "@/components/dashboard/upload-conflict-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
@@ -149,6 +153,17 @@ const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
+
+// "name.ext" → "name (1).ext", bumping until it doesn't collide with `used`.
+function uniqueName(name: string, used: Set<string>): string {
+  const dot = name.lastIndexOf(".");
+  const base = dot > 0 ? name.slice(0, dot) : name;
+  const ext = dot > 0 ? name.slice(dot) : "";
+  let n = 1;
+  let candidate = `${base} (${n})${ext}`;
+  while (used.has(candidate)) candidate = `${base} (${++n})${ext}`;
+  return candidate;
+}
 
 // Module-level: survives client-side navigations but resets on a full page load,
 // so the boot splash plays only on a hard refresh / first load — not every time
@@ -268,6 +283,12 @@ export default function DashboardPage() {
       note?: string;
     }[]
   >([]);
+  const [conflict, setConflict] = useState<{
+    items: { file: File; existing: FileItem }[];
+    targetFolderId: string | undefined;
+    existingNames: Set<string>;
+    folderLabel: string;
+  } | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   // Background delete progress (optimistic UI removes items immediately; the
@@ -460,56 +481,36 @@ export default function DashboardPage() {
 
   // targetFolderId lets a Finder drop land in the folder it was dropped on;
   // defaults to the folder currently being viewed.
-  const upload = (fileList: FileList | null, targetFolderId: string | undefined = folderId) => {
-    if (!fileList || fileList.length === 0) return;
-    const all = Array.from(fileList).map((file) => ({
-      id: (uploadIdRef.current += 1),
-      name: file.name,
-      file,
-    }));
-    // Reject files above the provider's limit up front — never start an upload
-    // that the server would only fail on.
-    const jobs = all.filter((j) => j.file.size <= MAX_UPLOAD_BYTES);
-    const tooBig = all.filter((j) => j.file.size > MAX_UPLOAD_BYTES);
-    if (tooBig.length) {
-      toast(`${tooBig.length} file(s) exceed the 2 GB limit`, "error");
-    }
+  // Run a set of upload jobs (bounded-parallel). A job with `replaceId` adds a
+  // new version to that file; otherwise it's a fresh upload into the folder.
+  const runJobs = (
+    jobs: { id: number; name: string; file: File; replaceId?: string }[],
+    targetFolderId: string | undefined,
+  ) => {
+    if (jobs.length === 0) return;
     setUploads((prev) => [
       ...prev,
-      ...tooBig.map((j) => ({
-        id: j.id,
-        name: j.name,
-        status: "error" as const,
-        progress: 0,
-        note: "Too large (max 2 GB)",
-      })),
       ...jobs.map((j) => ({ id: j.id, name: j.name, status: "uploading" as const, progress: 0 })),
     ]);
-    if (inputRef.current) inputRef.current.value = "";
-    if (jobs.length === 0) return;
     (async () => {
       const uploadOne = async (job: (typeof jobs)[number]) => {
         try {
           await authed((t) =>
-            api.uploadFile(t, job.file, targetFolderId, (pct) =>
-              setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
-            ),
+            job.replaceId
+              ? api.replaceFile(t, job.replaceId, job.file)
+              : api.uploadFile(t, job.file, targetFolderId, (pct) =>
+                  setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
+                ),
           );
           setUploads((p) =>
             p.map((u) => (u.id === job.id ? { ...u, status: "done", progress: 100 } : u)),
           );
-          // Refresh as each file lands so it shows up immediately, not only
-          // once the whole batch is done.
-          await load();
+          await load(); // reflect each file as it lands
         } catch (err) {
           const note = err instanceof ApiError ? err.detail : "Upload failed";
-          setUploads((p) =>
-            p.map((u) => (u.id === job.id ? { ...u, status: "error", note } : u)),
-          );
+          setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error", note } : u)));
         }
       };
-      // Bounded-parallel: a pool of workers pulls from the shared job queue so
-      // at most UPLOAD_CONCURRENCY files transfer at once.
       let next = 0;
       const worker = async () => {
         while (next < jobs.length) {
@@ -518,12 +519,81 @@ export default function DashboardPage() {
           await uploadOne(job);
         }
       };
-      await Promise.all(
-        Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker),
-      );
-      // Auto-dismiss the finished panel a few seconds after everything settles.
+      await Promise.all(Array.from({ length: Math.min(UPLOAD_CONCURRENCY, jobs.length) }, worker));
       setTimeout(() => setUploads((p) => p.filter((u) => u.status === "uploading")), 4000);
     })();
+  };
+
+  const upload = async (
+    fileList: FileList | null,
+    targetFolderId: string | undefined = folderId,
+  ) => {
+    if (!fileList || fileList.length === 0) return;
+    const all = Array.from(fileList);
+    const ok = all.filter((f) => f.size <= MAX_UPLOAD_BYTES);
+    const tooBig = all.filter((f) => f.size > MAX_UPLOAD_BYTES);
+    if (tooBig.length) {
+      toast(`${tooBig.length} file(s) exceed the 2 GB limit`, "error");
+      setUploads((prev) => [
+        ...prev,
+        ...tooBig.map((f) => ({
+          id: (uploadIdRef.current += 1),
+          name: f.name,
+          status: "error" as const,
+          progress: 0,
+          note: "Too large (max 2 GB)",
+        })),
+      ]);
+    }
+    if (inputRef.current) inputRef.current.value = "";
+    if (ok.length === 0) return;
+
+    // Detect name collisions in the destination folder before uploading.
+    let existing: FileItem[] = [];
+    try {
+      existing = await authed((t) => api.listFiles(t, targetFolderId, { limit: 500 }));
+    } catch {
+      /* if we can't check, fall through and upload as new */
+    }
+    const byName = new Map(existing.map((f) => [f.name, f]));
+
+    const clean: { id: number; name: string; file: File }[] = [];
+    const conflicts: { file: File; existing: FileItem }[] = [];
+    for (const f of ok) {
+      const hit = byName.get(f.name);
+      if (hit) conflicts.push({ file: f, existing: hit });
+      else clean.push({ id: (uploadIdRef.current += 1), name: f.name, file: f });
+    }
+
+    runJobs(clean, targetFolderId);
+    if (conflicts.length) {
+      const label =
+        targetFolderId === folderId
+          ? "this folder"
+          : (folders.find((fo) => fo.id === targetFolderId)?.name ?? "the folder");
+      setConflict({
+        items: conflicts,
+        targetFolderId,
+        existingNames: new Set(existing.map((e) => e.name)),
+        folderLabel: label,
+      });
+    }
+  };
+
+  const resolveConflict = (mode: ConflictResolution) => {
+    const c = conflict;
+    setConflict(null);
+    if (!c || mode === "skip") return;
+    const used = new Set(c.existingNames);
+    const jobs = c.items.map(({ file, existing }) => {
+      if (mode === "replace") {
+        return { id: (uploadIdRef.current += 1), name: file.name, file, replaceId: existing.id };
+      }
+      const name = uniqueName(file.name, used); // keep both → rename the new copy
+      used.add(name);
+      return { id: (uploadIdRef.current += 1), name, file: new File([file], name, { type: file.type }) };
+    });
+    runJobs(jobs, c.targetFolderId);
   };
 
   const createFolder = (name: string, color: string | null) =>
@@ -1573,6 +1643,14 @@ export default function DashboardPage() {
         }}
       />
       {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
+      {conflict ? (
+        <UploadConflictModal
+          names={conflict.items.map((c) => c.file.name)}
+          folderLabel={conflict.folderLabel}
+          onResolve={resolveConflict}
+          onCancel={() => setConflict(null)}
+        />
+      ) : null}
       {aliasFor ? (
         <AliasModal
           file={aliasFor}
