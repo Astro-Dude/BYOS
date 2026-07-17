@@ -1,7 +1,7 @@
 "use client";
 
 import { ApiError, type DuplicateGroup, type FileItem } from "@byos/api-client";
-import { ChevronRight, FileText, Loader2, Trash2 } from "lucide-react";
+import { ChevronRight, FileText, Loader2, Trash2, X } from "lucide-react";
 import { type UIEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
@@ -69,9 +69,13 @@ async function renderPdf(blob: Blob, maxPages = 15): Promise<string[]> {
 function DuplicateGroupView({
   group,
   onDelete,
+  selected,
+  onToggleSelect,
 }: {
   group: DuplicateGroup;
   onDelete: (file: FileItem) => void;
+  selected: Set<string>;
+  onToggleSelect: (id: string) => void;
 }) {
   const authed = useAuthed();
   const [url, setUrl] = useState<string | null>(null);
@@ -166,8 +170,19 @@ function DuplicateGroupView({
       {group.files.map((f, i) => (
         <div
           key={f.id}
-          className="flex w-64 shrink-0 flex-col gap-2 rounded-lg border border-zinc-200 bg-zinc-50/50 p-2.5 dark:border-zinc-800 dark:bg-zinc-950/40"
+          className={`relative flex w-64 shrink-0 flex-col gap-2 rounded-lg border p-2.5 ${
+            selected.has(f.id)
+              ? "border-indigo-400 bg-indigo-50/50 dark:border-indigo-500/50 dark:bg-indigo-500/10"
+              : "border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-950/40"
+          }`}
         >
+          <input
+            type="checkbox"
+            checked={selected.has(f.id)}
+            onChange={() => onToggleSelect(f.id)}
+            className="absolute left-3.5 top-3.5 z-10 h-4 w-4 accent-indigo-600"
+            title="Select for bulk delete"
+          />
           <div
             ref={(el) => {
               scrollers.current[i] = el;
@@ -200,7 +215,7 @@ function DuplicateGroupView({
   );
 }
 
-export function DuplicatesPanel() {
+export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
   const authed = useAuthed();
   const toast = useToast();
   const [duplicates, setDuplicates] = useState<DuplicateGroup[]>([]);
@@ -208,6 +223,8 @@ export function DuplicatesPanel() {
   const [error, setError] = useState<string | null>(null);
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const [confirmDel, setConfirmDel] = useState<FileItem | null>(null);
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+  const [confirmBulk, setConfirmBulk] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -232,14 +249,45 @@ export function DuplicatesPanel() {
       return n;
     });
 
+  // Drop the given ids from state in place; a group with <2 copies is no longer
+  // a duplicate and disappears.
+  const dropLocal = (ids: Set<string>) =>
+    setDuplicates((prev) =>
+      prev
+        .map((g) => ({ ...g, files: g.files.filter((f) => !ids.has(f.id)) }))
+        .filter((g) => g.files.length > 1),
+    );
+
   const remove = async (file: FileItem) => {
     setConfirmDel(null);
     try {
       await authed((t) => api.deleteFile(t, file.id));
       toast("Copy deleted");
-      await load();
+      dropLocal(new Set([file.id]));
     } catch {
       toast("Couldn't delete file", "error");
+    }
+  };
+
+  const toggleSelect = (id: string) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      if (n.has(id)) n.delete(id);
+      else n.add(id);
+      return n;
+    });
+
+  const removeSelected = async () => {
+    setConfirmBulk(false);
+    const ids = [...selected];
+    setSelected(new Set());
+    dropLocal(new Set(ids)); // optimistic
+    try {
+      await Promise.all(ids.map((id) => authed((t) => api.deleteFile(t, id))));
+      toast(`Deleted ${ids.length} ${ids.length === 1 ? "copy" : "copies"}`);
+    } catch {
+      toast("Some copies couldn't be deleted", "error");
+      void load(); // resync only if something failed
     }
   };
 
@@ -254,6 +302,35 @@ export function DuplicatesPanel() {
       </div>
 
       {error ? <p className="text-sm text-red-600">{error}</p> : null}
+
+      {selected.size > 0 ? (
+        <div
+          className={`sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 px-4 py-2.5 text-sm backdrop-blur transition-colors dark:border-indigo-500/30 ${
+            scrolled
+              ? "bg-indigo-100/95 shadow-sm dark:bg-indigo-900/95"
+              : "bg-indigo-50/80 dark:bg-indigo-500/10"
+          }`}
+        >
+          <span className="font-medium text-indigo-800 dark:text-indigo-200">
+            {selected.size} selected
+          </span>
+          <div className="ml-auto flex items-center gap-1.5">
+            <button
+              onClick={() => setConfirmBulk(true)}
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white dark:hover:bg-zinc-800"
+            >
+              <Trash2 className="h-4 w-4" /> Delete
+            </button>
+            <button
+              onClick={() => setSelected(new Set())}
+              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white dark:hover:bg-zinc-800"
+              aria-label="Clear selection"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
+      ) : null}
 
       {loading ? (
         <div className="space-y-2">
@@ -290,7 +367,12 @@ export function DuplicatesPanel() {
                 </button>
 
                 {open ? (
-                  <DuplicateGroupView group={group} onDelete={setConfirmDel} />
+                  <DuplicateGroupView
+                    group={group}
+                    onDelete={setConfirmDel}
+                    selected={selected}
+                    onToggleSelect={toggleSelect}
+                  />
                 ) : (
                   <ul className="mt-1.5 space-y-1 pl-6">
                     {group.files.map((file) => (
@@ -316,6 +398,15 @@ export function DuplicatesPanel() {
           message={`“${confirmDel.name}” will be permanently deleted. Other copies stay.`}
           onCancel={() => setConfirmDel(null)}
           onConfirm={() => void remove(confirmDel)}
+        />
+      ) : null}
+
+      {confirmBulk ? (
+        <ConfirmModal
+          title={`Delete ${selected.size} ${selected.size === 1 ? "copy" : "copies"}?`}
+          message="The selected copies will be permanently deleted."
+          onCancel={() => setConfirmBulk(false)}
+          onConfirm={() => void removeSelected()}
         />
       ) : null}
     </div>

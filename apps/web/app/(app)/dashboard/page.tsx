@@ -273,6 +273,7 @@ export default function DashboardPage() {
   const [selFiles, setSelFiles] = useState<Set<string>>(new Set());
   const [selFolders, setSelFolders] = useState<Set<string>>(new Set());
   const [bulkConfirm, setBulkConfirm] = useState(false);
+  const [scrolled, setScrolled] = useState(false); // main scrolled → solidify sticky bars
   const [bulkTagOpen, setBulkTagOpen] = useState(false);
   const [uploads, setUploads] = useState<
     {
@@ -296,6 +297,7 @@ export default function DashboardPage() {
   const [delProgress, setDelProgress] = useState<{ done: number; total: number } | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const filesRef = useRef<FileItem[]>([]);
+  const folderIdRef = useRef<string | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
   const uploadIdRef = useRef(0);
 
@@ -304,6 +306,10 @@ export default function DashboardPage() {
   useEffect(() => {
     filesRef.current = files;
   }, [files]);
+
+  useEffect(() => {
+    folderIdRef.current = folderId;
+  }, [folderId]);
 
   useEffect(() => {
     if (!authLoading && !user) router.replace("/login");
@@ -495,7 +501,7 @@ export default function DashboardPage() {
     (async () => {
       const uploadOne = async (job: (typeof jobs)[number]) => {
         try {
-          await authed((t) =>
+          const result = await authed((t) =>
             job.replaceId
               ? api.replaceFile(t, job.replaceId, job.file)
               : api.uploadFile(t, job.file, targetFolderId, (pct) =>
@@ -505,7 +511,14 @@ export default function DashboardPage() {
           setUploads((p) =>
             p.map((u) => (u.id === job.id ? { ...u, status: "done", progress: 100 } : u)),
           );
-          await load(); // reflect each file as it lands
+          // Patch the view in place instead of refetching everything: a replace
+          // updates the existing row; a new upload prepends — but only when its
+          // destination is the folder currently on screen (and not mid-search).
+          if (job.replaceId) {
+            setFiles((p) => p.map((f) => (f.id === result.id ? result : f)));
+          } else if (targetFolderId === folderIdRef.current && !searchActive) {
+            setFiles((p) => (p.some((f) => f.id === result.id) ? p : [result, ...p]));
+          }
         } catch (err) {
           const note = err instanceof ApiError ? err.detail : "Upload failed";
           setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, status: "error", note } : u)));
@@ -1349,6 +1362,7 @@ export default function DashboardPage() {
 
         <main
           className="flex-1 overflow-auto px-6 pb-8"
+          onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           onDragOver={(e) => {
             // Only highlight for external file uploads, not internal move-drags.
             if (plainDrive && e.dataTransfer.types.includes("Files")) {
@@ -1383,7 +1397,7 @@ export default function DashboardPage() {
             </div>
           ) : null}
           {view === "duplicates" ? (
-            <DuplicatesPanel />
+            <DuplicatesPanel scrolled={scrolled} />
           ) : view === "missing" ? (
             <MissingPanel />
           ) : view === "profile" ? (
@@ -1407,7 +1421,13 @@ export default function DashboardPage() {
             <div>
               {/* Bulk-action bar (multi-select) */}
               {selCount > 0 ? (
-                <div className="sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 bg-indigo-50 px-4 py-2.5 text-sm dark:border-indigo-500/30 dark:bg-indigo-500/10">
+                <div
+                  className={`sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 px-4 py-2.5 text-sm backdrop-blur transition-colors dark:border-indigo-500/30 ${
+                    scrolled
+                      ? "bg-indigo-100/95 shadow-sm dark:bg-indigo-900/95"
+                      : "bg-indigo-50/80 dark:bg-indigo-500/10"
+                  }`}
+                >
                   <span className="font-medium text-indigo-800 dark:text-indigo-200">
                     {selCount} selected
                   </span>
