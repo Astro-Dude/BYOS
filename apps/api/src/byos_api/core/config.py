@@ -61,8 +61,10 @@ class Settings(BaseSettings):
     api_rate_limit: int = 120
     api_rate_window: int = 60
 
-    # AI: heuristic auto-tagging of uploads by type (Phase 15).
-    auto_tagging: bool = True
+    # AI: heuristic auto-tagging of uploads by type. Off by default — the drive's
+    # type filter already groups by mime/ext, so a "document"/"image" tag is just
+    # noise. Set AUTO_TAGGING=true to re-enable.
+    auto_tagging: bool = False
 
     # Storage: files live in the user's own provider (Telegram), never on the
     # app's disk. The local provider stays available for tests but is NOT
