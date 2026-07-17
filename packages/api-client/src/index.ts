@@ -193,26 +193,45 @@ export interface DuplicateGroup {
   files: FileItem[];
 }
 
-export interface AiConfig {
-  configured: boolean;
-  base_url: string | null;
-  model: string | null;
+export interface AiKey {
+  id: string;
+  name: string;
+  base_url: string;
+  model: string;
   embedding_model: string | null;
-  system_prompt: string | null;
-  temperature: number | null;
-  max_tokens: number | null;
+  temperature: number;
+  max_tokens: number;
   top_p: number | null;
 }
 
-export interface AiConfigInput {
+export interface AiKeyInput {
+  name: string;
   base_url: string;
   model: string;
-  api_key?: string; // required first time; omit to keep the stored key
-  embedding_model?: string | null; // optional — enables semantic long-doc search
-  system_prompt?: string | null;
+  api_key?: string; // required on create; omit on update to keep the stored key
+  embedding_model?: string | null;
   temperature: number;
   max_tokens: number;
   top_p?: number | null;
+}
+
+export interface AiPrompt {
+  id: string;
+  name: string;
+  content: string;
+}
+
+/** RAG strategy toggles for drive-wide chat. */
+export interface RagStrategies {
+  rewrite: boolean;
+  hyde: boolean;
+  rerank: boolean;
+  crag: boolean;
+}
+
+export interface IndexStatus {
+  indexed_file_ids: string[];
+  total: number;
 }
 
 export interface AiChatMessage {
@@ -220,6 +239,12 @@ export interface AiChatMessage {
   role: "user" | "assistant";
   content: string;
   created_at: string;
+}
+
+export interface AiConversation {
+  id: string;
+  title: string;
+  updated_at: string;
 }
 
 export class ApiError extends Error {
@@ -446,6 +471,11 @@ export class ByosClient {
   }
 
   // ── Files ─────────────────────────────────────────────────────────────────
+  /** A single file's metadata — used to open a chat source in a preview. */
+  getFile(token: string, id: string): Promise<FileItem> {
+    return this.request<FileItem>(`/files/${id}`, { token });
+  }
+
   listFiles(
     token: string,
     folderId?: string,
@@ -817,29 +847,79 @@ export class ByosClient {
     return this.request<AuditItem[]>(`/audit${qs ? `?${qs}` : ""}`, { token });
   }
 
-  // ── AI: Bring Your Own Model (BYOM) ───────────────────────────────────────
-  getAiConfig(token: string): Promise<AiConfig> {
-    return this.request<AiConfig>("/ai/config", { token });
+  // ── BYOK vault: keys ──────────────────────────────────────────────────────
+  listAiKeys(token: string): Promise<AiKey[]> {
+    return this.request<AiKey[]>("/ai/keys", { token });
   }
 
-  setAiConfig(token: string, input: AiConfigInput): Promise<AiConfig> {
-    return this.request<AiConfig>("/ai/config", {
+  createAiKey(token: string, input: AiKeyInput): Promise<AiKey> {
+    return this.request<AiKey>("/ai/keys", { method: "POST", token, body: JSON.stringify(input) });
+  }
+
+  updateAiKey(token: string, id: string, input: AiKeyInput): Promise<AiKey> {
+    return this.request<AiKey>(`/ai/keys/${id}`, {
       method: "PUT",
       token,
       body: JSON.stringify(input),
     });
   }
 
-  deleteAiConfig(token: string): Promise<void> {
-    return this.request<void>("/ai/config", { method: "DELETE", token });
+  deleteAiKey(token: string, id: string): Promise<void> {
+    return this.request<void>(`/ai/keys/${id}`, { method: "DELETE", token });
   }
 
-  getChatHistory(token: string, fileId: string): Promise<AiChatMessage[]> {
-    return this.request<AiChatMessage[]>(`/ai/chat/${fileId}`, { token });
+  // ── BYOK vault: prompts ─────────────────────────────────────────────────────
+  listAiPrompts(token: string): Promise<AiPrompt[]> {
+    return this.request<AiPrompt[]>("/ai/prompts", { token });
   }
 
-  clearChat(token: string, fileId: string): Promise<void> {
-    return this.request<void>(`/ai/chat/${fileId}`, { method: "DELETE", token });
+  createAiPrompt(token: string, name: string, content: string): Promise<AiPrompt> {
+    return this.request<AiPrompt>("/ai/prompts", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ name, content }),
+    });
+  }
+
+  updateAiPrompt(token: string, id: string, name: string, content: string): Promise<AiPrompt> {
+    return this.request<AiPrompt>(`/ai/prompts/${id}`, {
+      method: "PUT",
+      token,
+      body: JSON.stringify({ name, content }),
+    });
+  }
+
+  deleteAiPrompt(token: string, id: string): Promise<void> {
+    return this.request<void>(`/ai/prompts/${id}`, { method: "DELETE", token });
+  }
+
+  // ── Drive-wide conversations (ChatGPT-style threads) ──────────────────────
+  listConversations(token: string): Promise<AiConversation[]> {
+    return this.request<AiConversation[]>("/ai/conversations", { token });
+  }
+
+  createConversation(token: string, title = "New chat"): Promise<AiConversation> {
+    return this.request<AiConversation>("/ai/conversations", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  renameConversation(token: string, id: string, title: string): Promise<AiConversation> {
+    return this.request<AiConversation>(`/ai/conversations/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify({ title }),
+    });
+  }
+
+  deleteConversation(token: string, id: string): Promise<void> {
+    return this.request<void>(`/ai/conversations/${id}`, { method: "DELETE", token });
+  }
+
+  getConversationMessages(token: string, id: string): Promise<AiChatMessage[]> {
+    return this.request<AiChatMessage[]>(`/ai/conversations/${id}/messages`, { token });
   }
 
   /** POST a JSON body and stream the plain-text response, invoking onToken for
@@ -873,20 +953,112 @@ export class ByosClient {
     return full;
   }
 
-  /** Stream a summary of a document. */
-  summarizeStream(token: string, fileId: string, onToken: (chunk: string) => void): Promise<string> {
-    return this.streamText("/ai/summarize", token, { file_id: fileId }, onToken);
+  /** Stream a summary of a document using a saved key (+ optional prompt). */
+  summarizeStream(
+    token: string,
+    args: { fileId: string; keyId: string; promptId?: string | null },
+    onToken: (chunk: string) => void,
+  ): Promise<string> {
+    return this.streamText(
+      "/ai/summarize",
+      token,
+      { file_id: args.fileId, key_id: args.keyId, prompt_id: args.promptId ?? null },
+      onToken,
+    );
   }
 
-  /** Send a chat message about a document and stream the reply (stateful thread).
-   *  `retrieval` = long-document mode (chunk + retrieve relevant parts). */
+  /** Stream a single-document chat reply. Stateless server-side — pass prior
+   *  turns via `history` for context (the thread is kept in the client's
+   *  localStorage). `retrieval` = long-document mode. */
   chatStream(
     token: string,
-    fileId: string,
-    message: string,
+    args: {
+      fileId: string;
+      keyId: string;
+      promptId?: string | null;
+      message: string;
+      retrieval?: boolean;
+      history?: { role: "user" | "assistant"; content: string }[];
+    },
     onToken: (chunk: string) => void,
-    retrieval = false,
   ): Promise<string> {
-    return this.streamText("/ai/chat", token, { file_id: fileId, message, retrieval }, onToken);
+    return this.streamText(
+      "/ai/chat",
+      token,
+      {
+        file_id: args.fileId,
+        key_id: args.keyId,
+        prompt_id: args.promptId ?? null,
+        message: args.message,
+        retrieval: args.retrieval ?? false,
+        history: args.history ?? [],
+      },
+      onToken,
+    );
+  }
+
+  /** Index files for drive-wide RAG; streams "done/total name" progress lines. */
+  indexDrive(
+    token: string,
+    args: { keyId: string; all?: boolean; fileIds?: string[]; folderIds?: string[] },
+    onProgress: (line: string) => void,
+  ): Promise<string> {
+    return this.streamText(
+      "/ai/index",
+      token,
+      {
+        key_id: args.keyId,
+        all: args.all ?? false,
+        file_ids: args.fileIds ?? [],
+        folder_ids: args.folderIds ?? [],
+      },
+      onProgress,
+    );
+  }
+
+  /** Which extractable files are already embedded for a key's embedding model. */
+  indexStatus(token: string, keyId: string): Promise<IndexStatus> {
+    return this.request<IndexStatus>(
+      `/ai/index/status?key_id=${encodeURIComponent(keyId)}`,
+      { token },
+    );
+  }
+
+  /** Delete embedded chunks to free space — all files, or specific ones. */
+  unindex(
+    token: string,
+    args: { all?: boolean; fileIds?: string[] },
+  ): Promise<{ removed: number }> {
+    return this.request<{ removed: number }>("/ai/unindex", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ all: args.all ?? false, file_ids: args.fileIds ?? [] }),
+    });
+  }
+
+  /** Stream a drive-wide RAG chat reply into a conversation. */
+  driveChatStream(
+    token: string,
+    args: {
+      conversationId: string;
+      keyId: string;
+      promptId?: string | null;
+      message: string;
+      strategies: RagStrategies;
+    },
+    onToken: (chunk: string) => void,
+  ): Promise<string> {
+    return this.streamText(
+      "/ai/drive/chat",
+      token,
+      {
+        conversation_id: args.conversationId,
+        key_id: args.keyId,
+        prompt_id: args.promptId ?? null,
+        message: args.message,
+        strategies: args.strategies,
+      },
+      onToken,
+    );
   }
 }

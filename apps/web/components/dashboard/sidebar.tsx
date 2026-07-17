@@ -10,11 +10,13 @@ import {
   Link2,
   Moon,
   Plus,
+  Sparkles,
   Star,
   Sun,
   Upload,
 } from "lucide-react";
-import { type ReactNode, useEffect, useState } from "react";
+import Link from "next/link";
+import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { Logo } from "@/components/logo";
@@ -42,6 +44,68 @@ export type DriveView =
   | "missing"
   | "developer"
   | "profile";
+
+const BYOK_CELL = "18px";
+const BYOK_GRID_BASE =
+  "linear-gradient(to right, rgba(74,129,119,0.16) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(74,129,119,0.16) 1px, transparent 1px)";
+const BYOK_GRID_GLOW =
+  "linear-gradient(to right, rgba(74,129,119,0.7) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(74,129,119,0.7) 1px, transparent 1px)";
+const BYOK_MASK =
+  "radial-gradient(70px circle at var(--bx, 50%) var(--by, -60px), #000 0%, transparent 70%)";
+
+/** The BYOK nav entry — its own little "world": an animated teal border, a grid
+ *  background, and grid lines that light up under the cursor (matching /byok). */
+function ByokNavLink() {
+  const ref = useRef<HTMLSpanElement>(null);
+  return (
+    <div className="px-3 pt-1">
+      <Link
+        href="/byok"
+        className="group relative block overflow-hidden rounded-full bg-indigo-500/25 p-[1.5px] dark:bg-indigo-400/25"
+      >
+        {/* Rotating conic gradient = moving border (over the faint static ring) */}
+        <span
+          className="absolute inset-[-150%] animate-[spin_5s_linear_infinite]"
+          style={{
+            background:
+              "conic-gradient(from 0deg, transparent 0deg 250deg, #3C6E66 310deg, #7FB5AB 340deg, transparent 360deg)",
+          }}
+        />
+        <span
+          ref={ref}
+          onMouseMove={(e) => {
+            const el = ref.current;
+            if (!el) return;
+            const r = el.getBoundingClientRect();
+            el.style.setProperty("--bx", `${e.clientX - r.left}px`);
+            el.style.setProperty("--by", `${e.clientY - r.top}px`);
+          }}
+          className="relative flex items-center gap-3 overflow-hidden rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 dark:bg-zinc-900 dark:text-indigo-300"
+        >
+          {/* Faint static grid */}
+          <span
+            className="pointer-events-none absolute inset-0"
+            style={{ backgroundImage: BYOK_GRID_BASE, backgroundSize: `${BYOK_CELL} ${BYOK_CELL}` }}
+          />
+          {/* Brighter grid revealed around the cursor */}
+          <span
+            className="pointer-events-none absolute inset-0"
+            style={{
+              backgroundImage: BYOK_GRID_GLOW,
+              backgroundSize: `${BYOK_CELL} ${BYOK_CELL}`,
+              maskImage: BYOK_MASK,
+              WebkitMaskImage: BYOK_MASK,
+            }}
+          />
+          <Sparkles className="relative h-[18px] w-[18px] shrink-0" />
+          <span className="relative">BYOK</span>
+        </span>
+      </Link>
+    </div>
+  );
+}
 
 export function Sidebar({
   view,
@@ -130,6 +194,7 @@ export function Sidebar({
         {navItem("links", "Links", <Link2 className={iconClass} />)}
         {navItem("duplicates", "Duplicates", <Copy className={iconClass} />)}
         {navItem("missing", "Missing", <FileWarning className={iconClass} />)}
+        <ByokNavLink />
       </nav>
 
       {/* Developer + theme toggle + storage pinned to the bottom. */}

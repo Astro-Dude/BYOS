@@ -49,6 +49,7 @@ import { UsernameSetup } from "@/components/dashboard/username-setup";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
+import { IntroSplash } from "@/components/intro-splash";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -149,6 +150,11 @@ const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
 
+// Module-level: survives client-side navigations but resets on a full page load,
+// so the boot splash plays only on a hard refresh / first load — not every time
+// you navigate back to the dashboard.
+let bootShown = false;
+
 // Replace the default single-row drag ghost with an on-brand "stack of cards"
 // badge that makes the count obvious when several items are dragged at once.
 function setMultiDragImage(dt: DataTransfer, count: number): void {
@@ -215,6 +221,7 @@ export default function DashboardPage() {
   const toast = useToast();
 
   const [view, setView] = useState<DriveView>("drive");
+  const [showBoot, setShowBoot] = useState(() => !bootShown);
   const [layout, setLayout] = useState<"list" | "grid">("list");
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [crumbs, setCrumbs] = useState<Breadcrumb[]>([]);
@@ -337,6 +344,11 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
+
+  // Remember the splash has played this page-load (skips it on SPA re-mounts).
+  useEffect(() => {
+    bootShown = true;
+  }, []);
 
   // Drop any multi-selection when the visible set changes.
   useEffect(() => {
@@ -730,9 +742,23 @@ export default function DashboardPage() {
     }, "Folder renamed");
   };
 
+  // Rendered as the first child of every return path so the same instance
+  // persists from first paint through auth + the initial fetch (no remount).
+  const bootOverlay = showBoot ? (
+    <IntroSplash
+      word="BYOS"
+      subtitle="Bring Your Own Storage"
+      skippable={false}
+      minMs={2000}
+      onFinished={() => setShowBoot(false)}
+    />
+  ) : null;
+
   if (authLoading || !user) {
     return (
-      <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
+      <>
+        {bootOverlay}
+        <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
         <div className="hidden w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:block">
           <Skeleton className="h-8 w-24" />
           <Skeleton className="mt-4 h-12 w-full rounded-2xl" />
@@ -756,12 +782,18 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-      </div>
+        </div>
+      </>
     );
   }
 
   if (!user.username) {
-    return <UsernameSetup />;
+    return (
+      <>
+        {bootOverlay}
+        <UsernameSetup />
+      </>
+    );
   }
 
   const onLogout = async () => {
@@ -1192,7 +1224,9 @@ export default function DashboardPage() {
   );
 
   return (
-    <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
+    <>
+      {bootOverlay}
+      <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
       <Sidebar
         view={view}
         onView={setView}
@@ -1694,6 +1728,7 @@ export default function DashboardPage() {
           </ul>
         </div>
       ) : null}
-    </div>
+      </div>
+    </>
   );
 }

@@ -11,6 +11,7 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { RECONNECT_NOTICE_KEY, useAuth } from "@/lib/auth-context";
@@ -185,8 +186,7 @@ export default function LoginPage() {
                 onChange={(e) => setIdentifier(e.target.value)}
                 placeholder="Username or phone (e.g. +91…)"
               />
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 autoComplete="current-password"
                 value={password}
@@ -232,8 +232,7 @@ export default function LoginPage() {
             />
           )}
           {!passwordMode && step === "password" && (
-            <Input
-              type="password"
+            <PasswordInput
               required
               autoFocus
               value={password}

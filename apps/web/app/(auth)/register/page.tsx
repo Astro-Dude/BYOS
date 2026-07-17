@@ -11,6 +11,7 @@ import { Logo } from "@/components/logo";
 import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { PasswordInput } from "@/components/ui/password-input";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
@@ -143,16 +144,14 @@ export default function RegisterPage() {
                   className="border-0 bg-transparent focus:ring-0 dark:bg-transparent"
                 />
               </div>
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder="Password (min 8 characters)"
               />
-              <Input
-                type="password"
+              <PasswordInput
                 required
                 autoComplete="new-password"
                 value={confirm}
@@ -194,8 +193,7 @@ export default function RegisterPage() {
             />
           )}
           {step === "password" && (
-            <Input
-              type="password"
+            <PasswordInput
               required
               autoFocus
               value={twofa}

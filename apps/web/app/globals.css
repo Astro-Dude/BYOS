@@ -29,3 +29,73 @@ body {
 .animate-breathe {
   animation: byos-breathe 1.6s ease-in-out infinite;
 }
+
+/* BYOK cinematic intro: the wordmark eases in from slightly small + dim. */
+@keyframes byok-zoom {
+  0% {
+    transform: scale(0.82);
+    opacity: 0;
+    letter-spacing: 0.5em;
+  }
+  100% {
+    transform: scale(1);
+    opacity: 1;
+    letter-spacing: 0.3em;
+  }
+}
+.animate-byok-zoom {
+  animation: byok-zoom 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+@keyframes byok-fade-up {
+  0% {
+    transform: translateY(8px);
+    opacity: 0;
+  }
+  100% {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+.animate-byok-fade-up {
+  animation: byok-fade-up 1s ease-out 0.5s both;
+}
+
+/* Thin, theme-matched scrollbars for the BYOK dark surfaces. */
+.thin-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.thin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.thin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.thin-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+  border-radius: 9999px;
+}
+.thin-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Shimmer sweep for skeleton loaders (BYOK dark surfaces). */
+@keyframes byok-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+.byok-shimmer {
+  background-image: linear-gradient(
+    90deg,
+    rgba(255, 255, 255, 0.04) 25%,
+    rgba(74, 129, 119, 0.18) 50%,
+    rgba(255, 255, 255, 0.04) 75%
+  );
+  background-size: 200% 100%;
+  animation: byok-shimmer 1.3s ease-in-out infinite;
+}
