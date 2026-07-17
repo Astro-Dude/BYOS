@@ -9,9 +9,6 @@ from collections.abc import AsyncIterator
 
 import httpx
 
-from byos_api.core import crypto
-from byos_api.db.models import AiConfig
-
 # Roles we accept from callers.
 Message = dict[str, str]
 
@@ -88,19 +85,27 @@ async def _post(
     return response
 
 
-async def chat(cfg: AiConfig, messages: list[Message], *, max_tokens: int | None = None) -> str:
-    """Run a chat completion using the user's stored BYOM config."""
+async def chat(
+    *,
+    base_url: str,
+    api_key: str,
+    model: str,
+    messages: list[Message],
+    temperature: float = 0.2,
+    max_tokens: int = 1024,
+    top_p: float | None = None,
+) -> str:
+    """One non-streamed chat completion (used for RAG pre-steps: rewrite, HyDE,
+    rerank, CRAG grading)."""
     payload: dict = {
-        "model": cfg.model,
+        "model": model,
         "messages": messages,
-        "temperature": cfg.temperature,
-        "max_tokens": max_tokens or cfg.max_tokens,
+        "temperature": temperature,
+        "max_tokens": max_tokens,
     }
-    if cfg.top_p is not None:
-        payload["top_p"] = cfg.top_p
-    response = await _post(
-        cfg.base_url, crypto.decrypt(cfg.encrypted_api_key), payload, timeout_s=120
-    )
+    if top_p is not None:
+        payload["top_p"] = top_p
+    response = await _post(base_url, api_key, payload, timeout_s=120)
     try:
         content = response.json()["choices"][0]["message"]["content"]
     except (KeyError, IndexError, TypeError) as exc:
@@ -141,6 +146,7 @@ async def stream_chat(
                 if response.status_code >= 400:
                     await response.aread()
                     raise LLMError(_error_detail(response))
+                in_think = False
                 async for line in response.aiter_lines():
                     line = line.strip()
                     if not line or not line.startswith("data:"):
@@ -149,11 +155,25 @@ async def stream_chat(
                     if data == "[DONE]":
                         break
                     try:
-                        delta = json.loads(data)["choices"][0]["delta"].get("content")
+                        delta = json.loads(data)["choices"][0]["delta"]
                     except (json.JSONDecodeError, KeyError, IndexError, TypeError):
                         continue
-                    if delta:
-                        yield delta
+                    # Reasoning models stream their thinking in a separate field;
+                    # wrap it in <think> so the client shows it live, then collapses.
+                    reasoning = delta.get("reasoning_content") or delta.get("reasoning")
+                    content = delta.get("content")
+                    if reasoning:
+                        if not in_think:
+                            in_think = True
+                            yield "<think>"
+                        yield reasoning
+                    if content:
+                        if in_think:
+                            in_think = False
+                            yield "</think>"
+                        yield content
+                if in_think:
+                    yield "</think>"
     except httpx.HTTPError as exc:
         raise LLMError(f"Couldn't reach the model endpoint: {exc}") from exc
 

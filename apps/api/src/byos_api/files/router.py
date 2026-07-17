@@ -302,6 +302,15 @@ async def list_files(
     return [FileOut.model_validate(f) for f in result.scalars()]
 
 
+@router.get("/{file_id}", response_model=FileOut)
+async def get_file(file_id: uuid.UUID, user: CurrentUser, db: DbDep) -> FileOut:
+    """Single file's metadata — used to open a chat source in a preview."""
+    record = await db.get(File, file_id)
+    if record is None or record.owner_id != user.id:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
+    return FileOut.model_validate(record)
+
+
 @router.get("/{file_id}/content")
 async def download_file(
     file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep

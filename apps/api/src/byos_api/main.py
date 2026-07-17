@@ -51,8 +51,11 @@ async def _chat_cleanup_loop() -> None:
         try:
             async with SessionLocal() as db:
                 removed = await ai_service.purge_old_chats(db)
+                stale = await ai_service.purge_stale_index(db)
             if removed:
                 logger.info("purged %d expired AI chat message(s)", removed)
+            if stale:
+                logger.info("purged %d stale index chunk(s)", stale)
         except Exception:
             logger.warning("AI chat cleanup failed", exc_info=True)
         await asyncio.sleep(_CLEANUP_INTERVAL_S)

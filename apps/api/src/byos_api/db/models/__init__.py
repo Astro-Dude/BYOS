@@ -1,6 +1,8 @@
 from byos_api.db.models.ai_chat_message import AiChatMessage
-from byos_api.db.models.ai_config import AiConfig
+from byos_api.db.models.ai_conversation import AiConversation
 from byos_api.db.models.ai_file_chunk import AiFileChunk
+from byos_api.db.models.ai_key import AiKey
+from byos_api.db.models.ai_prompt import AiPrompt
 from byos_api.db.models.alias import Alias
 from byos_api.db.models.api_key import ApiKey
 from byos_api.db.models.audit_log import AuditLog
@@ -15,8 +17,10 @@ from byos_api.db.models.webhook import Webhook
 
 __all__ = [
     "AiChatMessage",
-    "AiConfig",
+    "AiConversation",
     "AiFileChunk",
+    "AiKey",
+    "AiPrompt",
     "Alias",
     "ApiKey",
     "AuditLog",
