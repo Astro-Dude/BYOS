@@ -1012,7 +1012,7 @@ export default function DashboardPage() {
   const listView = (
     <div className="overflow-hidden">
       {/* Column headings are museum-signage labels, not a table chrome bar. */}
-      <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 text-[0.8125rem] text-zinc-500">
+      <div className="grid grid-cols-[1fr_44px] sm:grid-cols-[1fr_100px_44px] md:grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 text-[0.8125rem] text-zinc-500">
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -1034,13 +1034,13 @@ export default function DashboardPage() {
         </div>
         <button
           onClick={() => cycleSort("modified")}
-          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "modified" ? "text-zinc-900" : ""}`}
+          className={`hidden items-center text-left hover:text-zinc-800 md:flex ${sortField === "modified" ? "text-zinc-900" : ""}`}
         >
           Modified{sortArrow("modified")}
         </button>
         <button
           onClick={() => cycleSort("size")}
-          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "size" ? "text-zinc-900" : ""}`}
+          className={`hidden items-center text-left hover:text-zinc-800 sm:flex ${sortField === "size" ? "text-zinc-900" : ""}`}
         >
           Size{sortArrow("size")}
         </button>
@@ -1095,7 +1095,7 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
+          className={`group grid cursor-pointer grid-cols-[1fr_44px] sm:grid-cols-[1fr_100px_44px] md:grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
             dragFolder === folder.id
               ? "bg-zinc-100 ring-1 ring-inset ring-zinc-900"
               : selFolders.has(folder.id)
@@ -1120,8 +1120,12 @@ export default function DashboardPage() {
             />
             <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{folder.name}</span>
           </div>
-          <span className="text-[0.9375rem] text-zinc-500">{shortDate(folder.created_at)}</span>
-          <span className="text-[0.9375rem] text-zinc-500">{folder.size ? humanSize(folder.size) : "—"}</span>
+          <span className="hidden text-[0.9375rem] text-zinc-500 md:inline">
+            {shortDate(folder.created_at)}
+          </span>
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:inline">
+            {folder.size ? humanSize(folder.size) : "—"}
+          </span>
           {folderMenu(folder)}
         </div>
       ))}
@@ -1140,7 +1144,7 @@ export default function DashboardPage() {
             if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
+          className={`group grid cursor-pointer grid-cols-[1fr_44px] sm:grid-cols-[1fr_100px_44px] md:grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
             selFiles.has(file.id) ? "bg-zinc-100" : "hover:bg-zinc-50"
           }`}
         >
@@ -1173,8 +1177,12 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
-          <span className="text-[0.9375rem] text-zinc-500">{shortDate(file.modified_at)}</span>
-          <span className="text-[0.9375rem] text-zinc-500">{humanSize(file.size)}</span>
+          <span className="hidden text-[0.9375rem] text-zinc-500 md:inline">
+            {shortDate(file.modified_at)}
+          </span>
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:inline">
+            {humanSize(file.size)}
+          </span>
           {fileMenu(file)}
         </div>
       ))}

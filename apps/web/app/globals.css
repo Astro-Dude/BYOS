@@ -3,17 +3,70 @@
 @tailwind utilities;
 
 /* ── Steep design tokens (DESIGN.md) ──────────────────────────────────────
-   Light only: the system defines no dark counterpart, and the app follows. */
+   Light only, per DESIGN.md ("Theme: light").
+
+   Every neutral is a *channel triplet*, not a hex, and Tailwind consumes them as
+   `rgb(var(--c-900) / <alpha-value>)`. Two consequences worth knowing:
+
+   1. Opacity modifiers keep working — `bg-zinc-900/10` still composes, which a
+      plain `var(--x)` colour cannot do.
+   2. The palette lives in one place. Components use ordinary utilities and never
+      reference a colour directly, so a value change here reaches the whole app —
+      there isn't a single `dark:` variant or hardcoded hex in the tree.
+
+   The ramp is semantic, so read it by role rather than by number: 900 is always
+   "text on the page", `white` is always "the page".
+*/
 :root {
   color-scheme: light;
 
-  --surface-canvas: #ffffff; /* 0 — the white paper everything sits on */
-  --surface-mist: #f2f2f3; /* 1 — quietly nested content blocks */
-  --surface-fog: #fafafb; /* 2 — alternating section bands */
-  --surface-blush: #fbe1d1; /* 3 — the chromatic punctuation, used sparingly */
-  --hairline: #ececec;
+  --c-paper: 255 255 255; /* the page */
+  --c-50: 250 250 251; /* fog — alternating bands, hover */
+  --c-100: 242 242 243; /* mist — nested surfaces, input fills */
+  --c-200: 236 236 236; /* hairline */
+  --c-300: 227 227 229;
+  --c-400: 163 166 175; /* smoke — placeholders, disabled */
+  --c-500: 151 151 153; /* ash — tertiary labels */
+  --c-600: 119 123 134; /* slate — muted text, links */
+  --c-700: 75 78 87;
+  --c-800: 42 44 49;
+  --c-900: 23 25 28; /* ink — primary text, filled actions */
+  --c-950: 16 17 20;
 
-  /* Elevation. Content cards get none; only these three earn a shadow. */
+  /* Danger. Muted brick, since Steep supplies no risk colour. */
+  --c-danger-50: 251 238 235;
+  --c-danger-300: 229 179 168;
+  --c-danger-500: 194 74 56;
+  --c-danger-600: 178 58 46;
+  --c-danger-700: 147 48 30;
+
+  /* Surfaces, derived from the ramp so they invert with it. */
+  --surface-canvas: rgb(var(--c-paper));
+  --surface-mist: rgb(var(--c-100));
+  --surface-fog: rgb(var(--c-50));
+  --hairline: rgb(var(--c-200));
+
+  /* The warm pair — the system's only chromatic surface. Held as channels so the
+     ground and its ink stay defined together: a blush card carries dark sienna
+     ink, and warnings borrow the same pair. */
+  --c-blush: 251 225 209; /* ground */
+  --c-blush-mid: 224 166 129; /* borders, mid tints */
+  --c-blush-ink: 93 42 26; /* sienna — ink on the ground */
+
+  --surface-blush: rgb(var(--c-blush));
+  --ink-on-blush: rgb(var(--c-blush-ink));
+
+  /* Skeleton sweep: mist ground, a step darker through the middle. */
+  --skeleton-base: rgb(var(--c-100));
+  --skeleton-sweep: rgb(var(--c-300));
+
+  /* Decorative grid wallpaper (splash, BYOK world). Drawn from the ramp so the
+     lines stay visible when the ground inverts. */
+  --grid-line: rgb(var(--c-900) / 0.07);
+  --grid-lit: rgb(var(--c-blush-ink) / 0.32); /* warms to sienna under the cursor */
+
+  /* Elevation. On paper a shadow does the work; on a dark ground shadows are
+     nearly invisible, so the dark theme leans on a brighter ring instead. */
   --shadow-artifact: rgba(4, 23, 43, 0.05) 0px 0px 0px 1px,
     rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
   --shadow-overlay: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 8px 40px 0px;
@@ -31,7 +84,7 @@
      something interactive (ink is the action colour here). */
   mark {
     background-color: var(--surface-blush);
-    color: #5d2a1a;
+    color: var(--ink-on-blush);
     border-radius: 4px;
     padding: 0 4px;
     font-weight: 500;
@@ -94,7 +147,7 @@
     /* At most once per screen, and only over white or mist. */
     @apply rounded-2xl;
     background: var(--surface-blush);
-    color: #5d2a1a;
+    color: var(--ink-on-blush);
   }
 
   /* ── Controls ─────────────────────────────────────────────────────────────
@@ -153,13 +206,13 @@
   /* Scrim: ink at low opacity — near-black would read as a different system. The
      z-index stays with the call site, which knows what it must sit above. */
   .modal-scrim {
-    @apply fixed inset-0 flex items-center justify-center p-4;
+    @apply fixed inset-0 flex items-center justify-center p-3 sm:p-4;
     background-color: rgba(23, 25, 28, 0.28);
   }
   .modal-surface {
     /* 24px radius and 32px padding: Steep's card geometry. Height is capped so a
        long list scrolls inside the dialog rather than off the viewport. */
-    @apply thin-scroll max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white p-8;
+    @apply thin-scroll max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white p-6 sm:p-8;
     box-shadow: var(--shadow-overlay);
   }
   .menu-surface {
@@ -246,8 +299,7 @@
     animation: byok-fade-up 1s ease-out 0.5s both;
   }
 
-  /* Theme-matched scrollbars, defined light-first then inverted under .dark. (The
-     previous single white value was invisible on light backgrounds.) */
+  /* Scrollbars matched to the paper palette. */
   .thin-scroll {
     scrollbar-width: thin;
     scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
@@ -265,15 +317,6 @@
   }
   .thin-scroll::-webkit-scrollbar-thumb:hover {
     background-color: rgba(0, 0, 0, 0.32);
-  }
-  .dark .thin-scroll {
-    scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
-  }
-  .dark .thin-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.16);
-  }
-  .dark .thin-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.3);
   }
 
   /* Hairline variant for the chat composer: present enough to show there's more
@@ -296,15 +339,6 @@
   .hair-scroll::-webkit-scrollbar-thumb:hover {
     background-color: rgba(0, 0, 0, 0.3);
   }
-  .dark .hair-scroll {
-    scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
-  }
-  .dark .hair-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(255, 255, 255, 0.18);
-  }
-  .dark .hair-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(255, 255, 255, 0.34);
-  }
 
   /* Shimmer sweep for skeleton loaders (BYOK dark surfaces). */
   @keyframes byok-shimmer {
@@ -320,8 +354,13 @@
        sit within a few percent of white, so on a paper surface the skeleton was
        effectively invisible — it only read on the old dark theme. Going down in
        value instead of up keeps it achromatic and actually visible. */
-    background-color: #f2f2f3;
-    background-image: linear-gradient(90deg, #f2f2f3 20%, #e2e2e5 50%, #f2f2f3 80%);
+    background-color: var(--skeleton-base);
+    background-image: linear-gradient(
+      90deg,
+      var(--skeleton-base) 20%,
+      var(--skeleton-sweep) 50%,
+      var(--skeleton-base) 80%
+    );
     background-size: 200% 100%;
     animation: byok-shimmer 1.5s ease-in-out infinite;
   }

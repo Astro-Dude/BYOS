@@ -4,11 +4,12 @@ import { type ReactNode, useRef } from "react";
 
 const CELL = "46px";
 const GRID_BASE =
-  "linear-gradient(to right, rgba(23,25,28,0.06) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(23,25,28,0.06) 1px, transparent 1px)";
+  "linear-gradient(to right, var(--grid-line) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)";
+// Warms under the cursor — sienna on paper, blush on ink (see --grid-lit).
 const GRID_GLOW =
-  "linear-gradient(to right, rgba(93,42,26,0.30) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(93,42,26,0.30) 1px, transparent 1px)";
+  "linear-gradient(to right, var(--grid-lit) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, var(--grid-lit) 1px, transparent 1px)";
 const CURSOR_MASK =
   "radial-gradient(220px circle at var(--mx, 50%) var(--my, -100px), " +
   "#000 0%, rgba(0,0,0,0.35) 45%, transparent 72%)";

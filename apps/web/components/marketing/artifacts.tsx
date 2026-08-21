@@ -129,7 +129,7 @@ export function StatArtifact({ className = "" }: { className?: string }) {
         <path
           d="M2 30 C 18 28, 26 20, 38 21 S 58 12, 72 14 S 96 5, 118 3"
           fill="none"
-          stroke="#5d2a1a"
+          stroke="var(--ink-on-blush)"
           strokeWidth="1.5"
           strokeLinecap="round"
         />

@@ -49,20 +49,20 @@ export function Terminal({
   };
 
   return (
-    <div className={`overflow-hidden rounded-xl bg-zinc-900 ${className}`}>
-      <div className="flex items-center gap-2 border-b border-white/10 px-4 py-2.5">
+    <div className={`overflow-hidden rounded-xl bg-ink ${className}`}>
+      <div className="flex items-center gap-2 border-b border-paper/10 px-4 py-2.5">
         <span className="flex gap-1.5" aria-hidden>
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-white/20" />
-          <span className="h-2 w-2 rounded-full bg-white/20" />
+          <span className="h-2 w-2 rounded-full bg-paper/20" />
+          <span className="h-2 w-2 rounded-full bg-paper/20" />
+          <span className="h-2 w-2 rounded-full bg-paper/20" />
         </span>
         {title ? (
-          <span className="ml-1 font-mono text-[0.75rem] text-zinc-400">{title}</span>
+          <span className="ml-1 font-mono text-[0.75rem] text-paper/55">{title}</span>
         ) : null}
         {copyable ? (
           <button
             onClick={() => void copy()}
-            className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] text-zinc-400 transition-colors hover:bg-white/10 hover:text-white"
+            className="ml-auto inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 font-mono text-[0.6875rem] text-paper/55 transition-colors hover:bg-paper/10 hover:text-paper"
             aria-label="Copy commands"
           >
             {copied ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
@@ -74,20 +74,20 @@ export function Terminal({
         <code>
           {lines.map((l, i) =>
             l.kind === "cmd" ? (
-              <span key={i} className="block text-white">
-                <span className="select-none text-zinc-500">$ </span>
+              <span key={i} className="block text-paper">
+                <span className="select-none text-paper/40">$ </span>
                 {l.text}
               </span>
             ) : l.kind === "cont" ? (
-              <span key={i} className="block pl-4 text-white">
+              <span key={i} className="block pl-4 text-paper">
                 {l.text}
               </span>
             ) : l.kind === "comment" ? (
-              <span key={i} className="block text-zinc-500">
+              <span key={i} className="block text-paper/40">
                 {l.text}
               </span>
             ) : (
-              <span key={i} className="block text-zinc-400">
+              <span key={i} className="block text-paper/60">
                 {l.text}
               </span>
             ),

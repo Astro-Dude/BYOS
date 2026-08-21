@@ -99,7 +99,7 @@ export default function ByokPage() {
       ) : null}
 
       <Glow className="h-screen bg-white text-zinc-900">
-        <div className="flex h-screen">
+        <div className="relative flex h-screen">
           {/* Collapsed rail — expand + quick new chat */}
           {!sidebarOpen ? (
             <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-4">
@@ -132,7 +132,9 @@ export default function ByokPage() {
 
           {/* Sidebar */}
           <aside
-            className={`${sidebarOpen ? "flex w-72" : "hidden"} shrink-0 flex-col border-r border-zinc-200 bg-white`}
+            className={`${
+              sidebarOpen ? "flex w-72" : "hidden"
+            } absolute inset-y-0 left-12 z-30 shrink-0 flex-col border-r border-zinc-200 bg-white shadow-xl md:static md:left-auto md:z-auto md:shadow-none`}
           >
             <div className="flex items-center gap-2 px-4 py-4">
               <span className="type-heading-sm flex-1">

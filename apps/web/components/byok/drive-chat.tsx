@@ -359,7 +359,7 @@ export function DriveChat({
       {addOpen ? (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
-          <div className="menu-surface absolute bottom-14 left-0 z-20 w-72 p-3">
+          <div className="menu-surface absolute bottom-14 left-0 z-20 w-[min(18rem,calc(100vw-3rem))] p-3">
             <p className="mb-1 text-[0.8125rem] text-zinc-500">System prompt</p>
             <Dropdown
               value={promptId}

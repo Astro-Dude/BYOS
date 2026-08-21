@@ -194,7 +194,7 @@ function IndexingCard({
   const complete = !running && !error;
 
   return (
-    <div className="surface-artifact fixed bottom-[4.75rem] right-5 z-[190] w-72 p-4">
+    <div className="surface-artifact fixed bottom-[4.75rem] left-4 right-4 z-[190] p-4 sm:left-auto sm:right-5 sm:w-72">
       <div className="flex items-center gap-2">
         {running ? (
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-900" />

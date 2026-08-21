@@ -46,12 +46,12 @@ export type DriveView =
 
 const BYOK_CELL = "18px";
 const BYOK_GRID_BASE =
-  "linear-gradient(to right, rgba(23,25,28,0.07) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(23,25,28,0.07) 1px, transparent 1px)";
-// The grid warms to sienna under the cursor — the accent pair, not a glow.
+  "linear-gradient(to right, var(--grid-line) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px)";
+// Warms under the cursor — sienna on paper, blush on ink (see --grid-lit).
 const BYOK_GRID_GLOW =
-  "linear-gradient(to right, rgba(93,42,26,0.34) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(93,42,26,0.34) 1px, transparent 1px)";
+  "linear-gradient(to right, var(--grid-lit) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, var(--grid-lit) 1px, transparent 1px)";
 const RAIL_KEY = "byos:rail";
 const BYOK_MASK =
   "radial-gradient(70px circle at var(--bx, 50%) var(--by, -60px), #000 0%, transparent 70%)";
@@ -78,7 +78,7 @@ function ByokNavLink({ collapsed }: { collapsed: boolean }) {
             el.style.setProperty("--by", `${e.clientY - r.top}px`);
           }}
           className={`relative flex items-center overflow-hidden rounded-full bg-white py-2 text-[0.9375rem] text-zinc-900 ${
-            collapsed ? "justify-center px-2" : "gap-3 px-3.5"
+            collapsed ? "justify-center px-2" : "justify-center px-2 md:justify-start md:gap-3 md:px-3.5"
           }`}
         >
           {/* Faint static grid */}
@@ -97,7 +97,7 @@ function ByokNavLink({ collapsed }: { collapsed: boolean }) {
             }}
           />
           <Sparkles className="relative h-[17px] w-[17px] shrink-0" />
-          {collapsed ? null : <span className="relative">BYOK</span>}
+          <span className={collapsed ? "hidden" : "relative hidden md:inline"}>BYOK</span>
         </span>
       </Link>
     </div>
@@ -156,12 +156,12 @@ export function Sidebar({
       title={collapsed ? label : undefined}
       aria-label={collapsed ? label : undefined}
       className={`${view === id ? "nav-item-active" : "nav-item"} ${
-        collapsed ? "justify-center px-0" : ""
+        collapsed ? "justify-center px-0" : "justify-center md:justify-start md:px-3.5"
       }`}
       aria-current={view === id ? "page" : undefined}
     >
       {icon}
-      {collapsed ? null : label}
+      <span className={collapsed ? "hidden" : "hidden md:inline"}>{label}</span>
     </button>
   );
 
@@ -169,8 +169,8 @@ export function Sidebar({
 
   return (
     <aside
-      className={`relative flex shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-5 pt-6 transition-[width] duration-300 ease-out ${
-        collapsed ? "w-[4.5rem] px-3" : "w-64 px-3"
+      className={`relative flex shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white px-3 pb-5 pt-6 transition-[width] duration-300 ease-out ${
+        collapsed ? "w-[4.5rem]" : "w-[4.5rem] md:w-64"
       }`}
     >
       {/* The handle straddles the rail's edge rather than living inside it, so
@@ -182,7 +182,7 @@ export function Sidebar({
         title={collapsed ? "Expand" : "Collapse"}
         aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         aria-expanded={!collapsed}
-        className="absolute -right-3 top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-zinc-900 hover:bg-zinc-900 hover:text-white"
+        className="absolute -right-3 top-1/2 z-20 hidden h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-zinc-900 hover:bg-zinc-900 hover:text-white md:flex"
       >
         {collapsed ? (
           <ChevronRight className="h-3.5 w-3.5" />
@@ -192,7 +192,16 @@ export function Sidebar({
       </button>
 
       <div className={`flex items-center pb-4 ${collapsed ? "justify-center" : "px-2"}`}>
-        {collapsed ? <LogoMark className="h-9 w-9" /> : <Logo wordClassName="text-xl" />}
+        {collapsed ? (
+          <LogoMark className="h-9 w-9" />
+        ) : (
+          <>
+            <LogoMark className="h-9 w-9 md:hidden" />
+            <span className="hidden md:block">
+              <Logo wordClassName="text-xl" />
+            </span>
+          </>
+        )}
       </div>
 
       <div className="pb-3">
@@ -203,11 +212,13 @@ export function Sidebar({
             <span
               title={collapsed ? "New" : undefined}
               className={`flex items-center justify-center gap-2 rounded-full border border-zinc-900 bg-white text-[0.9375rem] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white ${
-                collapsed ? "mx-auto h-10 w-10" : "w-full px-5 py-3"
+                collapsed
+                  ? "mx-auto h-10 w-10"
+                  : "mx-auto h-10 w-10 md:mx-0 md:h-auto md:w-full md:px-5 md:py-3"
               }`}
             >
               <Plus className="h-4 w-4" />
-              {collapsed ? null : "New"}
+              <span className={collapsed ? "hidden" : "hidden md:inline"}>New</span>
             </span>
           )}
         >
@@ -248,7 +259,7 @@ export function Sidebar({
         <nav className="space-y-0.5">
           {navItem("developer", "Developer", <Code2 className={iconClass} />)}
         </nav>
-        <div className={`surface-card mt-2 p-4 ${collapsed ? "hidden" : ""}`}>
+        <div className={`surface-card mt-2 p-4 ${collapsed ? "hidden" : "hidden md:block"}`}>
           <div className="flex items-baseline justify-between">
             <span className="text-[0.9375rem] text-zinc-900">
               {used != null ? formatBytes(used) : "Storage"}

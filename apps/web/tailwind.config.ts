@@ -8,9 +8,10 @@ import type { Config } from "tailwindcss";
  *  keeps the diff in one file instead of 46 — the same trick the previous
  *  slate-teal theme used.
  *
- *  `darkMode: "class"` is kept even though the dark variants are all gone: the
- *  default is `media`, so any dark utility reintroduced later would silently
- *  fire on a system preference instead of doing nothing visible.
+ *  `darkMode: "class"` is deliberate even with no dark theme: Tailwind's default
+ *  is `media`, so a stray `dark:` utility would silently fire on a visitor's OS
+ *  preference. With the class mode set and nothing ever applying the class, such
+ *  a utility does nothing instead of half-theming a page.
  */
 export default {
   darkMode: "class",
@@ -29,60 +30,73 @@ export default {
         brand: ["var(--font-display)", "ui-serif", "Georgia", "serif"],
       },
       colors: {
-        // Neutrals — Steep's achromatic ramp. Paper white canvas, mist and fog
-        // for nested surfaces, three functional grays, ink for all text.
+        // Every neutral resolves through a CSS variable holding an RGB channel
+        // triplet, so `<alpha-value>` keeps opacity modifiers working and a theme
+        // swap is a value change rather than a second set of utilities. See the
+        // token block in globals.css for what each step means.
+        //
+        // `white` is overridden on purpose: it means "the page", and the page is
+        // not white in dark mode. Anything that must stay literally white uses
+        // `paper` below.
+        white: "rgb(var(--c-paper) / <alpha-value>)",
         zinc: {
-          50: "#FAFAFB", // Fog White — alternating section bands, hover surfaces
-          100: "#F2F2F3", // Mist Gray — card surfaces, input fills
-          200: "#ECECEC", // hairline borders
-          300: "#E3E3E5",
-          400: "#A3A6AF", // Smoke Gray — placeholders, disabled
-          500: "#979799", // Ash Gray — tertiary labels, category tags
-          600: "#777B86", // Slate Gray — links, muted helper text
-          700: "#4B4E57",
-          800: "#2A2C31",
-          900: "#17191C", // Ink Black — primary text
-          950: "#101114",
+          50: "rgb(var(--c-50) / <alpha-value>)",
+          100: "rgb(var(--c-100) / <alpha-value>)",
+          200: "rgb(var(--c-200) / <alpha-value>)",
+          300: "rgb(var(--c-300) / <alpha-value>)",
+          400: "rgb(var(--c-400) / <alpha-value>)",
+          500: "rgb(var(--c-500) / <alpha-value>)",
+          600: "rgb(var(--c-600) / <alpha-value>)",
+          700: "rgb(var(--c-700) / <alpha-value>)",
+          800: "rgb(var(--c-800) / <alpha-value>)",
+          900: "rgb(var(--c-900) / <alpha-value>)",
+          950: "rgb(var(--c-950) / <alpha-value>)",
         },
         // Primary action. Steep's CTA is a solid ink lozenge, so the accent ramp
-        // resolves to ink rather than a hue — `bg-indigo-600` becomes the pill.
+        // resolves to the neutral ink rather than a hue — and inverts with it, so
+        // the pill is dark on paper and pale on ink.
         indigo: {
-          50: "#F4F4F5",
-          100: "#E8E8EA",
-          200: "#D2D3D6",
-          300: "#A9ABB1",
-          400: "#5B5E66",
-          500: "#2F3238",
-          600: "#17191C",
-          700: "#101114",
-          800: "#0B0C0E",
-          900: "#070809",
+          50: "rgb(var(--c-50) / <alpha-value>)",
+          100: "rgb(var(--c-100) / <alpha-value>)",
+          200: "rgb(var(--c-200) / <alpha-value>)",
+          300: "rgb(var(--c-300) / <alpha-value>)",
+          400: "rgb(var(--c-700) / <alpha-value>)",
+          500: "rgb(var(--c-800) / <alpha-value>)",
+          600: "rgb(var(--c-900) / <alpha-value>)",
+          700: "rgb(var(--c-950) / <alpha-value>)",
+          800: "rgb(var(--c-950) / <alpha-value>)",
+          900: "rgb(var(--c-950) / <alpha-value>)",
         },
-        // The one chromatic surface. `amber-*` maps onto the peach/sienna pair so
-        // existing warning styles resolve to the sanctioned warm-on-warm
-        // combination instead of a foreign yellow.
+        // The warm pair, mapped onto `amber-*` so existing warning styles resolve
+        // to the sanctioned ground/ink combination. It follows the theme: 600 is
+        // sienna on paper and blush on ink, because a warning has to stay legible
+        // either way.
         amber: {
-          50: "#FEF6F1",
-          100: "#FDEDE3",
-          200: "#FCE7DA",
-          300: "#FBE1D1", // Blush Peach — accent card background
-          400: "#F5CDB2",
-          500: "#E0A681",
-          600: "#5D2A1A", // Sienna Brown — text and strokes on peach only
-          700: "#4C2114",
+          50: "rgb(var(--c-blush) / <alpha-value>)",
+          100: "rgb(var(--c-blush) / <alpha-value>)",
+          200: "rgb(var(--c-blush) / <alpha-value>)",
+          300: "rgb(var(--c-blush) / <alpha-value>)", // ground
+          400: "rgb(var(--c-blush-mid) / <alpha-value>)",
+          500: "rgb(var(--c-blush-mid) / <alpha-value>)",
+          600: "rgb(var(--c-blush-ink) / <alpha-value>)", // ink on the ground
+          700: "rgb(var(--c-blush-ink) / <alpha-value>)",
         },
-        peach: "#FBE1D1",
-        sienna: "#5D2A1A",
+        peach: "rgb(var(--c-blush) / <alpha-value>)",
+        sienna: "rgb(var(--c-blush-ink) / <alpha-value>)",
         // Danger. Steep provides no risk colour and BYOS deletes bytes from the
-        // user's storage for good, so the muted brick is kept — desaturated
-        // enough to sit inside an achromatic system.
+        // user's storage for good, so the muted brick is kept — and it lightens
+        // in dark mode so it still reads as risk.
         red: {
-          50: "#FBEEEB",
-          300: "#E5B3A8",
-          500: "#C24A38",
-          600: "#B23A2E",
-          700: "#93301E",
+          50: "rgb(var(--c-danger-50) / <alpha-value>)",
+          300: "rgb(var(--c-danger-300) / <alpha-value>)",
+          500: "rgb(var(--c-danger-500) / <alpha-value>)",
+          600: "rgb(var(--c-danger-600) / <alpha-value>)",
+          700: "rgb(var(--c-danger-700) / <alpha-value>)",
         },
+        // Fixed, theme-independent values for surfaces that are deliberately dark
+        // in both themes — the terminal is a terminal.
+        ink: "#17191C",
+        paper: "#FFFFFF",
       },
       borderRadius: {
         // Steep's geometry: 12px images, 16px small cards, 20px elevated,

@@ -77,7 +77,7 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
   const kind = file ? kindOf(file) : "unsupported";
 
   return (
-    <aside className="flex min-h-0 w-1/2 max-w-2xl shrink-0 flex-col border-l border-zinc-200 bg-white">
+    <aside className="flex min-h-0 w-full shrink-0 flex-col border-l border-zinc-200 bg-white md:w-1/2 md:max-w-2xl">
       <div className="flex items-center justify-between gap-2 border-b border-zinc-200 px-4 py-3">
         <span className="truncate text-[0.9375rem] font-medium text-zinc-800">{source.name}</span>
         <button

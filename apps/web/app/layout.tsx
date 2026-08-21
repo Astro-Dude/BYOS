@@ -31,8 +31,7 @@ export const metadata: Metadata = {
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {
-  // Light only, per DESIGN.md ("Theme: light"). No theme script, no `.dark`
-  // class, and no dark-variant utilities left in the tree.
+  // Light only, per DESIGN.md ("Theme: light"). No theme class, no boot script.
   return (
     <html lang="en" className={`${display.variable} ${ui.variable}`}>
       <body>
