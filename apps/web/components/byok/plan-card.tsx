@@ -101,7 +101,7 @@ export function PlanCard({
         {plan.status === "discarded" ? (
           <X className="h-3.5 w-3.5 text-zinc-400" />
         ) : !isPending ? (
-          <Check className="h-3.5 w-3.5 text-teal-500" />
+          <Check className="h-3.5 w-3.5 text-indigo-500" />
         ) : null}
         {failed.length ? (
           <span className="text-xs text-red-500">· {failed.length} failed</span>
@@ -115,7 +115,7 @@ export function PlanCard({
             <li key={i} className="flex items-start gap-2 px-3 py-1.5 text-xs">
               <span
                 className={`mt-0.5 shrink-0 ${
-                  a.danger ? "text-red-500" : done?.ok ? "text-teal-500" : "text-zinc-400"
+                  a.danger ? "text-red-500" : done?.ok ? "text-indigo-500" : "text-zinc-400"
                 }`}
               >
                 {ICONS[a.op] ?? <Pencil className="h-3.5 w-3.5" />}
@@ -137,7 +137,7 @@ export function PlanCard({
                   </span>
                 ) : a.auto ? null : null}
               </span>
-              {done?.ok ? <Check className="mt-0.5 h-3 w-3 shrink-0 text-teal-500" /> : null}
+              {done?.ok ? <Check className="mt-0.5 h-3 w-3 shrink-0 text-indigo-500" /> : null}
             </li>
           );
         })}

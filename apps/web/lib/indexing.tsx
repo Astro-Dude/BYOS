@@ -200,7 +200,7 @@ function IndexingCard({
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-500" />
         ) : (
           <Database
-            className={`h-4 w-4 shrink-0 ${error ? "text-red-500" : "text-teal-500"}`}
+            className={`h-4 w-4 shrink-0 ${error ? "text-red-500" : "text-indigo-500"}`}
           />
         )}
         <span className="flex-1 truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">

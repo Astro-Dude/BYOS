@@ -26,12 +26,12 @@ export function SupportFab() {
       <div className="group fixed bottom-5 right-5 z-[140] print:hidden">
         <span
           aria-hidden
-          className="byok-halo pointer-events-none absolute inset-0 rounded-full bg-amber-400/30 blur-md transition-opacity duration-300 group-hover:opacity-0"
+          className="byok-halo pointer-events-none absolute inset-0 rounded-full bg-indigo-400/30 blur-md transition-opacity duration-300 group-hover:opacity-0"
         />
         <button
           onClick={() => setOpen(true)}
           aria-label="Buy me a coffee"
-          className="relative flex h-12 items-center rounded-full bg-gradient-to-br from-amber-400 to-amber-600 px-3.5 text-white shadow-lg shadow-amber-950/25 outline-none transition-all duration-300 ease-out hover:pr-5 hover:shadow-xl hover:shadow-amber-950/40 focus-visible:ring-2 focus-visible:ring-amber-300 active:scale-95 group-focus-within:pr-5"
+          className="relative flex h-12 items-center rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 px-3.5 text-white shadow-lg shadow-indigo-900/30 outline-none transition-all duration-300 ease-out hover:pr-5 hover:shadow-xl hover:shadow-indigo-900/45 focus-visible:ring-2 focus-visible:ring-indigo-300 active:scale-95 group-focus-within:pr-5"
         >
           <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
             <Coffee className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-px" />

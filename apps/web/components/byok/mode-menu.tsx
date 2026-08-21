@@ -121,7 +121,7 @@ export function ModeMenu({
               <span className="min-w-0 flex-1">
                 <span className="flex items-center gap-1.5 text-sm text-zinc-900 dark:text-zinc-100">
                   {m.label}
-                  {m.value === value ? <Check className="h-3.5 w-3.5 text-teal-500" /> : null}
+                  {m.value === value ? <Check className="h-3.5 w-3.5 text-indigo-500" /> : null}
                 </span>
                 <span className="mt-0.5 block text-xs leading-snug text-zinc-500 dark:text-zinc-400">
                   {m.hint}
