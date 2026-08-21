@@ -24,7 +24,9 @@ type Step = "phone" | "code" | "password";
 export default function LoginPage() {
   const router = useRouter();
   const { establishSession, user, loading: authLoading } = useAuth();
-  const [mode, setMode] = useState<Mode>("telegram");
+  // Password is the default: it reuses the Telegram session already stored,
+  // so it neither contacts Telegram nor authorises a new device.
+  const [mode, setMode] = useState<Mode>("password");
   const [step, setStep] = useState<Step>("phone");
   const [dial, setDial] = useState("+91");
   const [national, setNational] = useState("");
@@ -151,9 +153,9 @@ export default function LoginPage() {
         </h1>
         <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
           {passwordMode
-            ? "Use your username or phone and your BYOS password."
+            ? "Your username or phone, and your BYOS password. This doesn't contact Telegram, so no new device is added to your account."
             : step === "phone"
-              ? "Your Telegram account is your BYOS account and your storage."
+              ? "Your Telegram account is your BYOS account and your storage. We'll send a login code to your Telegram app — not by SMS."
               : step === "code"
                 ? "Enter the login code Telegram just sent to your app."
                 : "Your account has two-factor auth — enter your Telegram password."}
@@ -162,6 +164,15 @@ export default function LoginPage() {
           <p className="surface-card mt-6 px-5 py-4 text-[0.9375rem] text-zinc-900">
             {notice}
           </p>
+        ) : null}
+        {!passwordMode && step === "phone" ? (
+          <div className="mt-6 flex items-start gap-3 text-[0.9375rem] leading-[1.45] text-zinc-600">
+            <Send className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+            <span>
+              The code arrives as a message in <strong className="text-zinc-900">Telegram</strong>,
+              from the official “Telegram” chat. Nothing is sent by SMS, so keep the app to hand.
+            </span>
+          </div>
         ) : null}
         {!passwordMode && step === "code" ? (
           <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
@@ -226,7 +237,7 @@ export default function LoginPage() {
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Login code (e.g. 12345)"
+              placeholder="Code from Telegram (e.g. 12345)"
             />
           )}
           {!passwordMode && step === "password" && (
@@ -247,7 +258,7 @@ export default function LoginPage() {
               : passwordMode
                 ? "Sign in"
                 : step === "phone"
-                  ? "Send code"
+                  ? "Send code to Telegram"
                   : step === "code"
                     ? "Verify"
                     : "Sign in"}
@@ -257,10 +268,15 @@ export default function LoginPage() {
         <div className="mt-4 space-y-2 text-[0.9375rem]">
           <button
             onClick={() => switchMode(passwordMode ? "telegram" : "password")}
-            className="text-zinc-900 hover:text-zinc-900"
+            className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition-colors hover:decoration-zinc-900"
           >
             {passwordMode ? "Sign in with a Telegram code instead" : "Sign in with a password instead"}
           </button>
+          <p className="mt-3 text-[0.8125rem] leading-[1.5] text-zinc-500">
+            {passwordMode
+              ? "A Telegram code authorises a new device on your Telegram account — you'll see it listed under Devices there. Use it if you've forgotten your password or logged BYOS out of Telegram."
+              : "Signing in with a password reuses the Telegram session BYOS already holds, so nothing new is added to your Telegram Devices list."}
+          </p>
           {!passwordMode && step !== "phone" && (
             <button
               onClick={() => {

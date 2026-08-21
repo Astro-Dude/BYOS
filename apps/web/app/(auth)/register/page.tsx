@@ -113,10 +113,19 @@ export default function RegisterPage() {
         <h1 className="type-heading">Create your account</h1>
         <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
           {step === "details" &&
-            "Pick a username and password, then we'll send a Telegram code to confirm your number."}
+            "Pick a username and password. We'll send a confirmation code to your Telegram app — not by SMS."}
           {step === "code" && "Enter the login code Telegram just sent to your app."}
           {step === "password" && "Your Telegram account has two-factor auth — enter its password."}
         </p>
+        {step === "details" ? (
+          <div className="mt-6 flex items-start gap-3 text-[0.9375rem] leading-[1.45] text-zinc-600">
+            <Send className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
+            <span>
+              The code arrives as a message in <strong className="text-zinc-900">Telegram</strong>,
+              from the official “Telegram” chat. Nothing is sent by SMS, so keep the app to hand.
+            </span>
+          </div>
+        ) : null}
         {step === "code" ? (
           <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
             <Send className="mt-0.5 h-4 w-4 shrink-0" />
@@ -187,7 +196,7 @@ export default function RegisterPage() {
               inputMode="numeric"
               value={code}
               onChange={(e) => setCode(e.target.value)}
-              placeholder="Login code (e.g. 12345)"
+              placeholder="Code from Telegram (e.g. 12345)"
             />
           )}
           {step === "password" && (
@@ -206,7 +215,7 @@ export default function RegisterPage() {
             {busy
               ? "Please wait…"
               : step === "details"
-                ? "Send code"
+                ? "Send code to Telegram"
                 : step === "code"
                   ? "Verify"
                   : "Create account"}

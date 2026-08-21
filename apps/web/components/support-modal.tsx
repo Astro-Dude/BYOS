@@ -9,6 +9,12 @@ import { useEffect, useRef, useState } from "react";
 const BUTTON_ID = process.env.NEXT_PUBLIC_RAZORPAY_BUTTON_ID ?? "";
 const SCRIPT_SRC = "https://checkout.razorpay.com/v1/payment-button.js";
 
+/** Shortest time the skeleton stays up. On a warm cache the button can inject in
+ *  well under a frame, and a skeleton that appears and vanishes reads as a
+ *  glitch — worse than no skeleton. Holding it briefly makes the wait look
+ *  deliberate. */
+const MIN_SKELETON_MS = 450;
+
 export const supportEnabled = BUTTON_ID.length > 0;
 
 /** "Buy the developer a coffee".
@@ -22,29 +28,68 @@ export const supportEnabled = BUTTON_ID.length > 0;
 export function SupportModal({ onClose }: { onClose: () => void }) {
   const formRef = useRef<HTMLFormElement>(null);
   const injected = useRef(false);
-  const [blocked, setBlocked] = useState(false);
+  /** Razorpay's script is a third-party fetch plus a render, which routinely
+   *  takes a second or two — long enough that an empty box reads as broken. */
+  const [status, setStatus] = useState<"loading" | "ready" | "blocked">("loading");
 
   useEffect(() => {
     const form = formRef.current;
-    if (!form || injected.current || !BUTTON_ID) return;
-    injected.current = true; // StrictMode runs effects twice in development
+    if (!form || !BUTTON_ID) return;
 
-    const script = document.createElement("script");
-    script.src = SCRIPT_SRC;
-    script.async = true;
-    // setAttribute, not dataset: the attribute name has underscores, and this
-    // leaves no doubt about what lands in the DOM.
-    script.setAttribute("data-payment_button_id", BUTTON_ID);
-    script.onerror = () => setBlocked(true);
-    form.appendChild(script);
+    // Razorpay inserts the button as a sibling of the script tag, so any
+    // non-script child means it has arrived.
+    const arrived = () => !!form.querySelector(":scope > *:not(script)");
 
-    // Razorpay inserts the button as a sibling of the script. Content blockers
-    // routinely block payment hosts, and a silently empty box is worse than
-    // saying so.
-    const timer = setTimeout(() => {
-      if (form.querySelectorAll(":scope > *:not(script)").length === 0) setBlocked(true);
-    }, 6000);
-    return () => clearTimeout(timer);
+    // React StrictMode runs effects twice in development. The guard below stops
+    // the script being injected twice — but the observer and timer must be
+    // re-registered on every pass, because the first pass's cleanup tore them
+    // down. Getting that wrong left nothing watching and the skeleton spun
+    // forever.
+    if (arrived()) {
+      // Already injected — StrictMode's second pass, most likely.
+      setStatus("ready");
+      return;
+    }
+
+    const openedAt = Date.now();
+    let holdTimer: ReturnType<typeof setTimeout> | undefined;
+    /** Flip to ready, but never sooner than MIN_SKELETON_MS after opening. */
+    const showButton = () => {
+      const elapsed = Date.now() - openedAt;
+      if (elapsed >= MIN_SKELETON_MS) setStatus("ready");
+      else holdTimer = setTimeout(() => setStatus("ready"), MIN_SKELETON_MS - elapsed);
+    };
+
+    const observer = new MutationObserver(() => {
+      if (arrived()) {
+        showButton();
+        observer.disconnect();
+      }
+    });
+    observer.observe(form, { childList: true, subtree: true });
+
+    if (!injected.current) {
+      injected.current = true;
+      const script = document.createElement("script");
+      script.src = SCRIPT_SRC;
+      script.async = true;
+      // setAttribute, not dataset: the attribute name has underscores, and this
+      // leaves no doubt about what lands in the DOM.
+      script.setAttribute("data-payment_button_id", BUTTON_ID);
+      script.onerror = () => setStatus("blocked");
+      form.appendChild(script);
+    }
+
+    // Last word on the outcome: whatever the observer did or didn't see, decide
+    // from the DOM. Content blockers routinely block payment hosts, and the form
+    // must never be left hidden behind a skeleton that never resolves.
+    const timer = setTimeout(() => setStatus(arrived() ? "ready" : "blocked"), 8000);
+
+    return () => {
+      clearTimeout(timer);
+      clearTimeout(holdTimer);
+      observer.disconnect();
+    };
   }, []);
 
   useEffect(() => {
@@ -84,11 +129,25 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
           </button>
         </div>
 
-        <div className="mt-4 flex min-h-[3rem] items-center justify-center">
-          {/* Razorpay renders its button inside this form. */}
-          <form ref={formRef} />
-          {blocked ? (
-            <p className="text-center text-[0.8125rem] text-zinc-500">
+        <div className="relative mt-6 flex min-h-[3.25rem] items-center justify-center">
+          {/* Razorpay renders its button inside this form. The form is never
+              hidden: the skeleton sits *behind* it, so if detection ever misses
+              the injection the button is still visible rather than invisible. */}
+          <form ref={formRef} className="relative z-10" />
+
+          {status === "loading" ? (
+            <div aria-hidden className="absolute inset-0 z-0 flex items-center justify-center">
+              <span className="byok-shimmer h-11 w-48 rounded-full" />
+            </div>
+          ) : null}
+          {status === "loading" ? (
+            <span className="sr-only" role="status">
+              Loading the payment button…
+            </span>
+          ) : null}
+
+          {status === "blocked" ? (
+            <p className="text-center text-[0.8125rem] leading-[1.5] text-zinc-500">
               The payment button couldn&apos;t load — a content blocker or extension is likely
               blocking <span className="font-mono">checkout.razorpay.com</span>. Allow it and
               reopen this, or reach out directly.

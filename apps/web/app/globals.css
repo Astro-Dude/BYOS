@@ -316,15 +316,14 @@
     }
   }
   .byok-shimmer {
-    /* Skeletons read as mist warming through to fog — no colour, no glow. */
-    background-image: linear-gradient(
-      90deg,
-      #f2f2f3 25%,
-      #fafafb 50%,
-      #f2f2f3 75%
-    );
+    /* Mist ground with a *darker* sweep. The first pass ran mist → fog, but both
+       sit within a few percent of white, so on a paper surface the skeleton was
+       effectively invisible — it only read on the old dark theme. Going down in
+       value instead of up keeps it achromatic and actually visible. */
+    background-color: #f2f2f3;
+    background-image: linear-gradient(90deg, #f2f2f3 20%, #e2e2e5 50%, #f2f2f3 80%);
     background-size: 200% 100%;
-    animation: byok-shimmer 1.6s ease-in-out infinite;
+    animation: byok-shimmer 1.5s ease-in-out infinite;
   }
 
   /* Working indicator: three dots that swell and fade in sequence, plus a gentle

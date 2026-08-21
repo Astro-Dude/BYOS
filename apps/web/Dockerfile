@@ -18,10 +18,14 @@ CMD ["pnpm", "--filter", "@byos/web", "dev"]
 
 # ── Build: Next standalone output ─────────────────────────────────────────────
 FROM base AS build
-# NEXT_PUBLIC_* is inlined into the client bundle at build time, so the API URL
-# must be present here. Render passes service env vars as build args.
+# NEXT_PUBLIC_* is inlined into the client bundle at build time, so every one of
+# them must be declared here — a var Render provides but this stage doesn't ARG
+# is simply absent during `next build`, and the feature silently compiles out.
+# Render passes service env vars as build args.
 ARG NEXT_PUBLIC_API_URL
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ARG NEXT_PUBLIC_RAZORPAY_BUTTON_ID
+ENV NEXT_PUBLIC_RAZORPAY_BUTTON_ID=${NEXT_PUBLIC_RAZORPAY_BUTTON_ID}
 COPY . .
 RUN pnpm install --frozen-lockfile || pnpm install
 RUN pnpm --filter @byos/web build
