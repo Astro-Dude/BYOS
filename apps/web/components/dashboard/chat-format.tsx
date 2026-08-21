@@ -4,6 +4,8 @@ import { ChevronRight } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import { Working } from "@/components/byok/working";
+
 // Split streamed content into the model's inline reasoning (<think>/<thought>)
 // and the actual answer. `thinking` is true while the thought is still open
 // (mid-stream) — shown live, then collapsed once the answer starts.
@@ -24,6 +26,68 @@ export function splitThought(content: string): {
   return { thought: "", answer: content, thinking: false };
 }
 
+/* ── Highlighting the direct answer ────────────────────────────────────────
+ * Models are asked to wrap the one value the question was actually about in
+ * `==double equals==`. We turn that into a <mark> so the figure pops out of the
+ * surrounding explanation instead of being buried in a sentence.
+ *
+ * Done as a remark plugin over the mdast rather than a regex over the raw string,
+ * so `==` inside code spans and fenced blocks is left alone (those are `inlineCode`
+ * / `code` nodes, never `text`). `data.hName` renames the output element, which
+ * is why no rehype-raw / extra dependency is needed. */
+type MdNode = {
+  type: string;
+  value?: string;
+  children?: MdNode[];
+  data?: Record<string, unknown>;
+};
+
+const MARK_RE = /==([^=\n]+)==/g;
+
+/** Split one text node into text / <mark> / text pieces, or null if it has none. */
+function splitMarks(node: MdNode): MdNode[] | null {
+  const value = node.value;
+  if (node.type !== "text" || !value || !value.includes("==")) return null;
+  const out: MdNode[] = [];
+  let last = 0;
+  for (const m of value.matchAll(MARK_RE)) {
+    const at = m.index ?? 0;
+    if (at > last) out.push({ type: "text", value: value.slice(last, at) });
+    out.push({
+      // Any inline container will do — hName is what decides the tag.
+      type: "emphasis",
+      data: { hName: "mark" },
+      children: [{ type: "text", value: m[1] ?? "" }],
+    });
+    last = at + m[0].length;
+  }
+  if (!out.length) return null;
+  if (last < value.length) out.push({ type: "text", value: value.slice(last) });
+  return out;
+}
+
+function walk(node: MdNode): void {
+  if (!node.children) return;
+  const next: MdNode[] = [];
+  for (const child of node.children) {
+    const parts = splitMarks(child);
+    if (parts) {
+      next.push(...parts);
+    } else {
+      walk(child);
+      next.push(child);
+    }
+  }
+  node.children = next;
+}
+
+function remarkHighlight() {
+  return (tree: MdNode) => walk(tree);
+}
+
+/** Remark plugins every assistant bubble renders with. */
+export const MD_PLUGINS = [remarkGfm, remarkHighlight];
+
 // Compact markdown styling for assistant bubbles (no typography plugin needed).
 export const MD_CLASS =
   "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 " +
@@ -32,7 +96,11 @@ export const MD_CLASS =
   "[&_h2]:font-semibold [&_h3]:my-1 [&_h3]:text-base [&_h3]:font-semibold [&_strong]:font-semibold " +
   "[&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:text-[0.85em] dark:[&_code]:bg-white/10 " +
   "[&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-black/10 [&_pre]:p-2 " +
-  "dark:[&_pre]:bg-white/10";
+  "dark:[&_pre]:bg-white/10 " +
+  // The highlighted answer. Amber on purpose: the app's own accents are indigo
+  // and teal, so a marked value can't be mistaken for a link or a button.
+  "[&_mark]:rounded [&_mark]:bg-amber-300/60 [&_mark]:px-1 [&_mark]:py-px [&_mark]:font-semibold " +
+  "[&_mark]:text-zinc-900 dark:[&_mark]:bg-amber-400/25 dark:[&_mark]:text-amber-50";
 
 /** An assistant message: collapsible "Thinking…" block + streamed markdown. */
 export function AssistantBubble({
@@ -61,7 +129,7 @@ export function AssistantBubble({
             <ChevronRight
               className={`h-3 w-3 transition-transform ${showThought ? "rotate-90" : ""}`}
             />
-            {thinking ? "Thinking…" : "Thoughts"}
+            {thinking ? <Working /> : "Thoughts"}
           </button>
           {showThought ? (
             <div className="mt-1 whitespace-pre-wrap border-l-2 border-zinc-200 pl-2 text-xs text-zinc-400 dark:border-zinc-700">
@@ -72,10 +140,10 @@ export function AssistantBubble({
       ) : null}
       {answer ? (
         <div className={MD_CLASS}>
-          <ReactMarkdown remarkPlugins={[remarkGfm]}>{answer}</ReactMarkdown>
+          <ReactMarkdown remarkPlugins={MD_PLUGINS}>{answer}</ReactMarkdown>
         </div>
       ) : !thought && busy ? (
-        "…"
+        <Working />
       ) : null}
     </div>
   );

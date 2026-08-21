@@ -60,10 +60,11 @@ body {
   animation: byok-fade-up 1s ease-out 0.5s both;
 }
 
-/* Thin, theme-matched scrollbars for the BYOK dark surfaces. */
+/* Theme-matched scrollbars, defined light-first then inverted under .dark. (The
+   previous single white value was invisible on light backgrounds.) */
 .thin-scroll {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+  scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
 }
 .thin-scroll::-webkit-scrollbar {
   width: 6px;
@@ -73,11 +74,50 @@ body {
   background: transparent;
 }
 .thin-scroll::-webkit-scrollbar-thumb {
-  background-color: rgba(255, 255, 255, 0.16);
+  background-color: rgba(0, 0, 0, 0.18);
   border-radius: 9999px;
 }
 .thin-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.32);
+}
+.dark .thin-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.16) transparent;
+}
+.dark .thin-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.16);
+}
+.dark .thin-scroll::-webkit-scrollbar-thumb:hover {
   background-color: rgba(255, 255, 255, 0.3);
+}
+
+/* Hairline variant for the chat composer: present enough to show there's more
+   text, quiet enough not to read as a UI element. */
+.hair-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+}
+.hair-scroll::-webkit-scrollbar {
+  width: 3px;
+  height: 3px;
+}
+.hair-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.hair-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(0, 0, 0, 0.16);
+  border-radius: 9999px;
+}
+.hair-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(0, 0, 0, 0.3);
+}
+.dark .hair-scroll {
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+.dark .hair-scroll::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, 0.18);
+}
+.dark .hair-scroll::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, 0.34);
 }
 
 /* Shimmer sweep for skeleton loaders (BYOK dark surfaces). */
@@ -98,4 +138,82 @@ body {
   );
   background-size: 200% 100%;
   animation: byok-shimmer 1.3s ease-in-out infinite;
+}
+
+/* Working indicator: three dots that swell and fade in sequence, plus a gentle
+   shimmer on the label so a long tool-calling turn still looks alive. */
+@keyframes byok-dot {
+  0%,
+  80%,
+  100% {
+    opacity: 0.2;
+    transform: translateY(0) scale(0.85);
+  }
+  40% {
+    opacity: 1;
+    transform: translateY(-2px) scale(1);
+  }
+}
+.byok-dot {
+  animation: byok-dot 1.25s ease-in-out infinite;
+}
+@keyframes byok-word {
+  0%,
+  100% {
+    opacity: 0.62;
+  }
+  50% {
+    opacity: 1;
+  }
+}
+.byok-word {
+  animation: byok-word 2.1s ease-in-out infinite;
+}
+
+/* ── Support FAB ───────────────────────────────────────────────────────────
+   Two wisps of steam that rise and fade, offset in time so they drift rather
+   than pulse in unison. */
+@keyframes byok-steam {
+  0% {
+    opacity: 0;
+    transform: translateY(2px) scaleY(0.6);
+  }
+  35% {
+    opacity: 0.9;
+  }
+  100% {
+    opacity: 0;
+    transform: translateY(-7px) scaleY(1.15);
+  }
+}
+.byok-steam {
+  animation: byok-steam 1.6s ease-out infinite;
+}
+
+/* A slow halo so the button reads as inviting rather than urgent. Sits behind
+   the button and only breathes while idle. */
+@keyframes byok-halo {
+  0%,
+  100% {
+    opacity: 0.3;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.68;
+    transform: scale(1.2);
+  }
+}
+.byok-halo {
+  animation: byok-halo 3.4s ease-in-out infinite;
+}
+
+/* Decorative loops only — the expand transition still runs. */
+@media (prefers-reduced-motion: reduce) {
+  .byok-steam,
+  .byok-halo,
+  .byok-dot,
+  .byok-word,
+  .byok-shimmer {
+    animation: none;
+  }
 }

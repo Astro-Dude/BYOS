@@ -18,3 +18,15 @@ export function truncateMiddle(name: string, max = 42): string {
   const tail = Math.max(0, keep - head);
   return `${stem.slice(0, head)}…${tail ? stem.slice(-tail) : ""}${ext}`;
 }
+
+/** Source URL for an embedded document preview.
+ *
+ *  Chrome and Edge wrap a PDF in their own grey toolbar (page controls, zoom,
+ *  download, print), which reads as browser chrome sitting inside our own modal.
+ *  These PDF Open Parameters hide it; `FitH` then fits the page to the container,
+ *  since without the toolbar there's no zoom control left. Viewers that don't
+ *  understand the fragment ignore it, and non-PDFs are returned untouched.
+ */
+export function docPreviewUrl(url: string, isPdf: boolean): string {
+  return isPdf ? `${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : url;
+}

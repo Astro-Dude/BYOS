@@ -100,6 +100,7 @@ export function AccountMenu({ onSettings }: { onSettings: () => void }) {
           {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
         </div>
       </button>
+
     </div>
   );
 }

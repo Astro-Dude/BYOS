@@ -39,6 +39,10 @@ class NoStorageConnected(Exception):
     pass
 
 
+class TargetFolderNotFound(Exception):
+    """A move's destination folder doesn't exist or isn't this user's."""
+
+
 async def get_owned_file(db: AsyncSession, user: User, file_id: uuid.UUID) -> File:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
@@ -138,29 +142,44 @@ async def search_files(
     ext: str | None = None,
     mime: str | None = None,
     folder_id: uuid.UUID | None = None,
+    tag: str | None = None,
+    favorite: bool | None = None,
     limit: int = 50,
 ) -> list[File]:
     """Full-text (search_vector) OR substring (pg_trgm-backed ILIKE) match on a
-    user's files, ranked by ts_rank then recency, with optional filters."""
+    user's files, ranked by ts_rank then recency, with optional filters.
+
+    An empty `query` skips text matching entirely and just lists the user's files
+    under whatever filters are given, newest first — ts_rank has nothing to rank
+    by without search terms."""
     stmt = select(File).where(File.owner_id == user.id)
-    stmt = stmt.where(
-        text(
-            "(search_vector @@ websearch_to_tsquery('english', :q) OR name ILIKE :like)"
-        ).bindparams(q=query, like=f"%{query}%")
-    )
+    terms = query.strip()
+    if terms:
+        stmt = stmt.where(
+            text(
+                "(search_vector @@ websearch_to_tsquery('english', :q) OR name ILIKE :like)"
+            ).bindparams(q=terms, like=f"%{terms}%")
+        )
     if ext:
         stmt = stmt.where(File.ext == ext.lower())
     if mime:
         stmt = stmt.where(File.mime.ilike(f"{mime}%"))
     if folder_id is not None:
         stmt = stmt.where(File.folder_id == folder_id)
-    stmt = stmt.order_by(
-        text(
-            "ts_rank(search_vector, websearch_to_tsquery('english', :rank_q)) DESC"
-        ).bindparams(rank_q=query),
-        File.created_at.desc(),
-    ).limit(limit)
-    result = await db.execute(stmt)
+    if favorite is not None:
+        stmt = stmt.where(File.is_favorite == favorite)
+    if tag:
+        stmt = stmt.where(File.tags.any(Tag.name == tag.strip().lower()))
+    if terms:
+        stmt = stmt.order_by(
+            text(
+                "ts_rank(search_vector, websearch_to_tsquery('english', :rank_q)) DESC"
+            ).bindparams(rank_q=terms),
+            File.created_at.desc(),
+        )
+    else:
+        stmt = stmt.order_by(File.created_at.desc())
+    result = await db.execute(stmt.limit(limit))
     return list(result.scalars())
 
 
@@ -320,6 +339,70 @@ async def verify_missing(db: AsyncSession, user: User) -> dict[str, int]:
             record.missing_at = None  # came back
     await db.commit()
     return {"checked": checked, "missing": missing}
+
+
+async def rename_file(db: AsyncSession, user: User, file_id: uuid.UUID, name: str) -> File:
+    """Rename a file, keeping `ext` in sync with the new display name. Raises
+    FileNotFound, or ValueError on an empty name."""
+    record = await get_owned_file(db, user, file_id)
+    name = name.strip()
+    if not name:
+        raise ValueError("Name cannot be empty")
+    record.name = name
+    if "." in name:
+        record.ext = name.rpartition(".")[2].lower()
+    await db.commit()
+    await db.refresh(record)
+    return record
+
+
+async def move_file(
+    db: AsyncSession, user: User, file_id: uuid.UUID, folder_id: uuid.UUID | None
+) -> File:
+    """Move a file to a folder (None = drive root). Raises FileNotFound, or
+    TargetFolderNotFound if the destination isn't the user's."""
+    record = await get_owned_file(db, user, file_id)
+    if folder_id is not None:
+        folder = await db.get(Folder, folder_id)
+        if folder is None or folder.owner_id != user.id:
+            raise TargetFolderNotFound
+    record.folder_id = folder_id
+    await db.commit()
+    await db.refresh(record)
+    return record
+
+
+async def delete_file_bytes(db: AsyncSession, user: User, record: File) -> None:
+    """Remove a file's stored objects from its provider. Raises on provider
+    failure — callers must NOT drop the metadata while the remote objects may
+    still exist, so the delete stays retryable. (Deleting an already-gone
+    message is a no-op, so retrying is safe.)"""
+    account = await account_for_file(db, user, record)
+    if account is None:
+        return
+    provider = get_provider(record.provider)
+    versions = (
+        await db.execute(select(FileVersion).where(FileVersion.file_id == record.id))
+    ).scalars().all()
+    for version in versions:
+        await provider.delete(
+            account,
+            StoredObjectRef(
+                provider=record.provider,
+                locator=version.provider_locator,
+                size=version.size,
+            ),
+        )
+
+
+async def delete_file_record(db: AsyncSession, user: User, record: File) -> None:
+    """Delete a file for good: provider bytes first, then metadata. Propagates a
+    provider error rather than orphaning bytes (see `delete_file_bytes`)."""
+    await delete_file_bytes(db, user, record)
+    record.current_version_id = None
+    await db.flush()
+    await db.delete(record)  # cascades to file_versions
+    await db.commit()
 
 
 async def set_favorite(db: AsyncSession, user: User, file_id: uuid.UUID, favorite: bool) -> File:

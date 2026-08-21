@@ -48,20 +48,13 @@ def _rank(query_vec: list[float], rows: list[AiFileChunk], k: int) -> list[AiFil
     return [rows[i] for i in top]
 
 
-async def ensure_embedded(
-    db: AsyncSession,
-    user: User,
-    file_id: uuid.UUID,
-    version_id: uuid.UUID,
-    full_text: str,
-    key: AiKey,
+async def is_embedded(
+    db: AsyncSession, file_id: uuid.UUID, version_id: uuid.UUID, model: str
 ) -> bool:
-    """Embed + cache this file's chunks for (version, model) if not already
-    present. Returns True if semantic data is available afterwards."""
-    model = key.embedding_model
-    if not model:
-        return False
-    fresh = (
+    """Whether this file already has chunks for (version, model). Cheap enough to
+    check before extracting, which is the point: re-indexing used to download and
+    re-transcribe a file just to discover it was already done."""
+    row = (
         await db.execute(
             select(AiFileChunk.id)
             .where(
@@ -72,7 +65,27 @@ async def ensure_embedded(
             .limit(1)
         )
     ).first()
-    if fresh:
+    return row is not None
+
+
+async def ensure_embedded(
+    db: AsyncSession,
+    user: User,
+    file_id: uuid.UUID,
+    version_id: uuid.UUID,
+    full_text: str,
+    key: AiKey,
+    *,
+    force: bool = False,
+) -> bool:
+    """Embed + cache this file's chunks for (version, model) if not already
+    present. Returns True if semantic data is available afterwards. `force`
+    re-embeds even when current chunks exist (the stale-chunk delete below then
+    replaces them)."""
+    model = key.embedding_model
+    if not model:
+        return False
+    if not force and await is_embedded(db, file_id, version_id, model):
         return True
     # Clear any stale chunks (old version / this model) before re-embedding.
     await db.execute(
@@ -101,7 +114,7 @@ async def ensure_embedded(
     return True
 
 
-async def _embed_query(key: AiKey, query: str) -> list[float]:
+async def embed_query(key: AiKey, query: str) -> list[float]:
     api_key = crypto.decrypt(key.encrypted_api_key)
     return (await llm.embed(key.base_url, api_key, key.embedding_model or "", [query]))[0]
 
@@ -126,7 +139,7 @@ async def semantic_chunks(
     )
     if not rows:
         return []
-    query_vec = await _embed_query(key, query)
+    query_vec = await embed_query(key, query)
     ranked = _rank(query_vec, rows, k)
     await _touch(db, {file_id})
     ranked.sort(key=lambda r: r.chunk_index)  # keep reading order

@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
+from byos_api.ai import llm as ai_llm
 from byos_api.ai.router import router as ai_router
 from byos_api.aliases.router import public_api_router as alias_public_api_router
 from byos_api.aliases.router import public_router as alias_public_router
@@ -72,6 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         with contextlib.suppress(asyncio.CancelledError):
             await cleanup
         await shutdown_providers()
+        await ai_llm.aclose()  # release the pooled model-endpoint connections
 
 
 def create_app() -> FastAPI:

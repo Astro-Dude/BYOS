@@ -1,10 +1,11 @@
 "use client";
 
 import { type AiKey, ApiError, type AiPrompt, type FileItem } from "@byos/api-client";
-import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import { KeyRound, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { KeyForm } from "@/components/byok/key-form";
 import { AssistantBubble } from "@/components/dashboard/chat-format";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
@@ -160,18 +161,37 @@ export function AiPanel({ file }: { file: FileItem }) {
     );
   }
 
+  // No key yet: set one up right here rather than sending the user away and
+  // making them find their way back to this document.
   if (keys.length === 0) {
     return (
-      <div className="flex w-full flex-col items-center justify-center gap-2 p-6 text-center sm:w-96">
-        <Sparkles className="h-7 w-7 text-indigo-400" />
-        <p className="text-sm font-medium text-zinc-800 dark:text-zinc-200">Bring your own key</p>
-        <p className="text-sm text-zinc-500">
-          Add a key in{" "}
-          <Link href="/byok" className="font-medium text-indigo-600 dark:text-indigo-400">
-            BYOK
-          </Link>{" "}
-          to summarize and chat with this document — using your own model.
-        </p>
+      <div className="flex min-h-0 w-full flex-col border-t border-zinc-200 dark:border-zinc-800 sm:w-96 sm:border-l sm:border-t-0">
+        <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5 dark:border-zinc-800">
+          <KeyRound className="h-4 w-4 text-indigo-500" />
+          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            Bring your own key
+          </span>
+        </div>
+        <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-4">
+          <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+            Add any OpenAI-compatible key to summarize and chat with this document using your own
+            model. It&apos;s encrypted and only used for your requests. You can manage keys later
+            in{" "}
+            <Link href="/byok" className="font-medium text-indigo-600 dark:text-indigo-400">
+              BYOK
+            </Link>
+            .
+          </p>
+          <KeyForm
+            existing={null}
+            submitLabel="Save & use"
+            onSaved={(saved) => {
+              // Select it straight away so the panel is usable without a reload.
+              setKeys([saved]);
+              onKey(saved.id);
+            }}
+          />
+        </div>
       </div>
     );
   }

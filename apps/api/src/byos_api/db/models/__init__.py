@@ -1,3 +1,4 @@
+from byos_api.db.models.ai_action_plan import AiActionPlan
 from byos_api.db.models.ai_chat_message import AiChatMessage
 from byos_api.db.models.ai_conversation import AiConversation
 from byos_api.db.models.ai_file_chunk import AiFileChunk
@@ -16,6 +17,7 @@ from byos_api.db.models.user import User
 from byos_api.db.models.webhook import Webhook
 
 __all__ = [
+    "AiActionPlan",
     "AiChatMessage",
     "AiConversation",
     "AiFileChunk",

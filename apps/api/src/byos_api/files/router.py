@@ -358,33 +358,12 @@ async def delete_file(
     if record is None or record.owner_id != user.id:
         return  # idempotent: nothing to delete for this user
 
-    account = await service.account_for_file(db, user, record)
-    versions = list(
-        (await db.execute(select(FileVersion).where(FileVersion.file_id == record.id))).scalars()
-    )
-    if account is not None:
-        provider = get_provider(record.provider)
-        try:
-            for version in versions:
-                await provider.delete(
-                    account,
-                    StoredObjectRef(
-                        provider=record.provider,
-                        locator=version.provider_locator,
-                        size=version.size,
-                    ),
-                )
-        except FloodWaitError as exc:
-            raise _flood(exc) from exc
-        # Any other provider error propagates (500): we do NOT drop the metadata
-        # while the remote object may still exist, so the delete can be retried.
-        # (Deleting an already-gone message is a no-op, so this path is safe.)
-
-    payload = _file_event_payload(record)
-    record.current_version_id = None
-    await db.flush()
-    await db.delete(record)  # cascades to file_versions
-    await db.commit()
+    payload = _file_event_payload(record)  # snapshot before the row goes away
+    try:
+        await service.delete_file_record(db, user, record)
+    except FloodWaitError as exc:
+        raise _flood(exc) from exc
+    # Any other provider error propagates (500) rather than orphaning bytes.
     dispatcher.emit(user.id, "file.deleted", payload)
     await audit.record(
         user.id, "file.delete", request=request, target_type="file", target_id=str(file_id)
@@ -562,18 +541,12 @@ async def download_version(
 async def rename_file(
     file_id: uuid.UUID, payload: RenameRequest, user: CurrentUser, db: DbDep
 ) -> FileOut:
-    record = await db.get(File, file_id)
-    if record is None or record.owner_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
-    name = payload.name.strip()
-    if not name:
-        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Name cannot be empty")
-    record.name = name
-    # Keep ext in sync with the (possibly new) extension in the display name.
-    if "." in name:
-        record.ext = name.rpartition(".")[2].lower()
-    await db.commit()
-    await db.refresh(record)
+    try:
+        record = await service.rename_file(db, user, file_id, payload.name)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    except ValueError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     return FileOut.model_validate(record)
 
 
@@ -581,16 +554,12 @@ async def rename_file(
 async def move_file(
     file_id: uuid.UUID, payload: MoveRequest, user: CurrentUser, db: DbDep
 ) -> FileOut:
-    record = await db.get(File, file_id)
-    if record is None or record.owner_id != user.id:
-        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found")
-    if payload.folder_id is not None:
-        folder = await db.get(Folder, payload.folder_id)
-        if folder is None or folder.owner_id != user.id:
-            raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found")
-    record.folder_id = payload.folder_id
-    await db.commit()
-    await db.refresh(record)
+    try:
+        record = await service.move_file(db, user, file_id, payload.folder_id)
+    except service.FileNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
+    except service.TargetFolderNotFound:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Folder not found") from None
     return FileOut.model_validate(record)
 
 

@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { useIndexing } from "@/lib/indexing";
 
 type Crumb = { id: string; name: string };
 
@@ -13,6 +14,9 @@ type Crumb = { id: string; name: string };
  *  folders to check individual files. Requires a key with an embedding model. */
 export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEmbedding: boolean }) {
   const authed = useAuthed();
+  // The run itself lives in IndexingProvider, above this modal — closing the
+  // modal used to tear the stream down mid-index.
+  const indexing = useIndexing();
   const [folders, setFolders] = useState<FolderItem[]>([]);
   const [files, setFiles] = useState<FileItem[]>([]);
   const [cwd, setCwd] = useState<string | null>(null);
@@ -21,9 +25,8 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
   const [all, setAll] = useState(true);
   const [folderSel, setFolderSel] = useState<Set<string>>(new Set());
   const [fileSel, setFileSel] = useState<Set<string>>(new Set());
-  const [busy, setBusy] = useState(false);
-  const [progress, setProgress] = useState<{ done: number; total: number } | null>(null);
   const [status, setStatus] = useState<string | null>(null);
+  const [clearing, setClearing] = useState(false);
   const [indexedIds, setIndexedIds] = useState<Set<string>>(new Set());
   const [total, setTotal] = useState(0);
   const [statusReady, setStatusReady] = useState(false);
@@ -91,56 +94,61 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
     apply(n);
   };
 
-  const run = async (override?: { all?: boolean }) => {
-    const useAll = override?.all ?? all;
-    setBusy(true);
+  const run = (override?: { all?: boolean; remaining?: boolean }) => {
     setStatus(null);
-    setProgress(null);
-    try {
-      await authed((t) =>
-        api.indexDrive(
-          t,
-          {
-            keyId,
-            all: useAll,
-            folderIds: useAll ? [] : [...folderSel],
-            fileIds: useAll ? [] : [...fileSel],
-          },
-          (line) => {
-            for (const raw of line.split("\n")) {
-              const s = raw.trim();
-              if (!s) continue;
-              if (s.startsWith("error:")) {
-                setStatus(s.slice(6).trim());
-                continue;
-              }
-              const m = s.match(/^(\d+)\/(\d+)/);
-              if (m) setProgress({ done: Number(m[1]), total: Number(m[2]) });
-            }
-          },
-        ),
-      );
-      setStatus("Indexing complete.");
-      setFileSel(new Set());
-      setFolderSel(new Set());
-      refreshStatus();
-    } catch (err) {
-      setStatus(err instanceof ApiError ? err.detail : "Indexing failed");
-    } finally {
-      setBusy(false);
+    if (override?.remaining) {
+      // Filtered server-side: the panel only knows the files in the folder it's
+      // browsing, but "index remaining" is a drive-wide action.
+      indexing.start({ keyId, all: true, remaining: true });
+      return;
     }
+    const useAll = override?.all ?? all;
+    indexing.start({
+      keyId,
+      all: useAll,
+      folderIds: useAll ? [] : [...folderSel],
+      fileIds: useAll ? [] : [...fileSel],
+    });
   };
 
-  const unindexFiles = async (ids: string[]) => {
-    await authed((t) => api.unindex(t, { fileIds: ids }));
+  // A run that ended (here or after the modal was closed) means the embedded set
+  // changed, so pull fresh status and drop the now-stale selection.
+  useEffect(() => {
+    if (!indexing.finishedAt) return;
+    setFileSel(new Set());
+    setFolderSel(new Set());
     refreshStatus();
+  }, [indexing.finishedAt, refreshStatus]);
+
+  const unindexFiles = async (ids: string[]) => {
+    setStatus(null);
+    try {
+      await authed((t) => api.unindex(t, { fileIds: ids }));
+    } catch {
+      setStatus("Couldn't remove those embeddings.");
+    } finally {
+      refreshStatus();
+    }
   };
   const clearAll = async () => {
     setConfirmClear(false);
-    await authed((t) => api.unindex(t, { all: true }));
-    refreshStatus();
+    setClearing(true);
+    setStatus(null);
+    try {
+      const { removed } = await authed((t) => api.unindex(t, { all: true }));
+      // Reflect it immediately; refreshStatus then confirms against the server.
+      setIndexedIds(new Set());
+      setStatus(`Cleared ${removed} embedded chunk${removed === 1 ? "" : "s"}.`);
+    } catch {
+      setStatus("Couldn't clear the index — nothing was removed.");
+    } finally {
+      setClearing(false);
+      refreshStatus();
+    }
   };
 
+  const busy = indexing.running;
+  const progress = busy || indexing.finishedAt ? indexing : null;
   const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
   const checkbox = "h-4 w-4 shrink-0 accent-indigo-600";
 
@@ -169,7 +177,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
           </span>
           {total - indexedIds.size > 0 ? (
             <button
-              onClick={() => void run({ all: true })}
+              onClick={() => run({ remaining: true })}
               disabled={busy}
               className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
             >
@@ -312,7 +320,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
           (!all && !folderSel.size && !fileSel.size);
         return (
           <button
-            onClick={() => void run()}
+            onClick={() => run()}
             disabled={disabled}
             className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
           >
@@ -350,23 +358,47 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
       ) : null}
       {status ? <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p> : null}
 
+      {/* A file that couldn't be embedded stays unsearchable, so name it and say
+          why instead of just leaving the "indexed" count short. */}
+      {indexing.skipped.length ? (
+        <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
+          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+            {indexing.skipped.length} file{indexing.skipped.length === 1 ? "" : "s"} skipped
+          </p>
+          <ul className="thin-scroll mt-1 max-h-32 space-y-0.5 overflow-y-auto">
+            {indexing.skipped.map((sk, i) => (
+              <li key={i} className="text-[0.7rem] leading-snug text-zinc-500 dark:text-zinc-400">
+                {sk}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+      {indexing.error ? (
+        <p className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
+          {indexing.error}
+        </p>
+      ) : null}
+
       {/* Free up space — always visible once anything is indexed. */}
       {statusReady && indexedIds.size > 0 ? (
-        <div className="flex items-center justify-between border-t border-zinc-200 pt-3 dark:border-white/10">
-          <span className="text-xs text-zinc-500">
+        // The label wraps and the buttons don't: without min-w-0 on the text and
+        // shrink-0 on the actions, flex squeezes "Confirm clear" onto two lines.
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-white/10">
+          <span className="min-w-0 flex-1 text-xs text-zinc-500">
             Free space by removing embeddings (re-index anytime).
           </span>
           {confirmClear ? (
-            <span className="flex items-center gap-2 text-xs">
+            <span className="flex shrink-0 items-center gap-1.5 text-xs">
               <button
                 onClick={() => void clearAll()}
-                className="flex items-center gap-1 rounded-md bg-red-600 px-2.5 py-1 font-medium text-white hover:bg-red-500"
+                className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-red-600 px-2.5 py-1.5 font-medium text-white transition hover:bg-red-500"
               >
-                <Trash2 className="h-3.5 w-3.5" /> Confirm clear
+                <Trash2 className="h-3.5 w-3.5 shrink-0" /> Confirm
               </button>
               <button
                 onClick={() => setConfirmClear(false)}
-                className="rounded-md px-2 py-1 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                className="whitespace-nowrap rounded-md px-2 py-1.5 text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
               >
                 Cancel
               </button>
@@ -374,9 +406,11 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
           ) : (
             <button
               onClick={() => setConfirmClear(true)}
-              className="flex items-center gap-1.5 rounded-md border border-zinc-200 px-2.5 py-1 text-xs text-zinc-700 transition hover:border-red-400/40 hover:text-red-400 dark:border-white/10 dark:text-zinc-300"
+              disabled={clearing}
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 transition hover:border-red-400/40 hover:text-red-400 disabled:opacity-60 dark:border-white/10 dark:text-zinc-300"
             >
-              <Trash2 className="h-3.5 w-3.5" /> Clear index ({indexedIds.size})
+              <Trash2 className="h-3.5 w-3.5 shrink-0" />
+              {clearing ? "Clearing…" : `Clear index (${indexedIds.size})`}
             </button>
           )}
         </div>

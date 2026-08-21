@@ -61,6 +61,15 @@ class Settings(BaseSettings):
     api_rate_limit: int = 120
     api_rate_window: int = 60
 
+    # AI: vision transcription of content with no text layer — scanned PDF pages
+    # and standalone images, which otherwise extract to nothing and drop out of
+    # search entirely. Runs on the user's own BYOK model at indexing time, so it
+    # is bounded: only pages whose text layer is empty, never more than
+    # `ai_vision_max_pages` of them per file, and it stops at the first refusal
+    # (not every model is multimodal). Set AI_VISION_OCR=false to turn it off.
+    ai_vision_ocr: bool = True
+    ai_vision_max_pages: int = 20
+
     # AI: heuristic auto-tagging of uploads by type. Off by default — the drive's
     # type filter already groups by mime/ext, so a "document"/"image" tag is just
     # noise. Set AUTO_TAGGING=true to re-enable.

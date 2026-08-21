@@ -10,9 +10,8 @@ from collections import defaultdict
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.db.models import File, FileVersion, Folder, User
+from byos_api.db.models import File, Folder, User
 from byos_api.files import service as files_service
-from byos_api.storage import StoredObjectRef, get_provider
 
 logger = logging.getLogger("byos")
 
@@ -223,25 +222,11 @@ async def move_folder(
 
 
 async def _delete_file_bytes(db: AsyncSession, user: User, record: File) -> None:
-    """Best-effort removal of a file's stored objects from the provider. Never
-    raises — a provider hiccup shouldn't block deleting the metadata."""
+    """Best-effort removal of a file's stored objects from the provider. Unlike a
+    single-file delete this never raises — one provider hiccup shouldn't strand a
+    recursive folder delete half-done."""
     try:
-        account = await files_service.account_for_file(db, user, record)
-        if account is None:
-            return
-        provider = get_provider(record.provider)
-        versions = (
-            await db.execute(select(FileVersion).where(FileVersion.file_id == record.id))
-        ).scalars().all()
-        for version in versions:
-            await provider.delete(
-                account,
-                StoredObjectRef(
-                    provider=record.provider,
-                    locator=version.provider_locator,
-                    size=version.size,
-                ),
-            )
+        await files_service.delete_file_bytes(db, user, record)
     except Exception:
         logger.warning("provider cleanup failed for file %s during folder delete", record.id)
 

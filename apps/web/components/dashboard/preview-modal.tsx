@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { AiPanel } from "@/components/dashboard/ai-panel";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { docPreviewUrl } from "@/lib/utils";
 
 type Kind = "image" | "pdf" | "audio" | "video" | "text" | "unsupported";
 
@@ -43,8 +44,9 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
   const [error, setError] = useState<string | null>(null);
   const [aiOpen, setAiOpen] = useState(false);
   const kind = kindOf(file);
-  // AI works on text-readable docs (PDF + text formats).
-  const aiEligible = kind === "pdf" || kind === "text";
+  // AI works on text-readable docs (PDF + text formats) and on images, which the
+  // API transcribes with the user's own vision model.
+  const aiEligible = kind === "pdf" || kind === "text" || kind === "image";
 
   useEffect(() => {
     let objectUrl: string | null = null;
@@ -120,7 +122,11 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt={file.name} className="max-h-full max-w-full object-contain" />
           ) : kind === "pdf" && url ? (
-            <iframe src={url} title={file.name} className="h-[82vh] w-full" />
+            <iframe
+              src={docPreviewUrl(url, true)}
+              title={file.name}
+              className="h-[82vh] w-full"
+            />
           ) : kind === "video" && url ? (
             <video src={url} controls className="max-h-full max-w-full" />
           ) : kind === "audio" && url ? (

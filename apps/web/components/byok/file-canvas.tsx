@@ -7,6 +7,7 @@ import { useEffect, useState } from "react";
 import { type Source } from "@/components/byok/drive-message";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { docPreviewUrl } from "@/lib/utils";
 
 type Kind = "image" | "pdf" | "audio" | "video" | "text" | "unsupported";
 
@@ -99,7 +100,11 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={source.name} className="mx-auto max-w-full rounded-lg" />
         ) : kind === "pdf" && url ? (
-          <iframe src={url} title={source.name} className="h-full w-full rounded-lg bg-white" />
+          <iframe
+            src={docPreviewUrl(url, true)}
+            title={source.name}
+            className="h-full w-full rounded-lg bg-white"
+          />
         ) : kind === "audio" && url ? (
           <audio src={url} controls className="w-full" />
         ) : kind === "video" && url ? (

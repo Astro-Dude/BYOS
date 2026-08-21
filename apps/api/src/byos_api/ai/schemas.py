@@ -5,6 +5,8 @@ from datetime import datetime
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from byos_api.ai.modes import Mode
+
 
 # ── Keys ─────────────────────────────────────────────────────────────────────
 class AiKeyOut(BaseModel):
@@ -20,6 +22,17 @@ class AiKeyOut(BaseModel):
     temperature: float
     max_tokens: int
     top_p: float | None = None
+
+
+class AiKeyRevealed(BaseModel):
+    """The decrypted API key, returned only by the explicit reveal endpoint.
+
+    Deliberately not part of AiKeyOut: keys stay out of list/get responses (and
+    anything that logs or caches them), and revealing one is a single auditable
+    action rather than a side effect of loading the vault.
+    """
+
+    api_key: str
 
 
 class AiKeyIn(BaseModel):
@@ -87,6 +100,13 @@ class IndexRequest(BaseModel):
     all: bool = False
     file_ids: list[uuid.UUID] = Field(default_factory=list)
     folder_ids: list[uuid.UUID] = Field(default_factory=list)
+    # Narrow the selection to files not already embedded for this key's model.
+    # Drive-wide, so "index remaining" can't be scoped to one folder by accident.
+    remaining: bool = False
+    # Re-embed even files already current. Without this, indexing is a cheap
+    # no-op for anything already done — which is what you want by default, and
+    # exactly wrong when you mean "rebuild it".
+    force: bool = False
 
 
 class UnindexRequest(BaseModel):
@@ -131,3 +151,48 @@ class ConversationCreate(BaseModel):
 
 class ConversationRename(BaseModel):
     title: str = Field(min_length=1, max_length=200)
+
+
+# ── Agent: plan → confirm → apply ────────────────────────────────────────────
+class ActionResultOut(BaseModel):
+    ok: bool
+    detail: str
+
+
+class AgentChatRequest(BaseModel):
+    conversation_id: uuid.UUID
+    key_id: uuid.UUID
+    prompt_id: uuid.UUID | None = None
+    message: str = Field(min_length=1, max_length=16000)
+    # How much the model may do unattended. Defaults to the safest option, so an
+    # older client that doesn't send it still gets confirm-everything.
+    mode: Mode = Mode.ASK
+    # Retrieval add-ons, applied when the model searches file contents.
+    strategies: RagStrategies = Field(default_factory=RagStrategies)
+
+
+class ActionOut(BaseModel):
+    """One change in a plan, as shown in the confirmation list. `auto` marks the
+    ones that ran during the turn rather than waiting for a click; `result` is
+    None while an action is still pending."""
+
+    op: str
+    label: str
+    danger: bool = False
+    auto: bool = False
+    result: ActionResultOut | None = None
+
+
+class PlanOut(BaseModel):
+    id: uuid.UUID
+    status: str  # pending | applied | discarded
+    actions: list[ActionOut]
+    created_at: datetime
+
+
+class ApplyResultOut(BaseModel):
+    plan_id: uuid.UUID
+    status: str
+    applied: int
+    failed: int
+    actions: list[ActionOut]

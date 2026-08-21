@@ -241,6 +241,34 @@ export interface AiChatMessage {
   created_at: string;
 }
 
+/** How much the agent may do unattended in one turn. Mirrors the API's Mode. */
+export type AgentMode = "read_only" | "ask" | "auto" | "full";
+
+export interface AgentAction {
+  op: string;
+  label: string;
+  danger: boolean;
+  /** True when this change ran during the turn instead of waiting for a click. */
+  auto: boolean;
+  /** null while the action is still awaiting confirmation. */
+  result: { ok: boolean; detail: string } | null;
+}
+
+export interface AgentPlan {
+  id: string;
+  status: "pending" | "applied" | "discarded";
+  actions: AgentAction[];
+  created_at: string;
+}
+
+export interface AgentApplyResult {
+  plan_id: string;
+  status: string;
+  applied: number;
+  failed: number;
+  actions: AgentAction[];
+}
+
 export interface AiConversation {
   id: string;
   title: string;
@@ -852,6 +880,13 @@ export class ByosClient {
     return this.request<AiKey[]>("/ai/keys", { token });
   }
 
+  /** The decrypted value of one saved key, so the owner can check or copy it.
+   *  Separate from listAiKeys on purpose — keys aren't carried by routine
+   *  responses, and each reveal is recorded in the audit log. */
+  revealAiKey(token: string, id: string): Promise<{ api_key: string }> {
+    return this.request<{ api_key: string }>(`/ai/keys/${id}/reveal`, { token });
+  }
+
   createAiKey(token: string, input: AiKeyInput): Promise<AiKey> {
     return this.request<AiKey>("/ai/keys", { method: "POST", token, body: JSON.stringify(input) });
   }
@@ -929,12 +964,14 @@ export class ByosClient {
     token: string,
     body: unknown,
     onToken: (chunk: string) => void,
+    signal?: AbortSignal,
   ): Promise<string> {
     const res = await fetch(`${this.baseUrl}${path}`, {
       method: "POST",
       credentials: "include",
       headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
       body: JSON.stringify(body),
+      signal,
     });
     if (!res.ok) throw await this.errorFrom(res);
     if (!res.body) throw new ApiError(0, "No response stream");
@@ -997,11 +1034,23 @@ export class ByosClient {
     );
   }
 
-  /** Index files for drive-wide RAG; streams "done/total name" progress lines. */
+  /** Index files for drive-wide RAG; streams "done/total name" progress lines.
+   *  Pass `signal` to cancel — the server stops embedding once the client
+   *  disconnects, so aborting really does end the run. */
   indexDrive(
     token: string,
-    args: { keyId: string; all?: boolean; fileIds?: string[]; folderIds?: string[] },
+    args: {
+      keyId: string;
+      all?: boolean;
+      fileIds?: string[];
+      folderIds?: string[];
+      /** Skip files already embedded for this key's model (drive-wide). */
+      remaining?: boolean;
+      /** Re-embed even files already current — otherwise those are no-ops. */
+      force?: boolean;
+    },
     onProgress: (line: string) => void,
+    signal?: AbortSignal,
   ): Promise<string> {
     return this.streamText(
       "/ai/index",
@@ -1011,8 +1060,11 @@ export class ByosClient {
         all: args.all ?? false,
         file_ids: args.fileIds ?? [],
         folder_ids: args.folderIds ?? [],
+        remaining: args.remaining ?? false,
+        force: args.force ?? false,
       },
       onProgress,
+      signal,
     );
   }
 
@@ -1033,6 +1085,65 @@ export class ByosClient {
       method: "POST",
       token,
       body: JSON.stringify({ all: args.all ?? false, file_ids: args.fileIds ?? [] }),
+    });
+  }
+
+  /** Run one agent turn. Streams the reply plus control events; any change the
+   *  model wants is returned as a plan to confirm (except in auto/full mode,
+   *  where the reversible ones have already been applied). */
+  agentChatStream(
+    token: string,
+    args: {
+      conversationId: string;
+      keyId: string;
+      promptId?: string | null;
+      message: string;
+      mode: AgentMode;
+      strategies?: RagStrategies;
+    },
+    onToken: (chunk: string) => void,
+  ): Promise<string> {
+    return this.streamText(
+      "/ai/agent/chat",
+      token,
+      {
+        conversation_id: args.conversationId,
+        key_id: args.keyId,
+        prompt_id: args.promptId ?? null,
+        message: args.message,
+        mode: args.mode,
+        strategies: args.strategies ?? {
+          rewrite: false,
+          hyde: false,
+          rerank: false,
+          crag: false,
+        },
+      },
+      onToken,
+    );
+  }
+
+  /** Every plan in a conversation, with its current status. */
+  agentPlans(token: string, conversationId: string): Promise<AgentPlan[]> {
+    return this.request<AgentPlan[]>(
+      `/ai/agent/plans?conversation_id=${encodeURIComponent(conversationId)}`,
+      { token },
+    );
+  }
+
+  /** Execute a confirmed plan. Actions that already ran are not repeated. */
+  applyAgentPlan(token: string, planId: string): Promise<AgentApplyResult> {
+    return this.request<AgentApplyResult>(`/ai/agent/plans/${planId}/apply`, {
+      method: "POST",
+      token,
+    });
+  }
+
+  /** Abandon a pending plan so it can never be applied. */
+  discardAgentPlan(token: string, planId: string): Promise<AgentPlan> {
+    return this.request<AgentPlan>(`/ai/agent/plans/${planId}/discard`, {
+      method: "POST",
+      token,
     });
   }
 

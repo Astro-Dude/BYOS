@@ -153,7 +153,7 @@ async def retrieve(
         embed_text = await _hyde(key, query)
         yield {"kind": "step", "label": "Drafted a hypothetical answer (HyDE)", "detail": ""}
 
-    query_vec = await semantic._embed_query(key, embed_text)
+    query_vec = await semantic.embed_query(key, embed_text)
     hits = await semantic.drive_semantic_chunks(db, user, key, query_vec, k=k)
 
     if strategies.rerank and hits:
@@ -164,7 +164,7 @@ async def retrieve(
         query2 = await _rewrite(key, question)
         yield {"kind": "step", "label": "Retrieval looked weak — retried (CRAG)", "detail": query2}
         hits = await semantic.drive_semantic_chunks(
-            db, user, key, await semantic._embed_query(key, query2), k=k
+            db, user, key, await semantic.embed_query(key, query2), k=k
         )
         if strategies.rerank and hits:
             hits = await _rerank(key, question, hits, k)

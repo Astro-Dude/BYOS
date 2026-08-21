@@ -10,16 +10,42 @@ import {
 import { Loader2, Plus, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
+import ReactMarkdown from "react-markdown";
+
 import { Dropdown } from "@/components/byok/dropdown";
 import { DriveMessage, type Source } from "@/components/byok/drive-message";
+import { type ChatMode, ModeMenu } from "@/components/byok/mode-menu";
+import type { PlanState } from "@/components/byok/plan-card";
 import { FileCanvas } from "@/components/byok/file-canvas";
+import { MD_PLUGINS } from "@/components/dashboard/chat-format";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { useIndexing } from "@/lib/indexing";
 
-type Msg = { role: "user" | "assistant"; content: string };
+/** "system" messages are local notices from a slash command — never sent to the
+ *  model and never persisted, so they don't pollute the conversation's context. */
+type Msg = { role: "user" | "assistant" | "system"; content: string };
+
+/** A slash command runs deterministically against the API — no model call, no
+ *  tokens, no confirmation round-trip. Anything destructive stays in Settings,
+ *  where its confirm step already lives. */
+type Command = {
+  name: string;
+  args?: string;
+  hint: string;
+  run: (rest: string) => Promise<string> | string;
+};
 
 const LAST_KEY = "byos:byok:key";
 const LAST_PROMPT = "byos:byok:prompt";
+const LAST_MODE = "byos:byok:mode";
+
+const MODE_VALUES: ChatMode[] = ["read_only", "ask", "auto", "full"];
+
+// How tall the composer may grow before it starts scrolling instead — about five
+// lines. A textarea won't do this on its own: with rows=1 it keeps a one-line box
+// and scrolls the rest out of sight.
+const COMPOSER_MAX_PX = 128;
 
 const STRATEGY_INFO: { key: keyof RagStrategies; label: string; hint: string }[] = [
   { key: "rewrite", label: "Query rewriting", hint: "Rewrite the question into a better search query" },
@@ -70,6 +96,9 @@ export function DriveChat({
   onActivity: () => void;
 }) {
   const authed = useAuthed();
+  // Shared with the settings panel, so /index drives the same run and the same
+  // progress card.
+  const indexing = useIndexing();
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -83,11 +112,17 @@ export function DriveChat({
     rerank: false,
     crag: false,
   });
+  const [mode, setMode] = useState<ChatMode>("read_only");
+  // Live plan state per plan id, so applying one updates its card without
+  // reloading the conversation (the stream only carries proposal-time state).
+  const [plans, setPlans] = useState<Record<string, PlanState>>({});
   const [addOpen, setAddOpen] = useState(false);
+  const [suggestIdx, setSuggestIdx] = useState(0);
   const [idxStatus, setIdxStatus] = useState<{ indexed: number; total: number } | null>(null);
   const [openFile, setOpenFile] = useState<Source | null>(null);
   const [loadingMsgs, setLoadingMsgs] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const justCreated = useRef<string | null>(null);
 
   useEffect(() => {
@@ -95,6 +130,9 @@ export function DriveChat({
     setKeyId(keys.find((k) => k.id === savedKey)?.id ?? keys[0]?.id ?? "");
     const savedPrompt = localStorage.getItem(LAST_PROMPT);
     setPromptId(prompts.find((p) => p.id === savedPrompt)?.id ?? "");
+    const savedMode = localStorage.getItem(LAST_MODE) as ChatMode | null;
+    // Never restore a permissive mode from a value we don't recognise.
+    if (savedMode && MODE_VALUES.includes(savedMode)) setMode(savedMode);
   }, [keys, prompts]);
 
   // Load history when the active conversation changes — but skip the one we
@@ -113,6 +151,7 @@ export function DriveChat({
       return;
     }
     setLoadingMsgs(true);
+    setPlans({});
     authed((t) => api.getConversationMessages(t, conversationId))
       .then((h) => {
         if (!cancelled) setMessages(h.map((m) => ({ role: m.role, content: m.content })));
@@ -121,6 +160,18 @@ export function DriveChat({
       .finally(() => {
         if (!cancelled) setLoadingMsgs(false);
       });
+    // Plans are stored separately from the transcript: the message only records
+    // what was proposed, the plan row knows whether it was ever applied.
+    authed((t) => api.agentPlans(t, conversationId))
+      .then((rows) => {
+        if (cancelled) return;
+        setPlans(
+          Object.fromEntries(
+            rows.map((r) => [r.id, { planId: r.id, status: r.status, actions: r.actions }]),
+          ),
+        );
+      })
+      .catch(() => undefined);
     return () => {
       cancelled = true;
     };
@@ -130,7 +181,18 @@ export function DriveChat({
     scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight });
   }, [messages]);
 
+  // Match the composer's height to its content. Reset to "auto" first so it can
+  // shrink back down again — after a send, or when lines are deleted.
+  useEffect(() => {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, COMPOSER_MAX_PX)}px`;
+  }, [input]);
+
   // Indexing coverage for the selected model, so users see what the chat can see.
+  // Re-read when a run ends (`finishedAt`) — indexing is what changes this count,
+  // and the pill used to sit at its first value until a reload.
   useEffect(() => {
     const key = keys.find((k) => k.id === keyId);
     if (!key?.embedding_model) {
@@ -148,7 +210,7 @@ export function DriveChat({
     return () => {
       cancelled = true;
     };
-  }, [authed, keyId, keys]);
+  }, [authed, keyId, keys, indexing.finishedAt]);
 
   const appendToLast = (chunk: string) =>
     setMessages((prev) => {
@@ -161,10 +223,15 @@ export function DriveChat({
 
   const send = async () => {
     const q = input.trim();
-    if (!q || busy || !keyId) return;
+    if (!q || busy) return;
     setError(null);
     setInput("");
     setAddOpen(false);
+    // Slash commands run locally — no model call, so no conversation is created
+    // and nothing is persisted. Dispatched before the key check so /help still
+    // works with nothing configured; each command states its own requirements.
+    if (await runCommand(q)) return;
+    if (!keyId) return;
     setMessages((p) => {
       setLiveIdx(p.length + 1); // the assistant placeholder — type this one out
       return [...p, { role: "user", content: q }, { role: "assistant", content: "" }];
@@ -179,9 +246,9 @@ export function DriveChat({
         onActivate(convo); // add to sidebar + mark active (no remount)
       }
       await authed((t) =>
-        api.driveChatStream(
+        api.agentChatStream(
           t,
-          { conversationId: cid, keyId, promptId: promptId || null, message: q, strategies },
+          { conversationId: cid, keyId, promptId: promptId || null, message: q, mode, strategies },
           appendToLast,
         ),
       );
@@ -202,8 +269,90 @@ export function DriveChat({
     setPromptId(id);
     localStorage.setItem(LAST_PROMPT, id);
   };
+  const onMode = (m: ChatMode) => {
+    setMode(m);
+    localStorage.setItem(LAST_MODE, m);
+  };
+  // A plan that changed the drive invalidates the file list the rest of the app
+  // is showing, so treat applying one as activity.
+  const onPlanChange = (next: PlanState) => {
+    setPlans((p) => ({ ...p, [next.planId]: next }));
+    if (next.status === "applied") onActivity();
+  };
+
+  const activeKey = keys.find((k) => k.id === keyId);
+
+  const commands: Command[] = [
+    {
+      name: "/index",
+      args: "[all]",
+      hint: "Embed files that aren't indexed yet — “/index all” rebuilds every file",
+      run: (rest) => {
+        if (!keyId) return "Pick a model first.";
+        if (!activeKey?.embedding_model)
+          return `“${activeKey?.name ?? "This key"}” has no embedding model set — add one in Settings to index.`;
+        if (indexing.running) return "Already indexing — see the progress card.";
+        const everything = rest.trim() === "all";
+        // Plain /index catches up; "all" rebuilds, since a catch-up would skip
+        // everything already current.
+        indexing.start({ keyId, all: true, remaining: !everything, force: everything });
+        return everything
+          ? "Rebuilding the index for every file. Progress is in the corner."
+          : "Indexing whatever's left. Progress is in the corner.";
+      },
+    },
+    {
+      name: "/stop",
+      hint: "Stop the indexing run in progress",
+      run: () => {
+        if (!indexing.running) return "Nothing is indexing right now.";
+        indexing.cancel();
+        return "Stopped. Whatever finished stays indexed — /index picks up the rest.";
+      },
+    },
+    {
+      name: "/help",
+      hint: "List these commands",
+      run: () =>
+        commands.map((c) => `**${c.name}** ${c.args ?? ""} — ${c.hint}`).join("\n\n"),
+    },
+  ];
+
+  const notice = (content: string) => setMessages((p) => [...p, { role: "system", content }]);
+
+  /** Run a slash command. Returns false if the text isn't one. */
+  const runCommand = async (text: string): Promise<boolean> => {
+    if (!text.startsWith("/")) return false;
+    const [word, ...rest] = text.slice(1).split(/\s+/);
+    const cmd = commands.find((c) => c.name === `/${word}`);
+    if (!cmd) {
+      notice(
+        `Unknown command **/${word}**. Try ${commands.map((c) => `**${c.name}**`).join(", ")}.`,
+      );
+      return true;
+    }
+    setMessages((p) => [...p, { role: "user", content: text }]);
+    try {
+      notice(await cmd.run(rest.join(" ")));
+    } catch {
+      notice(`**${cmd.name}** failed — try again.`);
+    }
+    return true;
+  };
+
+  // Suggestions while typing a bare "/word" (not once arguments start).
+  const suggestions =
+    /^\/\S*$/.test(input) && !busy
+      ? commands.filter((c) => c.name.startsWith(input.toLowerCase()))
+      : [];
 
   const activeStrategies = STRATEGY_INFO.filter((s) => strategies[s.key]).length;
+
+  /** Live state for whichever plan this message proposed, if we know it. */
+  const planFor = (content: string): PlanState | null => {
+    const match = /"plan_id":\s*"([0-9a-f-]{36})"/.exec(content);
+    return match?.[1] ? (plans[match[1]] ?? null) : null;
+  };
 
   const composer = (
     <div className="relative w-full">
@@ -243,6 +392,30 @@ export function DriveChat({
         </>
       ) : null}
 
+      {suggestions.length ? (
+        <div className="absolute bottom-14 left-0 right-0 z-20 overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-1 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
+          {suggestions.map((c, i) => (
+            <button
+              key={c.name}
+              type="button"
+              onMouseEnter={() => setSuggestIdx(i)}
+              onClick={() => setInput(c.args ? `${c.name} ` : c.name)}
+              className={`flex w-full items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
+                i === Math.min(suggestIdx, suggestions.length - 1)
+                  ? "bg-indigo-500/10"
+                  : "hover:bg-black/5 dark:hover:bg-white/5"
+              }`}
+            >
+              <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">{c.name}</span>
+              {c.args ? <span className="font-mono text-xs text-zinc-400">{c.args}</span> : null}
+              <span className="min-w-0 flex-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
+                {c.hint}
+              </span>
+            </button>
+          ))}
+        </div>
+      ) : null}
+
       <form
         onSubmit={(e) => {
           e.preventDefault();
@@ -261,18 +434,55 @@ export function DriveChat({
           <Plus className="h-4 w-4" />
         </button>
         <textarea
+          ref={inputRef}
           value={input}
-          onChange={(e) => setInput(e.target.value)}
+          onChange={(e) => {
+            setInput(e.target.value);
+            setSuggestIdx(0);
+          }}
           onKeyDown={(e) => {
+            if (suggestions.length) {
+              // While the command menu is open the arrows and Tab drive it, and
+              // Enter completes rather than sending a half-typed command.
+              if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+                e.preventDefault();
+                setSuggestIdx(
+                  (i) =>
+                    (i + (e.key === "ArrowDown" ? 1 : suggestions.length - 1)) %
+                    suggestions.length,
+                );
+                return;
+              }
+              if (e.key === "Tab" || (e.key === "Enter" && !e.shiftKey)) {
+                const pick = suggestions[Math.min(suggestIdx, suggestions.length - 1)];
+                if (pick && pick.name !== input) {
+                  e.preventDefault();
+                  setInput(pick.args ? `${pick.name} ` : pick.name);
+                  setSuggestIdx(0);
+                  return;
+                }
+              }
+              if (e.key === "Escape") {
+                e.preventDefault();
+                setInput("");
+                return;
+              }
+            }
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();
               void send();
             }
           }}
           rows={1}
-          placeholder="Ask across your drive…"
-          className="max-h-40 min-h-0 flex-1 resize-none bg-transparent px-1 py-1.5 text-sm text-zinc-900 outline-none placeholder:text-zinc-500 dark:text-zinc-100"
+          placeholder={
+            mode === "read_only"
+              ? "Ask across your drive, or / for commands…"
+              : "Ask, tell me what to change, or / for commands…"
+          }
+          className="hair-scroll min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-6 text-zinc-900 outline-none placeholder:text-zinc-500 dark:text-zinc-100"
+          style={{ maxHeight: COMPOSER_MAX_PX }}
         />
+        <ModeMenu value={mode} onChange={onMode} />
         <button
           type="submit"
           disabled={busy || !input.trim() || !keyId}
@@ -298,7 +508,15 @@ export function DriveChat({
           placeholder={keys.length ? "Select model" : "No keys — add one in Settings"}
           className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-900 hover:bg-black/5 dark:text-zinc-100 dark:hover:bg-white/5"
         />
-        {idxStatus ? (
+        {indexing.running ? (
+          <span
+            title="Indexing in progress"
+            className="flex items-center gap-1.5 rounded-full border border-indigo-400/40 px-2 py-0.5 text-xs text-indigo-500 dark:text-indigo-400"
+          >
+            <Loader2 className="h-3 w-3 animate-spin" />
+            indexing {indexing.done}/{indexing.total}
+          </span>
+        ) : idxStatus ? (
           <span
             title="Files embedded for this model — the chat can draw on these"
             className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400"
@@ -320,14 +538,24 @@ export function DriveChat({
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
           <h2 className="mb-6 text-2xl font-medium text-zinc-900 dark:text-zinc-100">What do you want to know?</h2>
           <div className="w-full max-w-2xl">{composer}</div>
-          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-600">Answers are grounded in your indexed files.</p>
+          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-600">
+            {mode === "read_only"
+              ? "Answers are grounded in your indexed files."
+              : "I can organise and tidy your drive — the button sets how much I may do myself."}
+          </p>
         </div>
       ) : (
         <>
           <div ref={scrollRef} className="thin-scroll min-h-0 flex-1 overflow-y-auto">
             <div className="mx-auto max-w-3xl space-y-5 px-4 py-4">
               {messages.map((m, i) =>
-                m.role === "user" ? (
+                m.role === "system" ? (
+                  <div key={i} className="flex justify-center">
+                    <div className="max-w-[85%] rounded-xl border border-zinc-200 bg-black/[0.02] px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                      <ReactMarkdown remarkPlugins={MD_PLUGINS}>{m.content}</ReactMarkdown>
+                    </div>
+                  </div>
+                ) : m.role === "user" ? (
                   <div key={i} className="flex justify-end">
                     <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm text-white">
                       {m.content}
@@ -340,6 +568,8 @@ export function DriveChat({
                       busy={busy}
                       animate={i === liveIdx}
                       onOpenFile={setOpenFile}
+                      planOverride={planFor(m.content)}
+                      onPlanChange={onPlanChange}
                     />
                   </div>
                 ),

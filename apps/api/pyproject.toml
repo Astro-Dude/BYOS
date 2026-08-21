@@ -21,6 +21,10 @@ dependencies = [
     "arq>=0.26",
     "httpx>=0.27",
     "pypdf>=6.14.2",
+    # Renders scanned PDF pages to images for vision transcription (ai.vision).
+    # Both ship manylinux/macos wheels — no system packages needed in the image.
+    "pypdfium2>=4.30",
+    "pillow>=11.0",
     "numpy>=2.5.1",
 ]
 

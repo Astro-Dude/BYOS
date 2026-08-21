@@ -53,3 +53,6 @@ services:
         value: "0.0.0.0"          # Next standalone must bind all interfaces
       - key: NEXT_PUBLIC_API_URL
         sync: false               # set to the byos-api URL, then redeploy (build-time)
+      - key: NEXT_PUBLIC_RAZORPAY_BUTTON_ID
+        sync: false               # optional "Buy me a coffee" button; unset hides it
+                                  # (also build-time — NEXT_PUBLIC_* is inlined)
