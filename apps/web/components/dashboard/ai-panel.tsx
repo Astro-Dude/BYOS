@@ -151,11 +151,11 @@ export function AiPanel({ file }: { file: FileItem }) {
   };
 
   const selectCls =
-    "rounded-md border border-zinc-300 bg-white px-2 py-1 text-xs text-zinc-700 outline-none focus:border-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-200";
+    "rounded-md border border-zinc-200 bg-white px-2 py-1 text-[0.8125rem] text-zinc-700 outline-none focus:border-zinc-900";
 
   if (!ready) {
     return (
-      <div className="flex w-full items-center justify-center p-6 text-sm text-zinc-500 sm:w-96">
+      <div className="flex w-full items-center justify-center p-6 text-[0.9375rem] text-zinc-500 sm:w-96">
         Loading…
       </div>
     );
@@ -165,19 +165,19 @@ export function AiPanel({ file }: { file: FileItem }) {
   // making them find their way back to this document.
   if (keys.length === 0) {
     return (
-      <div className="flex min-h-0 w-full flex-col border-t border-zinc-200 dark:border-zinc-800 sm:w-96 sm:border-l sm:border-t-0">
-        <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5 dark:border-zinc-800">
-          <KeyRound className="h-4 w-4 text-indigo-500" />
-          <span className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+      <div className="flex min-h-0 w-full flex-col border-t border-zinc-200 sm:w-96 sm:border-l sm:border-t-0">
+        <div className="flex items-center gap-2 border-b border-zinc-100 px-4 py-2.5">
+          <KeyRound className="h-4 w-4 text-zinc-900" />
+          <span className="text-[0.9375rem] font-medium text-zinc-800">
             Bring your own key
           </span>
         </div>
         <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-4">
-          <p className="mb-4 text-xs leading-relaxed text-zinc-500 dark:text-zinc-400">
+          <p className="mb-4 text-[0.8125rem] leading-relaxed text-zinc-500">
             Add any OpenAI-compatible key to summarize and chat with this document using your own
             model. It&apos;s encrypted and only used for your requests. You can manage keys later
             in{" "}
-            <Link href="/byok" className="font-medium text-indigo-600 dark:text-indigo-400">
+            <Link href="/byok" className="font-medium text-zinc-900">
               BYOK
             </Link>
             .
@@ -197,10 +197,10 @@ export function AiPanel({ file }: { file: FileItem }) {
   }
 
   return (
-    <div className="flex min-h-0 w-full flex-col border-t border-zinc-200 dark:border-zinc-800 sm:w-96 sm:border-l sm:border-t-0">
-      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5 dark:border-zinc-800">
-        <span className="flex items-center gap-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
-          <Sparkles className="h-4 w-4 text-indigo-500" /> Ask AI
+    <div className="flex min-h-0 w-full flex-col border-t border-zinc-200 sm:w-96 sm:border-l sm:border-t-0">
+      <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-2.5">
+        <span className="flex items-center gap-2 text-[0.9375rem] font-medium text-zinc-800">
+          <Sparkles className="h-4 w-4 text-zinc-900" /> Ask AI
         </span>
         {messages.length > 0 ? (
           <button
@@ -213,7 +213,7 @@ export function AiPanel({ file }: { file: FileItem }) {
         ) : null}
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-4 py-2 dark:border-zinc-800">
+      <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-4 py-2">
         <select value={keyId} onChange={(e) => onKey(e.target.value)} className={selectCls}>
           {keys.map((k) => (
             <option key={k.id} value={k.id}>
@@ -231,13 +231,13 @@ export function AiPanel({ file }: { file: FileItem }) {
         </select>
         <label
           title="Long-document mode — for books/large files, retrieves the relevant sections"
-          className="ml-auto flex cursor-pointer items-center gap-1.5 text-xs text-zinc-500 dark:text-zinc-400"
+          className="ml-auto flex cursor-pointer items-center gap-1.5 text-[0.8125rem] text-zinc-500"
         >
           <input
             type="checkbox"
             checked={longDoc}
             onChange={(e) => setLongDoc(e.target.checked)}
-            className="h-3.5 w-3.5 accent-indigo-600"
+            className="h-3.5 w-3.5 accent-zinc-900"
           />
           Long doc
         </label>
@@ -249,17 +249,17 @@ export function AiPanel({ file }: { file: FileItem }) {
             <button
               onClick={() => send("Summarize this document concisely, with the key points.")}
               disabled={busy}
-              className="w-full rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2 text-left text-sm text-indigo-800 hover:bg-indigo-100 disabled:opacity-60 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200"
+              className="w-full rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-2 text-left text-[0.9375rem] text-zinc-900 hover:bg-zinc-100 disabled:opacity-60"
             >
               ✨ Summarize this document
             </button>
-            <p className="px-1 text-xs text-zinc-400">…or ask anything about it below.</p>
+            <p className="px-1 text-[0.8125rem] text-zinc-400">…or ask anything about it below.</p>
           </div>
         ) : (
           messages.map((m, i) =>
             m.role === "user" ? (
               <div key={i} className="flex justify-end">
-                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-3 py-2 text-sm text-white">
+                <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-3 py-2 text-[0.9375rem] text-white">
                   {m.content}
                 </div>
               </div>
@@ -275,7 +275,7 @@ export function AiPanel({ file }: { file: FileItem }) {
             ),
           )
         )}
-        {error ? <p className="text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
       </div>
 
       <form
@@ -283,18 +283,18 @@ export function AiPanel({ file }: { file: FileItem }) {
           e.preventDefault();
           void send(input);
         }}
-        className="flex items-center gap-2 border-t border-zinc-100 p-3 dark:border-zinc-800"
+        className="flex items-center gap-2 border-t border-zinc-100 p-3"
       >
         <input
           value={input}
           onChange={(e) => setInput(e.target.value)}
           placeholder="Ask about this document…"
-          className="min-w-0 flex-1 rounded-full border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+          className="min-w-0 flex-1 rounded-full border border-zinc-200 bg-white px-3 py-2 text-[0.9375rem] text-zinc-900 outline-none placeholder:text-zinc-400 focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
         />
         <button
           type="submit"
           disabled={busy || !input.trim()}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-600 text-white disabled:opacity-50"
+          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-zinc-900 text-white disabled:opacity-50"
           aria-label="Send"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}

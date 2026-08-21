@@ -82,12 +82,12 @@ export function FolderShareModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Share folder</h3>
-        <p className="mt-1 truncate text-sm text-zinc-500">📁 {folder.name}</p>
+      <div className="modal-surface max-w-md" onClick={(e) => e.stopPropagation()}>
+        <h3 className="type-heading-sm">Share folder</h3>
+        <p className="mt-1 truncate text-[0.9375rem] text-zinc-500">📁 {folder.name}</p>
 
         {loading ? (
           <div className="mt-4 space-y-2">
@@ -96,11 +96,11 @@ export function FolderShareModal({
           </div>
         ) : showEditor ? (
           <div className="mt-4">
-            <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+            <label className="text-[0.9375rem] font-medium text-zinc-700">
               {editing ? "Rename link" : "Choose a link name"}
             </label>
             <div className="mt-1 flex items-center gap-2">
-              <span className="text-sm text-zinc-400">/{username}/</span>
+              <span className="text-[0.9375rem] text-zinc-400">/{username}/</span>
               <Input
                 value={slug}
                 onChange={(e) => setSlug(e.target.value.toLowerCase())}
@@ -109,14 +109,14 @@ export function FolderShareModal({
                 autoFocus
               />
             </div>
-            <p className="mt-1 text-xs text-zinc-400">
+            <p className="mt-1 text-[0.8125rem] text-zinc-400">
               Anyone with this link can browse and download this folder&apos;s contents.
             </p>
-            {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+            {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
             <div className="mt-4 flex justify-end gap-2">
               <Button
                 onClick={() => (editing ? setEditing(false) : onClose())}
-                className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
               >
                 Cancel
               </Button>
@@ -127,7 +127,7 @@ export function FolderShareModal({
           </div>
         ) : (
           <div className="mt-4">
-            <p className="text-sm text-zinc-600">
+            <p className="text-[0.9375rem] text-zinc-600">
               This is the folder&apos;s permanent share link. Recipients get a browsable page —
               adding or removing files updates it automatically.
             </p>
@@ -142,7 +142,7 @@ export function FolderShareModal({
                   setError(null);
                   setEditing(true);
                 }}
-                className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
               >
                 Rename
               </Button>

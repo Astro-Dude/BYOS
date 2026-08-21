@@ -90,17 +90,15 @@ export const MD_PLUGINS = [remarkGfm, remarkHighlight];
 
 // Compact markdown styling for assistant bubbles (no typography plugin needed).
 export const MD_CLASS =
-  "text-sm [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 " +
+  "text-[0.9375rem] [&>*:first-child]:mt-0 [&>*:last-child]:mb-0 [&_p]:my-2 [&_ul]:my-2 " +
   "[&_ul]:list-disc [&_ul]:pl-5 [&_ol]:my-2 [&_ol]:list-decimal [&_ol]:pl-5 [&_li]:my-0.5 " +
-  "[&_h1]:my-1 [&_h1]:text-base [&_h1]:font-semibold [&_h2]:my-1 [&_h2]:text-base " +
-  "[&_h2]:font-semibold [&_h3]:my-1 [&_h3]:text-base [&_h3]:font-semibold [&_strong]:font-semibold " +
-  "[&_code]:rounded [&_code]:bg-black/10 [&_code]:px-1 [&_code]:text-[0.85em] dark:[&_code]:bg-white/10 " +
-  "[&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-black/10 [&_pre]:p-2 " +
-  "dark:[&_pre]:bg-white/10 " +
-  // The highlighted answer. Amber on purpose: the app's own accents are indigo
-  // and teal, so a marked value can't be mistaken for a link or a button.
-  "[&_mark]:rounded [&_mark]:bg-amber-300/60 [&_mark]:px-1 [&_mark]:py-px [&_mark]:font-semibold " +
-  "[&_mark]:text-zinc-900 dark:[&_mark]:bg-amber-400/25 dark:[&_mark]:text-amber-50";
+  "[&_h1]:my-1 [&_h1]:text-base [&_h1]:font-medium [&_h2]:my-1 [&_h2]:text-base " +
+  "[&_h2]:font-medium [&_h3]:my-1 [&_h3]:text-base [&_h3]:font-medium [&_strong]:font-medium " +
+  "[&_code]:rounded [&_code]:bg-zinc-100 [&_code]:px-1 [&_code]:text-[0.85em] " +
+  "[&_a]:underline [&_pre]:overflow-x-auto [&_pre]:rounded [&_pre]:bg-zinc-100 [&_pre]:p-2 " +
+  "";
+// <mark> is styled globally (see globals.css) so the answer highlight looks the
+// same in markdown and in hand-written markup.
 
 /** An assistant message: collapsible "Thinking…" block + streamed markdown. */
 export function AssistantBubble({
@@ -108,7 +106,7 @@ export function AssistantBubble({
   busy,
   open,
   onToggle,
-  className = "bg-zinc-100 text-zinc-800 dark:bg-zinc-800 dark:text-zinc-100",
+  className = "bg-zinc-100 text-zinc-800",
 }: {
   content: string;
   busy: boolean;
@@ -119,12 +117,12 @@ export function AssistantBubble({
   const { thought, answer, thinking } = splitThought(content);
   const showThought = !!thought && (thinking || open);
   return (
-    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-sm ${className}`}>
+    <div className={`max-w-[85%] rounded-2xl px-3 py-2 text-[0.9375rem] ${className}`}>
       {thought ? (
         <div className="mb-1">
           <button
             onClick={onToggle}
-            className="flex items-center gap-1 text-xs text-zinc-400 hover:text-zinc-600 dark:hover:text-zinc-300"
+            className="flex items-center gap-1 text-[0.8125rem] text-zinc-400 hover:text-zinc-600"
           >
             <ChevronRight
               className={`h-3 w-3 transition-transform ${showThought ? "rotate-90" : ""}`}
@@ -132,7 +130,7 @@ export function AssistantBubble({
             {thinking ? <Working /> : "Thoughts"}
           </button>
           {showThought ? (
-            <div className="mt-1 whitespace-pre-wrap border-l-2 border-zinc-200 pl-2 text-xs text-zinc-400 dark:border-zinc-700">
+            <div className="mt-1 whitespace-pre-wrap border-l-2 border-zinc-200 pl-2 text-[0.8125rem] text-zinc-400">
               {thought}
             </div>
           ) : null}

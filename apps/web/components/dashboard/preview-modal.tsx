@@ -81,23 +81,23 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
+        className="flex max-h-[92vh] w-full max-w-5xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
-          <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
+        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
+          <p className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</p>
           <div className="flex shrink-0 items-center gap-2">
             {aiEligible ? (
               <button
                 onClick={() => setAiOpen((v) => !v)}
-                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-sm font-medium transition ${
-                  aiOpen
-                    ? "bg-indigo-100 text-indigo-700 dark:bg-indigo-500/20 dark:text-indigo-300"
-                    : "text-zinc-600 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+                className={`flex items-center gap-1.5 rounded-md px-2.5 py-1.5 text-[0.9375rem] font-medium transition ${
+ aiOpen
+                    ? "bg-zinc-100 text-zinc-900"
+                    : "text-zinc-600 hover:bg-zinc-100"
                 }`}
               >
                 <Sparkles className="h-4 w-4" /> Ask AI
@@ -105,7 +105,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
             ) : null}
             <button
               onClick={onClose}
-              className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300"
+              className="text-zinc-400 hover:text-zinc-700"
               aria-label="Close"
             >
               <X className="h-5 w-5" />
@@ -115,9 +115,9 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
         <div className="flex min-h-0 flex-1 flex-col sm:flex-row">
           <div className="flex min-h-0 flex-1 items-center justify-center overflow-auto p-4">
           {loading ? (
-            <p className="text-sm text-zinc-500">Loading preview…</p>
+            <p className="text-[0.9375rem] text-zinc-500">Loading preview…</p>
           ) : error ? (
-            <p className="text-sm text-red-600">{error}</p>
+            <p className="text-[0.9375rem] text-red-600">{error}</p>
           ) : kind === "image" && url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img src={url} alt={file.name} className="max-h-full max-w-full object-contain" />
@@ -132,11 +132,11 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
           ) : kind === "audio" && url ? (
             <audio src={url} controls className="w-full" />
           ) : kind === "text" && text !== null ? (
-            <pre className="w-full whitespace-pre-wrap break-words text-left text-xs text-zinc-800 dark:text-zinc-200">
+            <pre className="w-full whitespace-pre-wrap break-words text-left text-[0.8125rem] text-zinc-800">
               {text}
             </pre>
           ) : (
-            <p className="text-sm text-zinc-500">No inline preview for this file type — download it.</p>
+            <p className="text-[0.9375rem] text-zinc-500">No inline preview for this file type — download it.</p>
           )}
           </div>
           {aiOpen && aiEligible ? <AiPanel file={file} /> : null}

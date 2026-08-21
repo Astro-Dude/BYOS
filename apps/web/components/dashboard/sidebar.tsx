@@ -2,27 +2,26 @@
 
 import type { ProviderStatus } from "@byos/api-client";
 import {
+  ChevronLeft,
+  ChevronRight,
   Code2,
   Copy,
   FileWarning,
   FolderPlus,
   HardDrive,
   Link2,
-  Moon,
   Plus,
   Sparkles,
   Star,
-  Sun,
   Upload,
 } from "lucide-react";
 import Link from "next/link";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { Menu, MenuItem } from "@/components/dashboard/menu";
-import { Logo } from "@/components/logo";
+import { Logo, LogoMark } from "@/components/logo";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme";
 
 function formatBytes(n: number): string {
   if (n < 1024) return `${n} B`;
@@ -47,32 +46,28 @@ export type DriveView =
 
 const BYOK_CELL = "18px";
 const BYOK_GRID_BASE =
-  "linear-gradient(to right, rgba(74,129,119,0.16) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(74,129,119,0.16) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(23,25,28,0.07) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(23,25,28,0.07) 1px, transparent 1px)";
+// The grid warms to sienna under the cursor — the accent pair, not a glow.
 const BYOK_GRID_GLOW =
-  "linear-gradient(to right, rgba(74,129,119,0.7) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(74,129,119,0.7) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(93,42,26,0.34) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(93,42,26,0.34) 1px, transparent 1px)";
+const RAIL_KEY = "byos:rail";
 const BYOK_MASK =
   "radial-gradient(70px circle at var(--bx, 50%) var(--by, -60px), #000 0%, transparent 70%)";
 
-/** The BYOK nav entry — its own little "world": an animated teal border, a grid
- *  background, and grid lines that light up under the cursor (matching /byok). */
-function ByokNavLink() {
+/** The BYOK nav entry — its own little "world": a hairline that inks in on
+ *  hover, over a grid whose lines warm to sienna under the cursor (matching
+ *  /byok). The rotating coloured border is gone; Steep has no accent to spin. */
+function ByokNavLink({ collapsed }: { collapsed: boolean }) {
   const ref = useRef<HTMLSpanElement>(null);
   return (
-    <div className="px-3 pt-1">
+    <div className="pt-1">
       <Link
         href="/byok"
-        className="group relative block overflow-hidden rounded-full bg-indigo-500/25 p-[1.5px] dark:bg-indigo-400/25"
+        title={collapsed ? "BYOK" : undefined}
+        className="group relative block overflow-hidden rounded-full bg-zinc-200 p-px transition-colors hover:bg-zinc-900"
       >
-        {/* Rotating conic gradient = moving border (over the faint static ring) */}
-        <span
-          className="absolute inset-[-150%] animate-[spin_5s_linear_infinite]"
-          style={{
-            background:
-              "conic-gradient(from 0deg, transparent 0deg 250deg, #3C6E66 310deg, #7FB5AB 340deg, transparent 360deg)",
-          }}
-        />
         <span
           ref={ref}
           onMouseMove={(e) => {
@@ -82,7 +77,9 @@ function ByokNavLink() {
             el.style.setProperty("--bx", `${e.clientX - r.left}px`);
             el.style.setProperty("--by", `${e.clientY - r.top}px`);
           }}
-          className="relative flex items-center gap-3 overflow-hidden rounded-full bg-white px-5 py-2.5 text-sm font-semibold text-indigo-700 dark:bg-zinc-900 dark:text-indigo-300"
+          className={`relative flex items-center overflow-hidden rounded-full bg-white py-2 text-[0.9375rem] text-zinc-900 ${
+            collapsed ? "justify-center px-2" : "gap-3 px-3.5"
+          }`}
         >
           {/* Faint static grid */}
           <span
@@ -99,8 +96,8 @@ function ByokNavLink() {
               WebkitMaskImage: BYOK_MASK,
             }}
           />
-          <Sparkles className="relative h-[18px] w-[18px] shrink-0" />
-          <span className="relative">BYOK</span>
+          <Sparkles className="relative h-[17px] w-[17px] shrink-0" />
+          {collapsed ? null : <span className="relative">BYOK</span>}
         </span>
       </Link>
     </div>
@@ -119,9 +116,30 @@ export function Sidebar({
   onUpload: () => void;
 }) {
   const authed = useAuthed();
-  const { theme, toggle } = useTheme();
   const [telegram, setTelegram] = useState<ProviderStatus | null>(null);
   const [used, setUsed] = useState<number | null>(null);
+  // Collapsed by default: the drive itself is the point, and the rail's labels
+  // are learnable. The choice is remembered per browser.
+  const [collapsed, setCollapsed] = useState(true);
+
+  useEffect(() => {
+    try {
+      if (localStorage.getItem(RAIL_KEY) === "open") setCollapsed(false);
+    } catch {
+      /* storage unavailable — stay collapsed */
+    }
+  }, []);
+
+  const toggleRail = () =>
+    setCollapsed((c) => {
+      const next = !c;
+      try {
+        localStorage.setItem(RAIL_KEY, next ? "closed" : "open");
+      } catch {
+        /* ignore */
+      }
+      return next;
+    });
 
   useEffect(() => {
     authed((t) => api.listProviders(t))
@@ -135,33 +153,61 @@ export function Sidebar({
   const navItem = (id: DriveView, label: string, icon: ReactNode) => (
     <button
       onClick={() => onView(id)}
-      className={`flex w-full items-center gap-3 rounded-r-full px-6 py-2.5 text-sm font-medium transition ${
-        view === id
-          ? "bg-indigo-100 text-indigo-800 dark:bg-indigo-500/15 dark:text-indigo-300"
-          : "text-zinc-700 hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
+      title={collapsed ? label : undefined}
+      aria-label={collapsed ? label : undefined}
+      className={`${view === id ? "nav-item-active" : "nav-item"} ${
+        collapsed ? "justify-center px-0" : ""
       }`}
+      aria-current={view === id ? "page" : undefined}
     >
       {icon}
-      {label}
+      {collapsed ? null : label}
     </button>
   );
 
-  const iconClass = "h-[18px] w-[18px] shrink-0";
+  const iconClass = "h-[17px] w-[17px] shrink-0";
 
   return (
-    <aside className="flex w-64 shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-4 pr-2 pt-4 dark:border-zinc-800 dark:bg-zinc-900">
-      <div className="px-5 pb-2">
-        <Logo markClassName="h-10 w-10" wordClassName="text-xl" />
+    <aside
+      className={`relative flex shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white pb-5 pt-6 transition-[width] duration-300 ease-out ${
+        collapsed ? "w-[4.5rem] px-3" : "w-64 px-3"
+      }`}
+    >
+      {/* The handle straddles the rail's edge rather than living inside it, so
+          the rail's own space stays for navigation. Paper fill with a hairline
+          reads on the seam between the white rail and the fog canvas; a chevron
+          says which way it goes more plainly than a panel glyph. */}
+      <button
+        onClick={toggleRail}
+        title={collapsed ? "Expand" : "Collapse"}
+        aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
+        aria-expanded={!collapsed}
+        className="absolute -right-3 top-1/2 z-20 flex h-6 w-6 -translate-y-1/2 items-center justify-center rounded-full border border-zinc-200 bg-white text-zinc-500 transition-colors hover:border-zinc-900 hover:bg-zinc-900 hover:text-white"
+      >
+        {collapsed ? (
+          <ChevronRight className="h-3.5 w-3.5" />
+        ) : (
+          <ChevronLeft className="h-3.5 w-3.5" />
+        )}
+      </button>
+
+      <div className={`flex items-center pb-4 ${collapsed ? "justify-center" : "px-2"}`}>
+        {collapsed ? <LogoMark className="h-9 w-9" /> : <Logo wordClassName="text-xl" />}
       </div>
 
-      <div className="px-4 pb-2">
+      <div className="pb-3">
         <Menu
           align="left"
           className="w-full"
           trigger={() => (
-            <span className="flex w-full items-center justify-center gap-2 rounded-2xl border border-zinc-200 bg-white px-5 py-3.5 text-sm font-semibold text-zinc-800 shadow-sm transition hover:shadow-md dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100">
-              <Plus className="h-4 w-4 text-indigo-600" />
-              New
+            <span
+              title={collapsed ? "New" : undefined}
+              className={`flex items-center justify-center gap-2 rounded-full border border-zinc-900 bg-white text-[0.9375rem] text-zinc-900 transition-colors hover:bg-zinc-900 hover:text-white ${
+                collapsed ? "mx-auto h-10 w-10" : "w-full px-5 py-3"
+              }`}
+            >
+              <Plus className="h-4 w-4" />
+              {collapsed ? null : "New"}
             </span>
           )}
         >
@@ -188,43 +234,32 @@ export function Sidebar({
         </Menu>
       </div>
 
-      <nav className="space-y-1">
+      <nav className="space-y-0.5">
         {navItem("drive", "My Drive", <HardDrive className={iconClass} />)}
         {navItem("starred", "Starred", <Star className={iconClass} />)}
         {navItem("links", "Links", <Link2 className={iconClass} />)}
         {navItem("duplicates", "Duplicates", <Copy className={iconClass} />)}
         {navItem("missing", "Missing", <FileWarning className={iconClass} />)}
-        <ByokNavLink />
+        <ByokNavLink collapsed={collapsed} />
       </nav>
 
-      {/* Developer + theme toggle + storage pinned to the bottom. */}
+      {/* Developer + storage pinned to the bottom. */}
       <div className="mt-auto space-y-2">
-        <nav>{navItem("developer", "Developer", <Code2 className={iconClass} />)}</nav>
-        <div className="px-4">
-          <button
-            onClick={toggle}
-            className="flex w-full items-center gap-3 rounded-full px-2 py-2 text-sm font-medium text-zinc-700 transition hover:bg-zinc-100 dark:text-zinc-300 dark:hover:bg-zinc-800"
-          >
-            {theme === "dark" ? (
-              <Sun className={iconClass} />
-            ) : (
-              <Moon className={iconClass} />
-            )}
-            {theme === "dark" ? "Light mode" : "Dark mode"}
-          </button>
-        </div>
-        <div className="mx-4 rounded-xl border border-zinc-200 bg-zinc-50 p-3 text-xs dark:border-zinc-800 dark:bg-zinc-800/50">
+        <nav className="space-y-0.5">
+          {navItem("developer", "Developer", <Code2 className={iconClass} />)}
+        </nav>
+        <div className={`surface-card mt-2 p-4 ${collapsed ? "hidden" : ""}`}>
           <div className="flex items-baseline justify-between">
-            <span className="font-medium text-zinc-700 dark:text-zinc-300">
-              {used != null ? `${formatBytes(used)} used` : "Storage"}
+            <span className="text-[0.9375rem] text-zinc-900">
+              {used != null ? formatBytes(used) : "Storage"}
             </span>
-            <span className="font-medium text-indigo-700 dark:text-indigo-400">Unlimited</span>
+            <span className="type-label">Unlimited</span>
           </div>
-          <div className="mt-1 text-zinc-500">
+          <p className="mt-1 type-label">
             {telegram
               ? `Telegram${telegram.label ? ` · ${telegram.label}` : ""}`
               : "Connecting…"}
-          </div>
+          </p>
         </div>
       </div>
     </aside>

@@ -32,20 +32,20 @@ export function CreateFolderModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl"
+        className="modal-surface max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center gap-2">
           <Folder
-            className="h-5 w-5 text-indigo-500"
+            className="h-5 w-5 text-zinc-900"
             fill={color ?? "none"}
             style={color ? { color } : undefined}
           />
-          <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">New folder</h3>
+          <h3 className="type-heading-sm">New folder</h3>
         </div>
 
         <Input
@@ -58,14 +58,14 @@ export function CreateFolderModal({
         />
 
         <div className="mt-4">
-          <p className="text-xs font-medium text-zinc-500">Color</p>
+          <p className="text-[0.8125rem] font-medium text-zinc-500">Color</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <button
               type="button"
               onClick={() => setColor(null)}
               aria-label="No color"
-              className={`h-6 w-6 rounded-full border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 ${
-                color === null ? "ring-2 ring-zinc-400 ring-offset-1" : ""
+              className={`h-6 w-6 rounded-full border border-zinc-200 bg-white ${
+ color === null ? "ring-2 ring-zinc-400 ring-offset-1" : ""
               }`}
             />
             {FOLDER_COLORS.map((c) => (
@@ -76,7 +76,7 @@ export function CreateFolderModal({
                 aria-label={`Color ${c}`}
                 style={{ backgroundColor: c }}
                 className={`h-6 w-6 rounded-full transition ${
-                  color === c ? "ring-2 ring-zinc-400 ring-offset-1" : "hover:scale-110"
+ color === c ? "ring-2 ring-zinc-400 ring-offset-1" : "hover:scale-110"
                 }`}
               />
             ))}
@@ -86,7 +86,7 @@ export function CreateFolderModal({
         <div className="mt-6 flex justify-end gap-2">
           <Button
             onClick={onClose}
-            className="border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800"
+            className="border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
           >
             Cancel
           </Button>

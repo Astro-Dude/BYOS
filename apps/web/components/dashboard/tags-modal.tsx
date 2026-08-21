@@ -52,27 +52,27 @@ export function TagsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
-      <div className="w-full max-w-md rounded-lg bg-white dark:bg-zinc-900 p-5 shadow-xl" onClick={(e) => e.stopPropagation()}>
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">Tags</h3>
-        <p className="mt-1 truncate text-sm text-zinc-500">for {file.name}</p>
+      <div className="modal-surface max-w-md" onClick={(e) => e.stopPropagation()}>
+        <h3 className="type-heading-sm">Tags</h3>
+        <p className="mt-1 truncate text-[0.9375rem] text-zinc-500">for {file.name}</p>
 
         <div className="mt-4 flex flex-wrap gap-2">
           {tags.length === 0 ? (
-            <span className="text-sm text-zinc-400">No tags yet.</span>
+            <span className="text-[0.9375rem] text-zinc-400">No tags yet.</span>
           ) : (
             tags.map((tag) => (
               <span
                 key={tag}
-                className="flex items-center gap-1 rounded-full bg-indigo-50 px-2.5 py-1 text-xs font-medium text-indigo-700"
+                className="flex items-center gap-1 rounded-full bg-zinc-50 px-2.5 py-1 text-[0.8125rem] font-medium text-zinc-900"
               >
                 {tag}
                 <button
                   disabled={busy}
                   onClick={() => act(() => authed((t) => api.removeTag(t, file.id, tag)))}
-                  className="text-indigo-400 hover:text-indigo-700"
+                  className="text-zinc-600 hover:text-zinc-900"
                   aria-label={`Remove ${tag}`}
                 >
                   <X className="h-3 w-3" />
@@ -93,7 +93,7 @@ export function TagsModal({
             Add
           </Button>
         </div>
-        {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
 
         <div className="mt-4 flex justify-end">
           <Button onClick={onClose} className="bg-zinc-900 hover:bg-zinc-700">

@@ -99,24 +99,24 @@ export function VersionsModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
       <div
-        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-lg bg-white dark:bg-zinc-900 shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-lg flex-col overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+        <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">Versions · {file.name}</p>
-            <p className="text-xs text-zinc-500">Replacing keeps the same links; they serve the latest.</p>
+            <p className="truncate text-[0.9375rem] font-medium text-zinc-900">Versions · {file.name}</p>
+            <p className="text-[0.8125rem] text-zinc-500">Replacing keeps the same links; they serve the latest.</p>
           </div>
-          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300" aria-label="Close">
+          <button onClick={onClose} className="text-zinc-400 hover:text-zinc-700" aria-label="Close">
             <X className="h-5 w-5" />
           </button>
         </div>
 
-        <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-3">
+        <div className="border-b border-zinc-100 px-4 py-3">
           <Button disabled={busy} onClick={() => inputRef.current?.click()}>
             {busy ? "Working…" : "Replace with new file"}
           </Button>
@@ -126,40 +126,40 @@ export function VersionsModal({
             hidden
             onChange={(e) => replace(e.target.files)}
           />
-          {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
         </div>
 
         <div className="min-h-0 flex-1 overflow-auto">
           {loading ? (
-            <p className="p-4 text-sm text-zinc-500">Loading…</p>
+            <p className="p-4 text-[0.9375rem] text-zinc-500">Loading…</p>
           ) : (
-            <ul className="divide-y divide-zinc-100 dark:divide-zinc-800">
+            <ul className="divide-y divide-zinc-200">
               {versions.map((v) => (
                 <li key={v.id} className="flex items-center justify-between gap-3 px-4 py-3">
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                    <p className="text-[0.9375rem] font-medium text-zinc-900">
                       v{v.version_no}
                       {v.is_current ? (
-                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-xs font-medium text-green-700">
+                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-[0.8125rem] font-medium text-green-700">
                           current
                         </span>
                       ) : null}
                     </p>
-                    <p className="text-xs text-zinc-500">
+                    <p className="text-[0.8125rem] text-zinc-500">
                       {humanSize(v.size)} · {new Date(v.created_at).toLocaleString()}
                     </p>
                   </div>
-                  <div className="flex shrink-0 gap-3 text-xs font-medium">
+                  <div className="flex shrink-0 gap-3 text-[0.8125rem] font-medium">
                     <button
                       onClick={() => download(v)}
-                      className="text-indigo-600 hover:underline"
+                      className="text-zinc-900 hover:underline"
                     >
                       Download
                     </button>
                     {!v.is_current && (
                       <button
                         onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined), "Version restored — link now serves this version")}
-                        className="text-zinc-700 dark:text-zinc-300 hover:underline"
+                        className="text-zinc-700 hover:underline"
                       >
                         Restore
                       </button>

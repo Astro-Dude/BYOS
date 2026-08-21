@@ -91,31 +91,31 @@ export function PlanCard({
   return (
     <div
       className={`mt-2.5 overflow-hidden rounded-xl border ${
-        isPending
-          ? "border-indigo-400/40 bg-indigo-500/[0.04]"
-          : "border-zinc-200 bg-black/[0.02] dark:border-white/10 dark:bg-white/[0.03]"
+ isPending
+          ? "border-zinc-900/25 bg-zinc-900/[0.04]"
+          : "border-zinc-200 bg-zinc-100"
       }`}
     >
       <div className="flex items-center gap-2 border-b border-inherit px-3 py-2">
-        <span className="text-xs font-medium text-zinc-900 dark:text-zinc-100">{heading}</span>
+        <span className="text-[0.8125rem] font-medium text-zinc-900">{heading}</span>
         {plan.status === "discarded" ? (
           <X className="h-3.5 w-3.5 text-zinc-400" />
         ) : !isPending ? (
-          <Check className="h-3.5 w-3.5 text-indigo-500" />
+          <Check className="h-3.5 w-3.5 text-zinc-900" />
         ) : null}
         {failed.length ? (
-          <span className="text-xs text-red-500">· {failed.length} failed</span>
+          <span className="text-[0.8125rem] text-red-500">· {failed.length} failed</span>
         ) : null}
       </div>
 
-      <ul className="divide-y divide-zinc-200/60 dark:divide-white/5">
+      <ul className="divide-y divide-zinc-200/60">
         {plan.actions.map((a, i) => {
           const done = a.result;
           return (
-            <li key={i} className="flex items-start gap-2 px-3 py-1.5 text-xs">
+            <li key={i} className="flex items-start gap-2 px-3 py-1.5 text-[0.8125rem]">
               <span
                 className={`mt-0.5 shrink-0 ${
-                  a.danger ? "text-red-500" : done?.ok ? "text-indigo-500" : "text-zinc-400"
+ a.danger ? "text-red-500" : done?.ok ? "text-zinc-900" : "text-zinc-400"
                 }`}
               >
                 {ICONS[a.op] ?? <Pencil className="h-3.5 w-3.5" />}
@@ -124,8 +124,8 @@ export function PlanCard({
                 <span
                   className={
                     plan.status === "discarded" || (done && !done.ok)
-                      ? "text-zinc-400 line-through dark:text-zinc-500"
-                      : "text-zinc-800 dark:text-zinc-200"
+                      ? "text-zinc-400 line-through"
+                      : "text-zinc-800"
                   }
                 >
                   {a.label}
@@ -137,14 +137,14 @@ export function PlanCard({
                   </span>
                 ) : a.auto ? null : null}
               </span>
-              {done?.ok ? <Check className="mt-0.5 h-3 w-3 shrink-0 text-indigo-500" /> : null}
+              {done?.ok ? <Check className="mt-0.5 h-3 w-3 shrink-0 text-zinc-900" /> : null}
             </li>
           );
         })}
       </ul>
 
       {dangerous.length ? (
-        <div className="flex items-start gap-2 border-t border-inherit bg-red-500/[0.06] px-3 py-2 text-xs text-red-600 dark:text-red-400">
+        <div className="flex items-start gap-2 border-t border-inherit bg-red-500/[0.06] px-3 py-2 text-[0.8125rem] text-red-600">
           <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
           <span>
             {dangerous.length === 1 ? "One change is" : `${dangerous.length} changes are`}{" "}
@@ -158,7 +158,7 @@ export function PlanCard({
           <button
             onClick={() => void run("apply")}
             disabled={busy !== null}
-            className="flex items-center gap-1.5 rounded-lg bg-indigo-600 px-3 py-1.5 text-xs font-medium text-white transition hover:bg-indigo-500 disabled:opacity-50"
+            className="flex items-center gap-1.5 rounded-lg bg-zinc-900 px-3 py-1.5 text-[0.8125rem] font-medium text-white transition hover:bg-zinc-800 disabled:opacity-50"
           >
             {busy === "apply" ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
@@ -170,11 +170,11 @@ export function PlanCard({
           <button
             onClick={() => void run("discard")}
             disabled={busy !== null}
-            className="rounded-lg px-3 py-1.5 text-xs text-zinc-600 transition hover:bg-black/5 disabled:opacity-50 dark:text-zinc-400 dark:hover:bg-white/5"
+            className="rounded-lg px-3 py-1.5 text-[0.8125rem] text-zinc-600 transition hover:bg-zinc-100 disabled:opacity-50"
           >
             Discard
           </button>
-          {error ? <span className="text-xs text-red-500">{error}</span> : null}
+          {error ? <span className="text-[0.8125rem] text-red-500">{error}</span> : null}
         </div>
       ) : null}
     </div>

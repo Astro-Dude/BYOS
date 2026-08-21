@@ -150,10 +150,10 @@ function DuplicateGroupView({
     // eslint-disable-next-line @next/next/no-img-element
     <img src={url} alt="preview" className="w-full" />
   ) : kind === "pdf" && pdfPages?.length ? (
-    <div className="space-y-1 bg-zinc-100 p-1 dark:bg-zinc-800">
+    <div className="space-y-1 bg-zinc-100 p-1">
       {pdfPages.map((src, p) => (
         // eslint-disable-next-line @next/next/no-img-element
-        <img key={p} src={src} alt={`page ${p + 1}`} className="block w-full bg-white shadow-sm" />
+        <img key={p} src={src} alt={`page ${p + 1}`} className="block w-full bg-white" />
       ))}
     </div>
   ) : kind === "text" && text != null ? (
@@ -171,16 +171,16 @@ function DuplicateGroupView({
         <div
           key={f.id}
           className={`relative flex w-64 shrink-0 flex-col gap-2 rounded-lg border p-2.5 ${
-            selected.has(f.id)
-              ? "border-indigo-400 bg-indigo-50/50 dark:border-indigo-500/50 dark:bg-indigo-500/10"
-              : "border-zinc-200 bg-zinc-50/50 dark:border-zinc-800 dark:bg-zinc-950/40"
+ selected.has(f.id)
+              ? "border-zinc-900 bg-zinc-50/50"
+              : "border-zinc-200 bg-zinc-50/50"
           }`}
         >
           <input
             type="checkbox"
             checked={selected.has(f.id)}
             onChange={() => onToggleSelect(f.id)}
-            className="absolute left-3.5 top-3.5 z-10 h-4 w-4 accent-indigo-600"
+            className="absolute left-3.5 top-3.5 z-10 h-4 w-4 accent-zinc-900"
             title="Select for bulk delete"
           />
           <div
@@ -188,24 +188,24 @@ function DuplicateGroupView({
               scrollers.current[i] = el;
             }}
             onScroll={onScroll(i)}
-            className="h-72 overflow-auto rounded-md border border-zinc-200 bg-zinc-50 dark:border-zinc-800 dark:bg-zinc-950"
+            className="thin-scroll h-72 overflow-auto rounded-lg bg-zinc-100"
           >
             {body}
           </div>
           <div className="min-w-0">
-            <p className="truncate text-sm font-medium text-zinc-800 dark:text-zinc-200" title={f.name}>
+            <p className="truncate text-[0.9375rem] font-medium text-zinc-800" title={f.name}>
               {f.name}
             </p>
-            <p className="truncate text-xs text-zinc-500" title={paths[f.id]}>
+            <p className="truncate text-[0.8125rem] text-zinc-500" title={paths[f.id]}>
               {paths[f.id] ?? "…"}
             </p>
-            <p className="mt-0.5 text-xs text-zinc-400">
+            <p className="mt-0.5 text-[0.8125rem] text-zinc-400">
               {formatBytes(f.size)} · {new Date(f.modified_at).toLocaleDateString()}
             </p>
           </div>
           <button
             onClick={() => onDelete(f)}
-            className="flex items-center justify-center gap-1.5 rounded-md border border-zinc-200 px-2 py-1.5 text-xs font-medium text-zinc-600 transition hover:border-red-300 hover:bg-red-50 hover:text-red-600 dark:border-zinc-700 dark:text-zinc-300 dark:hover:border-red-500/40 dark:hover:bg-red-500/10 dark:hover:text-red-400"
+            className="flex items-center justify-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1.5 text-[0.8125rem] text-zinc-600 transition-colors hover:border-red-500 hover:text-red-600"
           >
             <Trash2 className="h-3.5 w-3.5" /> Delete this copy
           </button>
@@ -294,36 +294,36 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
   return (
     <div className="space-y-4 pt-2">
       <div>
-        <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Duplicates</h1>
-        <p className="text-sm text-zinc-500">
+        <h1 className="type-heading-sm">Duplicates</h1>
+        <p className="text-[0.9375rem] text-zinc-500">
           Files with identical content, grouped by hash. Expand a group to compare copies (they
           scroll together) before deleting.
         </p>
       </div>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
 
       {selected.size > 0 ? (
         <div
-          className={`sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 px-4 py-2.5 text-sm backdrop-blur transition-colors dark:border-indigo-500/30 ${
-            scrolled
-              ? "bg-indigo-100/95 shadow-sm dark:bg-indigo-900/95"
-              : "bg-indigo-50/80 dark:bg-indigo-500/10"
+          className={`sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 px-4 py-2.5 text-[0.9375rem] transition-colors ${
+ scrolled
+              ? "bg-zinc-100/95"
+              : "bg-zinc-50/80"
           }`}
         >
-          <span className="font-medium text-indigo-800 dark:text-indigo-200">
+          <span className="font-medium text-zinc-900">
             {selected.size} selected
           </span>
           <div className="ml-auto flex items-center gap-1.5">
             <button
               onClick={() => setConfirmBulk(true)}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white dark:hover:bg-zinc-800"
+              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white"
             >
               <Trash2 className="h-4 w-4" /> Delete
             </button>
             <button
               onClick={() => setSelected(new Set())}
-              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white dark:hover:bg-zinc-800"
+              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white"
               aria-label="Clear selection"
             >
               <X className="h-4 w-4" />
@@ -339,7 +339,7 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
           ))}
         </div>
       ) : duplicates.length === 0 ? (
-        <div className="rounded-xl border border-zinc-200 p-10 text-center text-sm text-zinc-400 dark:border-zinc-800">
+        <div className="py-20 text-center text-[1.0625rem] text-zinc-400">
           No duplicates found — nice and tidy.
         </div>
       ) : (
@@ -349,7 +349,7 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
             return (
               <li
                 key={group.hash}
-                className="rounded-lg border border-zinc-200 bg-white p-3 dark:border-zinc-800 dark:bg-zinc-900"
+                className="surface-card p-4"
               >
                 <button
                   onClick={() => toggle(group.hash)}
@@ -358,10 +358,10 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
                   <ChevronRight
                     className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-90" : ""}`}
                   />
-                  <span className="min-w-0 flex-1 truncate text-sm text-zinc-700 dark:text-zinc-300">
+                  <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-zinc-700">
                     {group.files[0]?.name}
                   </span>
-                  <span className="shrink-0 text-xs font-medium text-zinc-500">
+                  <span className="shrink-0 text-[0.8125rem] font-medium text-zinc-500">
                     {group.files.length} copies
                   </span>
                 </button>
@@ -378,7 +378,7 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
                     {group.files.map((file) => (
                       <li
                         key={file.id}
-                        className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400"
+                        className="flex items-center gap-2 text-[0.9375rem] text-zinc-600"
                       >
                         <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
                         <span className="truncate">{file.name}</span>

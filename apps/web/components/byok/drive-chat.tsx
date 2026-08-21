@@ -359,8 +359,8 @@ export function DriveChat({
       {addOpen ? (
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
-          <div className="absolute bottom-14 left-0 z-20 w-72 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
-            <p className="mb-1 text-xs text-zinc-500 dark:text-zinc-400">System prompt</p>
+          <div className="menu-surface absolute bottom-14 left-0 z-20 w-72 p-3">
+            <p className="mb-1 text-[0.8125rem] text-zinc-500">System prompt</p>
             <Dropdown
               value={promptId}
               onChange={onPrompt}
@@ -368,21 +368,21 @@ export function DriveChat({
                 { value: "", label: "Default" },
                 ...prompts.map((p) => ({ value: p.id, label: p.name })),
               ]}
-              className="w-full justify-between rounded-md border border-zinc-200 bg-black/[0.03] px-2 py-1.5 text-sm text-zinc-900 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
+              className="w-full justify-between rounded-md border border-zinc-200 bg-zinc-100 px-2 py-1.5 text-[0.9375rem] text-zinc-900"
             />
-            <p className="mb-1 mt-3 text-xs font-medium text-zinc-500 dark:text-zinc-400">Retrieval add-ons</p>
+            <p className="mb-1 mt-3 text-[0.8125rem] font-medium text-zinc-500">Retrieval add-ons</p>
             <div className="space-y-0.5">
               {STRATEGY_INFO.map((s) => (
                 <label
                   key={s.key}
                   title={s.hint}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-zinc-800 hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/5"
+                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[0.9375rem] text-zinc-800 hover:bg-zinc-100"
                 >
                   <input
                     type="checkbox"
                     checked={strategies[s.key]}
                     onChange={() => setStrategies((p) => ({ ...p, [s.key]: !p[s.key] }))}
-                    className="h-3.5 w-3.5 accent-indigo-600"
+                    className="h-3.5 w-3.5 accent-zinc-900"
                   />
                   {s.label}
                 </label>
@@ -393,7 +393,7 @@ export function DriveChat({
       ) : null}
 
       {suggestions.length ? (
-        <div className="absolute bottom-14 left-0 right-0 z-20 overflow-hidden rounded-xl border border-zinc-200 bg-white/95 p-1 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
+        <div className="menu-surface absolute bottom-14 left-0 right-0 z-20 p-1">
           {suggestions.map((c, i) => (
             <button
               key={c.name}
@@ -401,14 +401,14 @@ export function DriveChat({
               onMouseEnter={() => setSuggestIdx(i)}
               onClick={() => setInput(c.args ? `${c.name} ` : c.name)}
               className={`flex w-full items-baseline gap-2 rounded-lg px-2.5 py-1.5 text-left transition ${
-                i === Math.min(suggestIdx, suggestions.length - 1)
-                  ? "bg-indigo-500/10"
-                  : "hover:bg-black/5 dark:hover:bg-white/5"
+ i === Math.min(suggestIdx, suggestions.length - 1)
+                  ? "bg-zinc-900/10"
+                  : "hover:bg-zinc-100"
               }`}
             >
-              <span className="font-mono text-xs text-zinc-900 dark:text-zinc-100">{c.name}</span>
-              {c.args ? <span className="font-mono text-xs text-zinc-400">{c.args}</span> : null}
-              <span className="min-w-0 flex-1 truncate text-xs text-zinc-500 dark:text-zinc-400">
+              <span className="font-mono text-[0.8125rem] text-zinc-900">{c.name}</span>
+              {c.args ? <span className="font-mono text-[0.8125rem] text-zinc-400">{c.args}</span> : null}
+              <span className="min-w-0 flex-1 truncate text-[0.8125rem] text-zinc-500">
                 {c.hint}
               </span>
             </button>
@@ -421,14 +421,12 @@ export function DriveChat({
           e.preventDefault();
           void send();
         }}
-        className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-black/[0.03] p-2 backdrop-blur-xl dark:border-white/10 dark:bg-white/[0.04]"
+        className="flex items-end gap-2 rounded-2xl border border-zinc-200 bg-white p-3 transition-colors focus-within:border-zinc-900"
       >
         <button
           type="button"
           onClick={() => setAddOpen((v) => !v)}
-          className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-xl text-zinc-700 transition hover:bg-black/10 dark:text-zinc-300 dark:hover:bg-white/10 ${
-            activeStrategies ? "ring-1 ring-indigo-400/50" : ""
-          }`}
+          className={`btn-icon ${activeStrategies ? "ring-1 ring-zinc-900/40" : ""}`}
           aria-label="Add-ons"
         >
           <Plus className="h-4 w-4" />
@@ -479,14 +477,14 @@ export function DriveChat({
               ? "Ask across your drive, or / for commands…"
               : "Ask, tell me what to change, or / for commands…"
           }
-          className="hair-scroll min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-sm leading-6 text-zinc-900 outline-none placeholder:text-zinc-500 dark:text-zinc-100"
+          className="hair-scroll min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-[0.9375rem] leading-6 text-zinc-900 outline-none placeholder:text-zinc-500"
           style={{ maxHeight: COMPOSER_MAX_PX }}
         />
         <ModeMenu value={mode} onChange={onMode} />
         <button
           type="submit"
           disabled={busy || !input.trim() || !keyId}
-          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white disabled:opacity-50"
+          className="btn-send"
           aria-label="Send"
         >
           {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Send className="h-4 w-4" />}
@@ -506,12 +504,12 @@ export function DriveChat({
           onChange={onKey}
           options={keys.map((k) => ({ value: k.id, label: k.name }))}
           placeholder={keys.length ? "Select model" : "No keys — add one in Settings"}
-          className="rounded-lg px-2 py-1 text-sm font-medium text-zinc-900 hover:bg-black/5 dark:text-zinc-100 dark:hover:bg-white/5"
+          className="rounded-lg px-2 py-1 text-[0.9375rem] font-medium text-zinc-900 hover:bg-zinc-100"
         />
         {indexing.running ? (
           <span
             title="Indexing in progress"
-            className="flex items-center gap-1.5 rounded-full border border-indigo-400/40 px-2 py-0.5 text-xs text-indigo-500 dark:text-indigo-400"
+            className="flex items-center gap-1.5 rounded-full border border-zinc-900/25 px-2 py-0.5 text-[0.8125rem] text-zinc-900"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
             indexing {indexing.done}/{indexing.total}
@@ -519,7 +517,7 @@ export function DriveChat({
         ) : idxStatus ? (
           <span
             title="Files embedded for this model — the chat can draw on these"
-            className="rounded-full border border-zinc-200 px-2 py-0.5 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400"
+            className="rounded-full border border-zinc-200 px-2 py-0.5 text-[0.8125rem] text-zinc-500"
           >
             {idxStatus.indexed}/{idxStatus.total} files indexed
           </span>
@@ -536,9 +534,9 @@ export function DriveChat({
       ) : messages.length === 0 ? (
         /* Home state */
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-          <h2 className="mb-6 text-2xl font-medium text-zinc-900 dark:text-zinc-100">What do you want to know?</h2>
+          <h2 className="mb-6 type-heading-sm">What do you want to know?</h2>
           <div className="w-full max-w-2xl">{composer}</div>
-          <p className="mt-3 text-xs text-zinc-400 dark:text-zinc-600">
+          <p className="mt-3 text-[0.8125rem] text-zinc-400">
             {mode === "read_only"
               ? "Answers are grounded in your indexed files."
               : "I can organise and tidy your drive — the button sets how much I may do myself."}
@@ -551,13 +549,13 @@ export function DriveChat({
               {messages.map((m, i) =>
                 m.role === "system" ? (
                   <div key={i} className="flex justify-center">
-                    <div className="max-w-[85%] rounded-xl border border-zinc-200 bg-black/[0.02] px-3 py-2 text-xs text-zinc-600 dark:border-white/10 dark:bg-white/[0.03] dark:text-zinc-400">
+                    <div className="max-w-[85%] rounded-xl border border-zinc-200 bg-zinc-100 px-3 py-2 text-[0.8125rem] text-zinc-600">
                       <ReactMarkdown remarkPlugins={MD_PLUGINS}>{m.content}</ReactMarkdown>
                     </div>
                   </div>
                 ) : m.role === "user" ? (
                   <div key={i} className="flex justify-end">
-                    <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-indigo-600 px-4 py-2.5 text-sm text-white">
+                    <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-5 py-3 text-[0.9375rem] leading-[1.35] text-white">
                       {m.content}
                     </div>
                   </div>
@@ -574,7 +572,7 @@ export function DriveChat({
                   </div>
                 ),
               )}
-              {error ? <p className="text-sm text-red-500">{error}</p> : null}
+              {error ? <p className="text-[0.9375rem] text-red-500">{error}</p> : null}
             </div>
           </div>
           <div className="mx-auto w-full max-w-3xl px-4 pb-5">{composer}</div>

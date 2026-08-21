@@ -101,13 +101,13 @@ function Disclosure({
     <div className="mb-1.5">
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex items-center gap-1 text-xs text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+        className="flex items-center gap-1 text-[0.8125rem] text-zinc-500 transition hover:text-zinc-800"
       >
         <ChevronRight className={`h-3 w-3 transition-transform ${open ? "rotate-90" : ""}`} />
         {icon}
         {label}
       </button>
-      {open ? <div className="mt-1 border-l-2 border-zinc-200 pl-2.5 dark:border-white/10">{children}</div> : null}
+      {open ? <div className="mt-1 border-l-2 border-zinc-200 pl-2.5">{children}</div> : null}
     </div>
   );
 }
@@ -143,16 +143,16 @@ export function DriveMessage({
 
   return (
     <div
-      className={`rounded-2xl bg-black/[0.04] px-3 py-2 text-sm text-zinc-900 dark:bg-white/[0.06] dark:text-zinc-100 ${
-        plan ? "w-full" : "max-w-[85%]"
+      className={`rounded-2xl bg-zinc-100 px-3 py-2 text-[0.9375rem] text-zinc-900 ${
+ plan ? "w-full" : "max-w-[85%]"
       }`}
     >
       {steps.length ? (
         <Disclosure icon={<Sparkles className="h-3 w-3" />} label="How I searched">
-          <ol className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <ol className="space-y-1 text-[0.8125rem] text-zinc-500">
             {steps.map((st, i) => (
               <li key={i}>
-                <span className="text-zinc-700 dark:text-zinc-300">{st.label}</span>
+                <span className="text-zinc-700">{st.label}</span>
                 {st.detail ? <span className="text-zinc-500"> — “{st.detail}”</span> : null}
               </li>
             ))}
@@ -165,10 +165,10 @@ export function DriveMessage({
           icon={<Wand2 className="h-3 w-3" />}
           label={`Applied ${applied.length} change${applied.length === 1 ? "" : "s"}`}
         >
-          <ol className="space-y-1 text-xs text-zinc-500 dark:text-zinc-400">
+          <ol className="space-y-1 text-[0.8125rem] text-zinc-500">
             {applied.map((a, i) => (
               <li key={i} className={a.failed ? "text-red-500" : undefined}>
-                <span className="text-zinc-700 dark:text-zinc-300">{a.label}</span>
+                <span className="text-zinc-700">{a.label}</span>
                 {a.detail ? <span> — {a.detail}</span> : null}
               </li>
             ))}
@@ -180,7 +180,7 @@ export function DriveMessage({
         <div className="mb-1">
           <button
             onClick={() => setOpenThought((v) => !v)}
-            className="flex items-center gap-1 text-xs text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+            className="flex items-center gap-1 text-[0.8125rem] text-zinc-500 transition hover:text-zinc-800"
           >
             <ChevronRight
               className={`h-3 w-3 transition-transform ${showThought ? "rotate-90" : ""}`}
@@ -188,20 +188,20 @@ export function DriveMessage({
             {thinking ? <Working /> : "Thoughts"}
           </button>
           {showThought ? (
-            <div className="mt-1 whitespace-pre-wrap border-l-2 border-zinc-200 pl-2.5 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+            <div className="mt-1 whitespace-pre-wrap border-l-2 border-zinc-200 pl-2.5 text-[0.8125rem] text-zinc-500">
               {thought}
             </div>
           ) : null}
         </div>
       ) : null}
 
-      {error ? <p className="text-sm text-red-400">{error}</p> : null}
+      {error ? <p className="text-[0.9375rem] text-red-400">{error}</p> : null}
 
       {answer ? (
         <div className={MD_CLASS}>
           <ReactMarkdown remarkPlugins={MD_PLUGINS}>{answer}</ReactMarkdown>
           {stillTyping ? (
-            <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-indigo-400 align-middle" />
+            <span className="ml-0.5 inline-block h-3.5 w-1.5 animate-pulse bg-zinc-900 align-middle" />
           ) : null}
         </div>
       ) : waiting ? (
@@ -215,7 +215,7 @@ export function DriveMessage({
       ) : null}
 
       {sources.length ? (
-        <div className="mt-2.5 border-t border-zinc-200 pt-2 dark:border-white/10">
+        <div className="mt-2.5 border-t border-zinc-200 pt-2">
           <p className="mb-1 text-[0.65rem] uppercase tracking-wide text-zinc-500">Sources</p>
           <div className="flex flex-wrap gap-1.5">
             {sources.map((s) => (
@@ -223,9 +223,9 @@ export function DriveMessage({
                 key={s.id}
                 onClick={() => onOpenFile(s)}
                 title={`Open ${s.name}`}
-                className="flex items-center gap-1 rounded-md border border-zinc-200 bg-black/5 px-2 py-1 text-xs text-zinc-700 transition hover:border-indigo-400/40 hover:bg-black/10 hover:text-zinc-900 dark:border-white/10 dark:bg-white/5 dark:text-zinc-300 dark:hover:bg-white/10 dark:hover:text-zinc-100"
+                className="flex items-center gap-1 rounded-md border border-zinc-200 bg-zinc-100 px-2 py-1 text-[0.8125rem] text-zinc-700 transition hover:border-zinc-900/25 hover:bg-zinc-100 hover:text-zinc-900"
               >
-                <FileText className="h-3 w-3 shrink-0 text-indigo-400" />
+                <FileText className="h-3 w-3 shrink-0 text-zinc-600" />
                 <span className="max-w-[12rem] truncate">{s.name}</span>
               </button>
             ))}

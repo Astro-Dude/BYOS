@@ -17,17 +17,17 @@ export function KeyEditor({
 }) {
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4"
+      className="modal-scrim z-[120]"
       onClick={onClose}
     >
       <div
-        className="thin-scroll max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-2xl border border-zinc-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
+        className="modal-surface max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <h3 className="type-heading-sm">
           {existing ? "Edit key" : "Add a key"}
         </h3>
-        <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+        <p className="mt-1 text-[0.9375rem] text-zinc-500">
           Any OpenAI-compatible endpoint. Your key is encrypted and only used for your requests.
         </p>
         <div className="mt-4">

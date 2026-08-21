@@ -76,20 +76,20 @@ export default function SharedFolderPage() {
   };
 
   return (
-    <main className="mx-auto min-h-screen max-w-4xl px-4 py-10">
-      <header className="mb-6">
-        <div className="flex items-center gap-2 text-sm text-zinc-500">
-          <Folder className="h-4 w-4 text-indigo-500" />
+    <main className="mx-auto min-h-screen max-w-page px-6 py-16">
+      <header className="mb-10">
+        <div className="type-label flex items-center gap-2">
+          <Folder className="h-4 w-4" />
           <span>Shared folder</span>
         </div>
-        <h1 className="mt-1 text-2xl font-semibold text-zinc-900 dark:text-zinc-100">
+        <h1 className="type-heading mt-4">
           {view?.root_name ?? slug}
         </h1>
-        <p className="mt-0.5 text-sm text-zinc-500">by @{view?.owner_username ?? username}</p>
+        <p className="mt-4 text-[1.0625rem] text-zinc-600">by @{view?.owner_username ?? username}</p>
       </header>
 
       {view && view.breadcrumb.length > 0 ? (
-        <nav className="mb-4 flex flex-wrap items-center gap-1 text-sm text-zinc-500">
+        <nav className="mb-4 flex flex-wrap items-center gap-1 text-[0.9375rem] text-zinc-500">
           {view.breadcrumb.map((c, i) => (
             <span key={c.id ?? "root"} className="flex items-center gap-1">
               {i > 0 ? <ChevronRight className="h-3.5 w-3.5 text-zinc-300" /> : null}
@@ -97,8 +97,8 @@ export default function SharedFolderPage() {
                 onClick={() => c.id && openFolder(c.id)}
                 className={
                   i === view.breadcrumb.length - 1
-                    ? "font-medium text-zinc-900 dark:text-zinc-100"
-                    : "hover:text-zinc-800 dark:text-zinc-200 hover:underline"
+                    ? "font-medium text-zinc-900"
+                    : "hover:text-zinc-800 hover:underline"
                 }
               >
                 {c.name}
@@ -109,34 +109,34 @@ export default function SharedFolderPage() {
       ) : null}
 
       {error ? (
-        <div className="rounded-lg border border-red-200 bg-red-50 p-6 text-center text-sm text-red-700">
+        <div className="surface-card p-8 text-center text-[1rem] text-red-600">
           {error}
         </div>
       ) : loading ? (
         <div className="space-y-2">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-12 animate-pulse rounded-lg bg-zinc-100 dark:bg-zinc-800" />
+            <div key={i} className="byok-shimmer h-14 rounded-lg" />
           ))}
         </div>
       ) : view && view.folders.length === 0 && view.files.length === 0 ? (
-        <div className="rounded-lg border border-zinc-200 dark:border-zinc-800 p-10 text-center text-sm text-zinc-500">
+        <div className="py-20 text-center type-heading-sm text-zinc-400">
           This folder is empty.
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-100 dark:divide-zinc-800 rounded-lg border border-zinc-200 dark:border-zinc-800">
+        <ul className="border-t border-zinc-200">
           {view?.folders.map((f) => (
             <li key={f.id}>
               <button
                 onClick={() => openFolder(f.id)}
-                className="flex w-full items-center gap-3 px-4 py-3 text-left hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                className="flex w-full items-center gap-3 border-b border-zinc-200 px-4 py-3.5 text-left transition-colors hover:bg-zinc-50"
               >
-                <Folder className="h-5 w-5 shrink-0 text-indigo-500" />
-                <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{f.name}</span>
+                <Folder className="h-5 w-5 shrink-0 text-zinc-900" />
+                <span className="truncate text-[1rem] text-zinc-900">{f.name}</span>
               </button>
             </li>
           ))}
           {view?.files.map((f) => (
-            <li key={f.id} className="flex items-center gap-3 px-4 py-3 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+            <li key={f.id} className="flex items-center gap-3 border-b border-zinc-200 px-4 py-3.5 transition-colors hover:bg-zinc-50">
               <a
                 href={api.publicFolderFileUrl(username, slug, f.id)}
                 target="_blank"
@@ -144,12 +144,12 @@ export default function SharedFolderPage() {
                 className="flex min-w-0 flex-1 items-center gap-3"
               >
                 <FileIcon className="h-5 w-5 shrink-0 text-zinc-400" />
-                <span className="truncate text-sm text-zinc-900 dark:text-zinc-100">{f.name}</span>
+                <span className="truncate text-[0.9375rem] text-zinc-900">{f.name}</span>
               </a>
-              <span className="shrink-0 text-xs text-zinc-400">{humanSize(f.size)}</span>
+              <span className="shrink-0 text-[0.8125rem] text-zinc-400">{humanSize(f.size)}</span>
               <a
                 href={api.publicFolderFileUrl(username, slug, f.id, true)}
-                className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900 dark:text-zinc-100"
+                className="shrink-0 rounded-md p-1.5 text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
                 title="Download"
               >
                 <Download className="h-4 w-4" />
@@ -159,7 +159,7 @@ export default function SharedFolderPage() {
         </ul>
       )}
 
-      <footer className="mt-10 text-center text-xs text-zinc-400">
+      <footer className="mt-10 text-center text-[0.8125rem] text-zinc-400">
         Powered by BYOS — bring your own storage.
       </footer>
     </main>

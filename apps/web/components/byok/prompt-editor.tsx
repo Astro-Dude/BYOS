@@ -7,10 +7,10 @@ import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 
 const field =
-  "w-full rounded-md border border-zinc-200 bg-black/[0.03] px-3 py-2 text-sm text-zinc-900 " +
-  "outline-none placeholder:text-zinc-500 focus:border-indigo-500 " +
-  "dark:border-white/10 dark:bg-white/5 dark:text-zinc-100";
-const label = "mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400";
+  "w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 py-2 text-[0.9375rem] text-zinc-900 " +
+  "outline-none placeholder:text-zinc-500 focus:border-zinc-900 " +
+  "";
+const label = "mb-1 block text-[0.8125rem] font-medium text-zinc-500";
 
 export function PromptEditor({
   existing,
@@ -48,14 +48,14 @@ export function PromptEditor({
 
   return (
     <div
-      className="fixed inset-0 z-[120] flex items-center justify-center bg-black/70 p-4"
+      className="modal-scrim z-[120]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-lg rounded-2xl border border-zinc-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
+        className="modal-surface max-w-lg"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <h3 className="type-heading-sm">
           {existing ? "Edit prompt" : "Add a system prompt"}
         </h3>
         <div className="mt-4 space-y-3">
@@ -78,19 +78,19 @@ export function PromptEditor({
               placeholder="Set the assistant's behavior, tone, and rules…"
             />
           </div>
-          {error ? <p className="text-sm text-red-500">{error}</p> : null}
+          {error ? <p className="text-[0.9375rem] text-red-500">{error}</p> : null}
         </div>
         <div className="mt-5 flex justify-end gap-2">
           <button
             onClick={onClose}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-black/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            className="pill-sm-ghost"
           >
             Cancel
           </button>
           <button
             onClick={save}
             disabled={busy}
-            className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+            className="pill-sm-filled disabled:bg-transparent disabled:text-zinc-400 disabled:ring-1 disabled:ring-inset disabled:ring-zinc-200"
           >
             {busy ? "Saving…" : "Save"}
           </button>

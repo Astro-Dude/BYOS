@@ -22,16 +22,16 @@ function Row({
 }) {
   return (
     <div className="flex items-center justify-between gap-4 py-3">
-      <span className="text-sm text-zinc-500">{label}</span>
+      <span className="text-[0.9375rem] text-zinc-500">{label}</span>
       <div className="flex min-w-0 items-center gap-3">
-        <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+        <span className="truncate text-[0.9375rem] font-medium text-zinc-900">
           {value}
         </span>
         {onEdit ? (
           <button
             onClick={onEdit}
             aria-label={`Edit ${label.toLowerCase()}`}
-            className="shrink-0 text-zinc-400 transition hover:text-zinc-700 dark:hover:text-zinc-200"
+            className="shrink-0 text-zinc-400 transition hover:text-zinc-700"
           >
             <Pencil className="h-4 w-4" />
           </button>
@@ -74,17 +74,17 @@ function PasswordModal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
+      className="modal-scrim z-50"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md rounded-lg bg-white p-5 shadow-xl dark:bg-zinc-900"
+        className="modal-surface max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
-        <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
+        <h3 className="type-heading-sm">
           {hasPassword ? "Change password" : "Set a password"}
         </h3>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-1 text-[0.9375rem] text-zinc-500">
           Sign in with your username or phone — no Telegram code needed.
         </p>
         <div className="mt-4 space-y-3">
@@ -111,12 +111,12 @@ function PasswordModal({
             onChange={(e) => setConfirm(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit()}
           />
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
         </div>
         <div className="mt-4 flex justify-end gap-2">
           <Button
             onClick={onClose}
-            className="border border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50 dark:border-zinc-700 dark:bg-zinc-900 dark:text-zinc-300 dark:hover:bg-zinc-800"
+            className="border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50"
           >
             Cancel
           </Button>
@@ -127,7 +127,7 @@ function PasswordModal({
             {busy ? "Saving…" : hasPassword ? "Change password" : "Set password"}
           </Button>
         </div>
-        <p className="mt-3 text-xs text-zinc-400">At least 8 characters.</p>
+        <p className="mt-3 text-[0.8125rem] text-zinc-400">At least 8 characters.</p>
       </div>
     </div>
   );
@@ -157,11 +157,11 @@ export function ProfilePanel() {
 
   return (
     <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center py-8">
-      <h1 className="mb-6 text-2xl font-normal text-zinc-800 dark:text-zinc-200">Profile</h1>
+      <h1 className="mb-6 type-heading-sm">Profile</h1>
 
-      <section className="rounded-xl border border-zinc-200 bg-white p-5 dark:border-zinc-800 dark:bg-zinc-900">
-        <h2 className="mb-1 font-semibold text-zinc-900 dark:text-zinc-100">Account</h2>
-        <div className="divide-y divide-zinc-100 dark:divide-zinc-800">
+      <section className="surface-card p-6">
+        <h2 className="mb-1 font-medium text-zinc-900">Account</h2>
+        <div className="divide-y divide-zinc-200">
           <Row
             label="Display name"
             value={user?.display_name || "—"}

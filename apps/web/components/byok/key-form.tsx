@@ -32,10 +32,10 @@ function modelHint(baseUrl: string): string {
 }
 
 const field =
-  "w-full rounded-md border border-zinc-200 bg-black/[0.03] px-3 py-2 text-sm text-zinc-900 " +
-  "outline-none placeholder:text-zinc-500 focus:border-indigo-500 " +
-  "dark:border-white/10 dark:bg-white/5 dark:text-zinc-100";
-const label = "mb-1 block text-xs font-medium text-zinc-500 dark:text-zinc-400";
+  "w-full rounded-md border border-zinc-200 bg-zinc-100 px-3 py-2 text-[0.9375rem] text-zinc-900 " +
+  "outline-none placeholder:text-zinc-500 focus:border-zinc-900 " +
+  "";
+const label = "mb-1 block text-[0.8125rem] font-medium text-zinc-500";
 
 /** Every field of a BYOK connection, with its own validation and save.
  *
@@ -149,11 +149,11 @@ export function KeyForm({
             className={field}
           >
             {PRESETS.map((p) => (
-              <option key={p.label} value={p.label} className="bg-white dark:bg-zinc-900">
+              <option key={p.label} value={p.label} className="bg-white">
                 {p.label}
               </option>
             ))}
-            <option value={CUSTOM} className="bg-white dark:bg-zinc-900">
+            <option value={CUSTOM} className="bg-white">
               Custom…
             </option>
           </select>
@@ -194,7 +194,7 @@ export function KeyForm({
               disabled={revealing}
               onClick={() => void toggleKey()}
               aria-label={showKey ? "Hide key" : "Show key"}
-              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-500 hover:text-zinc-800 disabled:opacity-50 dark:text-zinc-400 dark:hover:text-zinc-200"
+              className="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-zinc-500 hover:text-zinc-800 disabled:opacity-50"
             >
               {revealing ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -252,14 +252,14 @@ export function KeyForm({
             />
           </div>
         </div>
-        {error ? <p className="text-sm text-red-500">{error}</p> : null}
+        {error ? <p className="text-[0.9375rem] text-red-500">{error}</p> : null}
       </div>
       <div className="mt-5 flex justify-end gap-2">
         {onCancel ? (
           <button
             type="button"
             onClick={onCancel}
-            className="rounded-md border border-zinc-200 px-3 py-1.5 text-sm text-zinc-700 hover:bg-black/5 dark:border-white/10 dark:text-zinc-300 dark:hover:bg-white/5"
+            className="pill-sm-ghost"
           >
             Cancel
           </button>
@@ -267,7 +267,7 @@ export function KeyForm({
         <button
           type="submit"
           disabled={busy}
-          className="rounded-md bg-indigo-600 px-4 py-1.5 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-60"
+          className="pill-sm-filled disabled:bg-transparent disabled:text-zinc-400 disabled:ring-1 disabled:ring-inset disabled:ring-zinc-200"
         >
           {busy ? "Saving…" : (submitLabel ?? "Save")}
         </button>

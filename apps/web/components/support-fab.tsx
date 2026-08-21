@@ -15,6 +15,9 @@ import { SupportModal, supportEnabled } from "@/components/support-modal";
  *  `group` sits on the wrapper rather than the button so the halo (a sibling of
  *  the button) can react to hover too, and `group-focus-within` covers keyboard
  *  users, for whom hover never fires.
+ *
+ *  The two wisps off the cup are permanent rather than hover-gated — the button
+ *  should read as hot whether or not anything is pointing at it.
  */
 export function SupportFab() {
   const [open, setOpen] = useState(false);
@@ -23,22 +26,21 @@ export function SupportFab() {
 
   return (
     <>
-      <div className="group fixed bottom-5 right-5 z-[140] print:hidden">
+      <div className="group fixed bottom-5 right-5 z-[90] print:hidden">
+        {/* Blush breath rather than a coloured glow — the accent pair is the only
+            warmth the system allows, and it retreats as soon as you engage. */}
         <span
           aria-hidden
-          className="byok-halo pointer-events-none absolute inset-0 rounded-full bg-indigo-400/30 blur-md transition-opacity duration-300 group-hover:opacity-0"
+          className="byok-halo pointer-events-none absolute inset-0 rounded-full bg-peach blur-md transition-opacity duration-300 group-hover:opacity-0"
         />
         <button
           onClick={() => setOpen(true)}
           aria-label="Buy me a coffee"
-          className="relative flex h-12 items-center rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 px-3.5 text-white shadow-lg shadow-indigo-900/30 outline-none transition-all duration-300 ease-out hover:pr-5 hover:shadow-xl hover:shadow-indigo-900/45 focus-visible:ring-2 focus-visible:ring-indigo-300 active:scale-95 group-focus-within:pr-5"
+          className="relative flex h-12 items-center rounded-full bg-zinc-900 px-4 text-white outline-none transition-all duration-300 ease-out hover:bg-zinc-800 hover:pr-5 focus-visible:ring-2 focus-visible:ring-zinc-900 focus-visible:ring-offset-2 active:scale-[0.97] group-focus-within:pr-5"
         >
           <span className="relative flex h-5 w-5 shrink-0 items-center justify-center">
             <Coffee className="h-5 w-5 transition-transform duration-300 group-hover:-translate-y-px" />
-            <span
-              aria-hidden
-              className="absolute -top-2 left-1/2 flex -translate-x-1/2 gap-[3px] opacity-0 transition-opacity duration-200 group-hover:opacity-100 group-focus-within:opacity-100"
-            >
+            <span aria-hidden className="absolute -top-2 left-1/2 flex -translate-x-1/2 gap-[3px]">
               <span className="byok-steam block h-1.5 w-[2px] rounded-full bg-white/80" />
               <span
                 className="byok-steam block h-1.5 w-[2px] rounded-full bg-white/60"
@@ -46,7 +48,7 @@ export function SupportFab() {
               />
             </span>
           </span>
-          <span className="max-w-0 overflow-hidden whitespace-nowrap text-sm font-medium transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[11rem] group-focus-within:ml-2 group-focus-within:max-w-[11rem]">
+          <span className="max-w-0 overflow-hidden whitespace-nowrap text-[0.9375rem] font-normal transition-all duration-300 ease-out group-hover:ml-2 group-hover:max-w-[11rem] group-focus-within:ml-2 group-focus-within:max-w-[11rem]">
             Buy me a coffee
           </span>
         </button>

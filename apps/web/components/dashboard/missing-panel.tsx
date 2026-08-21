@@ -100,8 +100,8 @@ export function MissingPanel() {
     <div className="space-y-4 pt-2">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Missing files</h1>
-          <p className="text-sm text-zinc-500">
+          <h1 className="type-heading-sm">Missing files</h1>
+          <p className="text-[0.9375rem] text-zinc-500">
             Files whose contents were deleted directly in Telegram. Scan to re-check every file.
           </p>
         </div>
@@ -110,7 +110,7 @@ export function MissingPanel() {
             <button
               onClick={() => setConfirmAll(true)}
               disabled={clearing}
-              className="flex items-center gap-2 rounded-md border border-red-300 px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50 disabled:opacity-60 dark:border-red-500/40 dark:hover:bg-red-500/10"
+              className="flex items-center gap-2 rounded-full border border-red-300 px-4 py-2 text-[0.9375rem] text-red-600 transition-colors hover:border-red-500 disabled:opacity-60"
             >
               <Trash2 className="h-4 w-4" />
               Remove all
@@ -127,7 +127,7 @@ export function MissingPanel() {
         </div>
       </div>
 
-      {error ? <p className="text-sm text-red-600">{error}</p> : null}
+      {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
 
       {loading ? (
         <div className="space-y-2">
@@ -136,30 +136,30 @@ export function MissingPanel() {
           ))}
         </div>
       ) : missing.length === 0 ? (
-        <div className="flex flex-col items-center rounded-xl border border-zinc-200 p-10 text-center dark:border-zinc-800">
+        <div className="flex flex-col items-center py-20 text-center">
           <FileWarning className="h-8 w-8 text-zinc-300" />
-          <p className="mt-2 text-sm text-zinc-500">
+          <p className="mt-2 text-[0.9375rem] text-zinc-500">
             No missing files detected. Everything in your drive is still in Telegram.
           </p>
         </div>
       ) : (
-        <ul className="divide-y divide-zinc-100 overflow-hidden rounded-xl border border-zinc-200 bg-white dark:divide-zinc-800 dark:border-zinc-800 dark:bg-zinc-900">
+        <ul className="divide-y divide-zinc-200 border-t border-zinc-200">
           {missing.map((file) => (
             <li key={file.id} className="flex items-center gap-3 px-4 py-3">
               <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
               <div className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+                <span className="block truncate text-[0.9375rem] font-medium text-zinc-900">
                   {file.name}
                 </span>
                 {file.missing_at ? (
-                  <span className="text-xs text-amber-600 dark:text-amber-500">
+                  <span className="text-[0.8125rem] text-amber-600">
                     Gone since {shortDate(file.missing_at)}
                   </span>
                 ) : null}
               </div>
               <button
                 onClick={() => setRemoving(file)}
-                className="shrink-0 text-sm font-medium text-red-600 hover:text-red-500"
+                className="shrink-0 text-[0.9375rem] font-medium text-red-600 hover:text-red-500"
               >
                 Remove record
               </button>

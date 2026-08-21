@@ -61,18 +61,18 @@ export function SettingsModal({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-center justify-center bg-black/70 p-4"
+      className="modal-scrim z-[110]"
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl border border-zinc-200 bg-white/95 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
+        className="flex h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left rail */}
-        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-black/[0.03] p-3 dark:border-white/10 dark:bg-black/20">
+        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-zinc-100 p-3">
           <button
             onClick={onClose}
-            className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-black/10 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/10 dark:hover:text-zinc-200"
+            className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
@@ -82,10 +82,10 @@ export function SettingsModal({
               <button
                 key={s.id}
                 onClick={() => setTab(s.id)}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-sm transition ${
-                  tab === s.id
-                    ? "bg-black/10 text-zinc-900 dark:bg-white/10 dark:text-zinc-100"
-                    : "text-zinc-500 hover:bg-black/5 hover:text-zinc-800 dark:text-zinc-400 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.9375rem] transition ${
+ tab === s.id
+                    ? "bg-zinc-100 text-zinc-900"
+                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
                 }`}
               >
                 <s.icon className="h-4 w-4 shrink-0" />
@@ -97,44 +97,44 @@ export function SettingsModal({
 
         {/* Right pane */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-zinc-200 px-6 py-4 dark:border-white/10">
-            <h2 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">{activeLabel}</h2>
+          <div className="border-b border-zinc-200 px-6 py-4">
+            <h2 className="type-heading-sm">{activeLabel}</h2>
           </div>
           <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-6">
           {tab === "keys" ? (
             <div className="space-y-2">
               <button
                 onClick={() => setKeyEditor("new")}
-                className="mb-1 flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+                className="mb-1 flex items-center gap-1.5 pill-sm-filled"
               >
                 <Plus className="h-4 w-4" /> Add key
               </button>
               {keys.length === 0 ? (
-                <p className="text-sm text-zinc-500">No keys yet — add your first model key.</p>
+                <p className="text-[0.9375rem] text-zinc-500">No keys yet — add your first model key.</p>
               ) : (
                 keys.map((k) => (
                   <div
                     key={k.id}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2"
                   >
-                    <KeyRound className="h-4 w-4 shrink-0 text-indigo-400" />
+                    <KeyRound className="h-4 w-4 shrink-0 text-zinc-600" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{k.name}</p>
-                      <p className="truncate text-xs text-zinc-500">
+                      <p className="truncate text-[0.9375rem] text-zinc-900">{k.name}</p>
+                      <p className="truncate text-[0.8125rem] text-zinc-500">
                         {k.model}
                         {k.embedding_model ? ` · ${k.embedding_model}` : ""}
                       </p>
                     </div>
                     <button
                       onClick={() => setKeyEditor(k)}
-                      className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      className="text-zinc-500 hover:text-zinc-800"
                       aria-label="Edit key"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => void removeKey(k.id)}
-                      className="text-zinc-500 hover:text-red-500 dark:text-zinc-400"
+                      className="text-zinc-500 hover:text-red-500"
                       aria-label="Delete key"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -149,33 +149,33 @@ export function SettingsModal({
             <div className="space-y-2">
               <button
                 onClick={() => setPromptEditor("new")}
-                className="mb-1 flex items-center gap-1.5 rounded-md bg-indigo-600 px-3 py-1.5 text-sm font-medium text-white hover:bg-indigo-500"
+                className="mb-1 flex items-center gap-1.5 pill-sm-filled"
               >
                 <Plus className="h-4 w-4" /> Add prompt
               </button>
               {prompts.length === 0 ? (
-                <p className="text-sm text-zinc-500">No saved prompts.</p>
+                <p className="text-[0.9375rem] text-zinc-500">No saved prompts.</p>
               ) : (
                 prompts.map((p) => (
                   <div
                     key={p.id}
-                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-black/[0.03] px-3 py-2 dark:border-white/10 dark:bg-white/[0.03]"
+                    className="flex items-center gap-2 rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2"
                   >
-                    <MessageSquareText className="h-4 w-4 shrink-0 text-indigo-400" />
+                    <MessageSquareText className="h-4 w-4 shrink-0 text-zinc-600" />
                     <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{p.name}</p>
-                      <p className="truncate text-xs text-zinc-500">{p.content}</p>
+                      <p className="truncate text-[0.9375rem] text-zinc-900">{p.name}</p>
+                      <p className="truncate text-[0.8125rem] text-zinc-500">{p.content}</p>
                     </div>
                     <button
                       onClick={() => setPromptEditor(p)}
-                      className="text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                      className="text-zinc-500 hover:text-zinc-800"
                       aria-label="Edit prompt"
                     >
                       <Pencil className="h-3.5 w-3.5" />
                     </button>
                     <button
                       onClick={() => void removePrompt(p.id)}
-                      className="text-zinc-500 hover:text-red-500 dark:text-zinc-400"
+                      className="text-zinc-500 hover:text-red-500"
                       aria-label="Delete prompt"
                     >
                       <Trash2 className="h-3.5 w-3.5" />
@@ -189,15 +189,15 @@ export function SettingsModal({
           {tab === "index" ? (
             <div className="space-y-3">
               {keys.length > 1 ? (
-                <label className="block text-xs text-zinc-500 dark:text-zinc-400">
+                <label className="block text-[0.8125rem] text-zinc-500">
                   Index with key
                   <select
                     value={indexKeyId}
                     onChange={(e) => setIndexKeyId(e.target.value)}
-                    className="mt-1 block w-full rounded-md border border-zinc-200 bg-black/[0.03] px-2 py-1.5 text-sm text-zinc-900 outline-none focus:border-indigo-500 dark:border-white/10 dark:bg-white/5 dark:text-zinc-100"
+                    className="mt-1 block w-full rounded-md border border-zinc-200 bg-zinc-100 px-2 py-1.5 text-[0.9375rem] text-zinc-900 outline-none focus:border-zinc-900"
                   >
                     {keys.map((k) => (
-                      <option key={k.id} value={k.id} className="bg-white dark:bg-zinc-900">
+                      <option key={k.id} value={k.id} className="bg-white">
                         {k.name}
                       </option>
                     ))}

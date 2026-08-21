@@ -4,18 +4,18 @@ import { type ReactNode, useRef } from "react";
 
 const CELL = "46px";
 const GRID_BASE =
-  "linear-gradient(to right, rgba(113,113,122,0.15) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(113,113,122,0.15) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(23,25,28,0.06) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(23,25,28,0.06) 1px, transparent 1px)";
 const GRID_GLOW =
-  "linear-gradient(to right, rgba(74,129,119,0.55) 1px, transparent 1px)," +
-  "linear-gradient(to bottom, rgba(74,129,119,0.55) 1px, transparent 1px)";
+  "linear-gradient(to right, rgba(93,42,26,0.30) 1px, transparent 1px)," +
+  "linear-gradient(to bottom, rgba(93,42,26,0.30) 1px, transparent 1px)";
 const CURSOR_MASK =
   "radial-gradient(220px circle at var(--mx, 50%) var(--my, -100px), " +
   "#000 0%, rgba(0,0,0,0.35) 45%, transparent 72%)";
 
-/** Wraps content in the BYOK "world": a faint grid wallpaper whose lines light
- *  up teal in a radius around the cursor. Cursor position is written to CSS vars
- *  and used to mask the glowing grid layer. */
+/** Wraps content in the BYOK "world": a faint grid wallpaper whose lines warm to
+ *  sienna in a radius around the cursor. Cursor position is written to CSS vars
+ *  and used to mask the warmed grid layer. */
 export function Glow({ children, className = "" }: { children: ReactNode; className?: string }) {
   const ref = useRef<HTMLDivElement>(null);
 
@@ -53,4 +53,4 @@ export function Glow({ children, className = "" }: { children: ReactNode; classN
 
 /** Shared glass-card classes for the BYOK world. */
 export const GLASS =
-  "rounded-2xl border border-zinc-200 bg-black/[0.03] dark:border-white/10 dark:bg-white/[0.04] backdrop-blur-xl shadow-xl shadow-black/20";
+  "surface-card";

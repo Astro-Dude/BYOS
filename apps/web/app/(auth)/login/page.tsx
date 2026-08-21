@@ -8,7 +8,6 @@ import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
 import { Logo } from "@/components/logo";
-import { ThemeToggle } from "@/components/theme-toggle";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
@@ -128,12 +127,12 @@ export default function LoginPage() {
 
   if (authLoading || user) {
     return (
-      <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-        <Skeleton className="h-9 w-32" />
-        <Skeleton className="mt-8 h-7 w-52" />
-        <Skeleton className="mt-3 h-4 w-full" />
-        <Skeleton className="mt-8 h-11 w-full rounded-md" />
-        <Skeleton className="mt-3 h-11 w-full rounded-md" />
+      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
+        <Skeleton className="h-7 w-24" />
+        <Skeleton className="mt-10 h-11 w-64" />
+        <Skeleton className="mt-5 h-5 w-full" />
+        <Skeleton className="mt-8 h-12 w-full rounded-lg" />
+        <Skeleton className="mt-3 h-12 w-full rounded-full" />
       </main>
     );
   }
@@ -141,17 +140,16 @@ export default function LoginPage() {
   const passwordMode = mode === "password";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-sm flex-col px-6">
-      <header className="flex items-center justify-between py-6">
-        <Logo className="text-indigo-600" markClassName="h-9 w-9" wordClassName="text-lg" />
-        <ThemeToggle />
+    <main className="mx-auto flex min-h-screen max-w-md flex-col px-6">
+      <header className="flex items-center justify-between py-8">
+        <Logo wordClassName="text-xl" />
       </header>
 
-      <div className="flex flex-1 flex-col justify-center pb-16">
-        <h1 className="text-2xl font-semibold tracking-tight">
+      <div className="flex flex-1 flex-col justify-center pb-20">
+        <h1 className="type-heading">
           {passwordMode ? "Sign in" : "Sign in with Telegram"}
         </h1>
-        <p className="mt-1 text-sm text-zinc-500">
+        <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
           {passwordMode
             ? "Use your username or phone and your BYOS password."
             : step === "phone"
@@ -161,12 +159,12 @@ export default function LoginPage() {
                 : "Your account has two-factor auth — enter your Telegram password."}
         </p>
         {notice ? (
-          <p className="mt-3 rounded-md bg-indigo-50 px-3 py-2 text-sm text-indigo-700 dark:bg-indigo-500/10 dark:text-indigo-300">
+          <p className="surface-card mt-6 px-5 py-4 text-[0.9375rem] text-zinc-900">
             {notice}
           </p>
         ) : null}
         {!passwordMode && step === "code" ? (
-          <div className="mt-3 flex items-start gap-2 rounded-md border border-indigo-200 bg-indigo-50 px-3 py-2 text-sm text-indigo-800 dark:border-indigo-500/30 dark:bg-indigo-500/10 dark:text-indigo-200">
+          <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
             <Send className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
               Check your <strong>Telegram app</strong> — the code is sent there (in the
@@ -175,7 +173,7 @@ export default function LoginPage() {
           </div>
         ) : null}
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-4">
+        <form onSubmit={onSubmit} className="mt-8 space-y-3">
           {passwordMode && (
             <>
               <Input
@@ -202,7 +200,7 @@ export default function LoginPage() {
                 value={dial}
                 onChange={(e) => setDial(e.target.value)}
                 aria-label="Country code"
-                className="rounded-md border border-zinc-300 bg-white px-2 py-2 text-sm text-zinc-900 outline-none focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 dark:border-zinc-700 dark:bg-zinc-800 dark:text-zinc-100"
+                className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-[0.9375rem] text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
               >
                 {COUNTRY_CODES.map((c) => (
                   <option key={`${c.iso}${c.dial}`} value={c.dial}>
@@ -241,7 +239,7 @@ export default function LoginPage() {
             />
           )}
 
-          {error ? <p className="text-sm text-red-600">{error}</p> : null}
+          {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
 
           <Button type="submit" disabled={busy} className="w-full">
             {busy
@@ -256,10 +254,10 @@ export default function LoginPage() {
           </Button>
         </form>
 
-        <div className="mt-4 space-y-2 text-sm">
+        <div className="mt-4 space-y-2 text-[0.9375rem]">
           <button
             onClick={() => switchMode(passwordMode ? "telegram" : "password")}
-            className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400"
+            className="text-zinc-900 hover:text-zinc-900"
           >
             {passwordMode ? "Sign in with a Telegram code instead" : "Sign in with a password instead"}
           </button>
@@ -269,14 +267,14 @@ export default function LoginPage() {
                 setStep("phone");
                 setError(null);
               }}
-              className="block text-zinc-500 hover:text-zinc-800 dark:text-zinc-200"
+              className="block text-zinc-500 hover:text-zinc-800"
             >
               ← Start over
             </button>
           )}
           <p className="text-zinc-500">
             New to BYOS?{" "}
-            <Link href="/register" className="text-indigo-600 hover:text-indigo-500 dark:text-indigo-400">
+            <Link href="/register" className="text-zinc-900 hover:text-zinc-900">
               Create an account
             </Link>
           </p>

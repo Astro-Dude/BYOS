@@ -55,22 +55,22 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
 
   return (
     <div
-      className="fixed inset-0 z-[130] flex items-center justify-center bg-black/70 p-4"
+      className="modal-scrim z-[130]"
       onClick={onClose}
     >
       <div
-        className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white/95 p-5 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95"
+        className="modal-surface max-w-md"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-start gap-3">
-          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-indigo-500/15 text-indigo-600 dark:text-indigo-400">
-            <Coffee className="h-4.5 w-4.5" />
+          <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-peach text-sienna">
+            <Coffee className="h-[1.125rem] w-[1.125rem]" />
           </span>
           <div className="min-w-0 flex-1">
-            <h3 className="text-base font-semibold text-zinc-900 dark:text-zinc-100">
-              Buy the developer a coffee
+            <h3 className="type-heading-sm">
+              Buy the developer a <span className="type-em">coffee</span>
             </h3>
-            <p className="mt-1 text-sm leading-relaxed text-zinc-500 dark:text-zinc-400">
+            <p className="mt-3 text-[1.0625rem] leading-[1.35] text-zinc-600">
               BYOS is free and runs on storage you already own. If it&apos;s useful to you, a
               small tip helps cover the hosting.
             </p>
@@ -78,7 +78,7 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
           <button
             onClick={onClose}
             aria-label="Close"
-            className="shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-black/5 hover:text-zinc-700 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+            className="shrink-0 rounded-md p-1 text-zinc-400 transition hover:bg-zinc-100 hover:text-zinc-700"
           >
             <X className="h-4 w-4" />
           </button>
@@ -88,7 +88,7 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
           {/* Razorpay renders its button inside this form. */}
           <form ref={formRef} />
           {blocked ? (
-            <p className="text-center text-xs text-zinc-500 dark:text-zinc-400">
+            <p className="text-center text-[0.8125rem] text-zinc-500">
               The payment button couldn&apos;t load — a content blocker or extension is likely
               blocking <span className="font-mono">checkout.razorpay.com</span>. Allow it and
               reopen this, or reach out directly.
@@ -96,7 +96,7 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
           ) : null}
         </div>
 
-        <p className="mt-4 flex items-center justify-center gap-1 text-[0.7rem] text-zinc-400 dark:text-zinc-500">
+        <p className="mt-4 flex items-center justify-center gap-1 text-[0.7rem] text-zinc-400">
           Payment handled by Razorpay
           <ExternalLink className="h-3 w-3" />
         </p>

@@ -1,11 +1,10 @@
 "use client";
 
-import { ArrowLeft, LogOut, Moon, Settings as SettingsIcon, Sun } from "lucide-react";
+import { ArrowLeft, LogOut, Settings as SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
 import { useAuth } from "@/lib/auth-context";
-import { useTheme } from "@/lib/theme";
 
 export function initialsOf(label: string): string {
   return (
@@ -22,7 +21,6 @@ export function initialsOf(label: string): string {
  *  opens a menu (Settings / back to Drive / Log out), ChatGPT-style. */
 export function AccountMenu({ onSettings }: { onSettings: () => void }) {
   const { user, logout } = useAuth();
-  const { theme, toggle } = useTheme();
   const [open, setOpen] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
 
@@ -41,47 +39,36 @@ export function AccountMenu({ onSettings }: { onSettings: () => void }) {
   return (
     <div ref={ref} className="relative">
       {open ? (
-        <div className="absolute bottom-full left-0 mb-2 w-full overflow-hidden rounded-xl border border-zinc-200 bg-white/95 py-1 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
+        <div className="menu-surface absolute bottom-full left-0 mb-2 w-full">
           <div className="flex items-center gap-2.5 px-3 py-2">
-            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-xs font-semibold text-zinc-800 dark:bg-white/10 dark:text-zinc-200">
+            <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[0.8125rem] font-medium text-zinc-800">
               {initialsOf(name)}
             </span>
             <div className="min-w-0">
-              <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{name}</p>
-              {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
+              <p className="truncate text-[0.9375rem] text-zinc-900">{name}</p>
+              {subtitle ? <p className="truncate text-[0.8125rem] text-zinc-500">{subtitle}</p> : null}
             </div>
           </div>
-          <div className="my-1 border-t border-zinc-200 dark:border-white/10" />
+          <div className="my-1 border-t border-zinc-200" />
           <button
             onClick={() => {
               setOpen(false);
               onSettings();
             }}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-zinc-800 transition hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/5"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-zinc-800 transition hover:bg-zinc-100"
           >
-            <SettingsIcon className="h-4 w-4 text-zinc-500 dark:text-zinc-400" /> Settings
-          </button>
-          <button
-            onClick={toggle}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-zinc-800 transition hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/5"
-          >
-            {theme === "dark" ? (
-              <Sun className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-            ) : (
-              <Moon className="h-4 w-4 text-zinc-500 dark:text-zinc-400" />
-            )}
-            {theme === "dark" ? "Light mode" : "Dark mode"}
+            <SettingsIcon className="h-4 w-4 text-zinc-500" /> Settings
           </button>
           <Link
             href="/dashboard"
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-zinc-800 transition hover:bg-black/5 dark:text-zinc-200 dark:hover:bg-white/5"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-zinc-800 transition hover:bg-zinc-100"
           >
-            <ArrowLeft className="h-4 w-4 text-zinc-500 dark:text-zinc-400" /> Back to Drive
+            <ArrowLeft className="h-4 w-4 text-zinc-500" /> Back to Drive
           </Link>
-          <div className="my-1 border-t border-zinc-200 dark:border-white/10" />
+          <div className="my-1 border-t border-zinc-200" />
           <button
             onClick={() => void logout()}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-red-400 transition hover:bg-red-500/10"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-red-400 transition hover:bg-red-500/10"
           >
             <LogOut className="h-4 w-4" /> Log out
           </button>
@@ -90,14 +77,14 @@ export function AccountMenu({ onSettings }: { onSettings: () => void }) {
 
       <button
         onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-black/5 dark:hover:bg-white/5"
+        className="flex w-full items-center gap-2.5 rounded-lg px-2 py-2 text-left transition hover:bg-zinc-100"
       >
-        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-black/10 text-xs font-semibold text-zinc-800 dark:bg-white/10 dark:text-zinc-200">
+        <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-zinc-100 text-[0.8125rem] font-medium text-zinc-800">
           {initialsOf(name)}
         </span>
         <div className="min-w-0 flex-1">
-          <p className="truncate text-sm text-zinc-900 dark:text-zinc-100">{name}</p>
-          {subtitle ? <p className="truncate text-xs text-zinc-500">{subtitle}</p> : null}
+          <p className="truncate text-[0.9375rem] text-zinc-900">{name}</p>
+          {subtitle ? <p className="truncate text-[0.8125rem] text-zinc-500">{subtitle}</p> : null}
         </div>
       </button>
 

@@ -36,33 +36,33 @@ export function UsernameSetup() {
 
   return (
     <main className="mx-auto flex min-h-screen max-w-sm flex-col justify-center px-6">
-      <div className="mb-8 flex items-center gap-3 text-indigo-600">
+      <div className="mb-8 flex items-center gap-3 text-zinc-900">
         <LogoMark className="h-9 w-9" />
-        <span className="font-brand text-2xl font-bold tracking-tight">BYOS</span>
+        <span className="type-heading-sm">BYOS</span>
       </div>
-      <h1 className="text-2xl font-semibold tracking-tight">Choose your username</h1>
-      <p className="mt-1 text-sm text-zinc-500">
+      <h1 className="type-heading-sm">Choose your username</h1>
+      <p className="mt-1 text-[0.9375rem] text-zinc-500">
         It&apos;s unique and permanent. Your shareable links live at{" "}
-        <code className="rounded bg-zinc-100 dark:bg-zinc-800 px-1">/{username || "you"}/…</code>
+        <code className="rounded bg-zinc-100 px-1">/{username || "you"}/…</code>
       </p>
 
       <form onSubmit={submit} className="mt-6">
-        <div className="flex items-center rounded-md border border-zinc-300 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3 focus-within:border-indigo-500 focus-within:ring-1 focus-within:ring-indigo-500">
-          <span className="text-sm text-zinc-400">/</span>
+        <div className="flex items-center gap-1 rounded-lg border border-zinc-200 bg-white px-4 transition-colors focus-within:border-zinc-900">
+          <span className="text-[0.9375rem] text-zinc-400">/</span>
           <Input
             value={username}
             onChange={(e) => setUsername(e.target.value.toLowerCase())}
             placeholder="username"
             autoFocus
-            className="border-0 focus:ring-0"
+            className="border-0 bg-transparent px-0 focus:border-0 focus:ring-0"
           />
         </div>
-        {error ? <p className="mt-2 text-sm text-red-600">{error}</p> : null}
+        {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
         <Button type="submit" className="mt-4 w-full" disabled={busy || username.trim().length < 3}>
           {busy ? "Saving…" : "Continue"}
         </Button>
       </form>
-      <p className="mt-3 text-xs text-zinc-400">
+      <p className="mt-3 text-[0.8125rem] text-zinc-400">
         3–30 characters: letters, numbers, hyphens, or underscores.
       </p>
     </main>

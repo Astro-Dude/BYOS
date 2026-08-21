@@ -47,15 +47,13 @@ export function Working({ step, className = "" }: { step?: string; className?: s
   const label = (step && FOR_TOOL[step]) ?? WORDS[i % WORDS.length];
 
   return (
-    <span
-      className={`inline-flex items-baseline gap-1 text-sm text-zinc-500 dark:text-zinc-400 ${className}`}
-    >
+    <span className={`inline-flex items-center gap-2 text-[0.9375rem] text-zinc-600 ${className}`}>
       <span className="byok-word">{label}</span>
-      <span className="inline-flex items-baseline gap-0.5" aria-hidden>
+      <span className="inline-flex items-baseline gap-1" aria-hidden>
         {[0, 1, 2].map((d) => (
           <span
             key={d}
-            className="byok-dot inline-block h-1 w-1 rounded-full bg-current"
+            className="byok-dot inline-block h-[3px] w-[3px] rounded-full bg-zinc-900/50"
             style={{ animationDelay: `${d * 0.16}s` }}
           />
         ))}

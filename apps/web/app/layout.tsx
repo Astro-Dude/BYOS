@@ -1,15 +1,26 @@
 import type { Metadata } from "next";
-import { Space_Grotesk } from "next/font/google";
+import { Inter, Source_Serif_4 } from "next/font/google";
 import type { ReactNode } from "react";
 
 import "./globals.css";
 import { Providers } from "./providers";
 
-// Geometric grotesque for the BYOS brand/wordmark (a free stand-in for Neotriad).
-const brand = Space_Grotesk({
+// Signifier stand-in — the display serif. Weight 400 only, at every size: the
+// serif whispers authority rather than shouting in bold (DESIGN.md). Italic is
+// loaded because the display style sets one phrase per headline in italics.
+const display = Source_Serif_4({
   subsets: ["latin"],
-  weight: ["500", "700"],
-  variable: "--font-brand",
+  weight: ["400"],
+  style: ["normal", "italic"],
+  variable: "--font-display",
+  display: "swap",
+});
+
+// Sohne stand-in — the UI workhorse. Variable so the half-step weights
+// (430/450/480) that carry Steep's fine-grained hierarchy actually resolve.
+const ui = Inter({
+  subsets: ["latin"],
+  variable: "--font-ui",
   display: "swap",
 });
 
@@ -19,15 +30,11 @@ export const metadata: Metadata = {
     "A unified layer on top of the storage you already own: organize, search, preview, version, and share — with permanent dynamic aliases.",
 };
 
-// Set the theme class before first paint to avoid a light/dark flash.
-const themeScript = `(function(){try{var t=localStorage.getItem('byos:theme');var d=t==='dark'||(!t&&window.matchMedia('(prefers-color-scheme:dark)').matches);if(d)document.documentElement.classList.add('dark');}catch(e){}})();`;
-
 export default function RootLayout({ children }: { children: ReactNode }) {
+  // Light only, per DESIGN.md ("Theme: light"). No theme script, no `.dark`
+  // class, and no dark-variant utilities left in the tree.
   return (
-    <html lang="en" className={brand.variable} suppressHydrationWarning>
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
-      </head>
+    <html lang="en" className={`${display.variable} ${ui.variable}`}>
       <body>
         <Providers>{children}</Providers>
       </body>

@@ -150,24 +150,24 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
   const busy = indexing.running;
   const progress = busy || indexing.finishedAt ? indexing : null;
   const pct = progress && progress.total ? Math.round((progress.done / progress.total) * 100) : 0;
-  const checkbox = "h-4 w-4 shrink-0 accent-indigo-600";
+  const checkbox = "h-4 w-4 shrink-0 accent-zinc-900";
 
   return (
     <div className="space-y-3">
       <div>
-        <h3 className="text-sm font-semibold text-zinc-900 dark:text-zinc-100">Index for drive-wide chat</h3>
-        <p className="text-xs text-zinc-500 dark:text-zinc-400">
+        <h3 className="text-[0.9375rem] font-medium text-zinc-900">Index for drive-wide chat</h3>
+        <p className="text-[0.8125rem] text-zinc-500">
           Embed files so you can chat across them. Choose what to include.
         </p>
       </div>
 
       {!keyHasEmbedding ? (
-        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-xs text-amber-300">
+        <p className="rounded-lg border border-amber-500/30 bg-amber-500/10 px-3 py-2 text-[0.8125rem] text-amber-300">
           The selected key has no embedding model — set one (e.g. text-embedding-3-small) to index.
         </p>
       ) : statusReady && total > 0 ? (
-        <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-black/[0.03] px-3 py-2 text-xs dark:border-white/10 dark:bg-white/[0.03]">
-          <span className="text-zinc-700 dark:text-zinc-300">
+        <div className="flex items-center justify-between rounded-lg border border-zinc-200 bg-zinc-100 px-3 py-2 text-[0.8125rem]">
+          <span className="text-zinc-700">
             {indexedIds.size} of {total} files indexed
             {total - indexedIds.size > 0 ? (
               <span className="text-zinc-500"> · {total - indexedIds.size} remaining</span>
@@ -179,7 +179,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
             <button
               onClick={() => run({ remaining: true })}
               disabled={busy}
-              className="rounded-md bg-indigo-600 px-2.5 py-1 font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+              className="pill-sm-filled disabled:bg-transparent disabled:text-zinc-400 disabled:ring-1 disabled:ring-inset disabled:ring-zinc-200"
             >
               Index remaining
             </button>
@@ -187,7 +187,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
         </div>
       ) : null}
 
-      <label className="flex cursor-pointer items-center gap-2 text-sm text-zinc-800 dark:text-zinc-200">
+      <label className="flex cursor-pointer items-center gap-2 text-[0.9375rem] text-zinc-800">
         <input
           type="checkbox"
           checked={all}
@@ -198,18 +198,18 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
       </label>
 
       {!all ? (
-        <div className="rounded-lg border border-zinc-200 dark:border-white/10">
+        <div className="rounded-lg border border-zinc-200">
           {/* Breadcrumb */}
-          <div className="flex flex-wrap items-center gap-0.5 border-b border-zinc-200 px-2 py-1.5 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400">
-            <button onClick={() => goTo(-1)} className="rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/5">
+          <div className="flex flex-wrap items-center gap-0.5 border-b border-zinc-200 px-2 py-1.5 text-[0.8125rem] text-zinc-500">
+            <button onClick={() => goTo(-1)} className="rounded px-1.5 py-0.5 hover:bg-zinc-100">
               Drive
             </button>
             {path.map((c, i) => (
               <span key={c.id} className="flex items-center gap-0.5">
-                <ChevronRight className="h-3 w-3 text-zinc-400 dark:text-zinc-600" />
+                <ChevronRight className="h-3 w-3 text-zinc-400" />
                 <button
                   onClick={() => goTo(i)}
-                  className="max-w-[9rem] truncate rounded px-1.5 py-0.5 hover:bg-black/5 dark:hover:bg-white/5"
+                  className="max-w-[9rem] truncate rounded px-1.5 py-0.5 hover:bg-zinc-100"
                 >
                   {c.name}
                 </button>
@@ -221,7 +221,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
             {folders.map((f) => (
               <div
                 key={f.id}
-                className="flex items-center gap-2 rounded px-1.5 py-1 text-sm text-zinc-700 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/5"
+                className="flex items-center gap-2 rounded px-1.5 py-1 text-[0.9375rem] text-zinc-700 hover:bg-zinc-100"
               >
                 <input
                   type="checkbox"
@@ -234,9 +234,9 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
                   onClick={() => enterFolder(f)}
                   className="flex min-w-0 flex-1 items-center gap-2 text-left"
                 >
-                  <FolderIcon className="h-4 w-4 shrink-0 text-indigo-400" />
+                  <FolderIcon className="h-4 w-4 shrink-0 text-zinc-600" />
                   <span className="truncate">{f.name}</span>
-                  <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-zinc-400 dark:text-zinc-600" />
+                  <ChevronRight className="ml-auto h-3.5 w-3.5 shrink-0 text-zinc-400" />
                 </button>
               </div>
             ))}
@@ -245,10 +245,10 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
                 <div
                   key={f.id}
                   title="Already indexed for this model"
-                  className="group flex items-center gap-2 rounded px-1.5 py-1 text-sm text-zinc-500"
+                  className="group flex items-center gap-2 rounded px-1.5 py-1 text-[0.9375rem] text-zinc-500"
                 >
                   <Check className="h-4 w-4 shrink-0 text-emerald-400" />
-                  <FileText className="h-4 w-4 shrink-0 text-zinc-400 dark:text-zinc-600" />
+                  <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
                   <span className="min-w-0 flex-1 truncate line-through decoration-zinc-700">
                     {f.name}
                   </span>
@@ -267,7 +267,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
               ) : (
                 <label
                   key={f.id}
-                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-sm text-zinc-700 hover:bg-black/5 dark:text-zinc-300 dark:hover:bg-white/5"
+                  className="flex cursor-pointer items-center gap-2 rounded px-1.5 py-1 text-[0.9375rem] text-zinc-700 hover:bg-zinc-100"
                 >
                   <input
                     type="checkbox"
@@ -281,16 +281,16 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
               ),
             )}
             {loading ? (
-              <p className="flex items-center gap-2 px-1.5 py-1 text-xs text-zinc-500">
+              <p className="flex items-center gap-2 px-1.5 py-1 text-[0.8125rem] text-zinc-500">
                 <Loader2 className="h-3.5 w-3.5 animate-spin" /> Loading…
               </p>
             ) : folders.length === 0 && files.length === 0 ? (
-              <p className="px-1.5 py-1 text-xs text-zinc-500">This folder is empty.</p>
+              <p className="px-1.5 py-1 text-[0.8125rem] text-zinc-500">This folder is empty.</p>
             ) : null}
           </div>
 
           {folderSel.size || fileSel.size ? (
-            <div className="flex items-center justify-between border-t border-zinc-200 px-2 py-1.5 text-xs text-zinc-500 dark:border-white/10 dark:text-zinc-400">
+            <div className="flex items-center justify-between border-t border-zinc-200 px-2 py-1.5 text-[0.8125rem] text-zinc-500">
               <span>
                 {fileSel.size} file{fileSel.size === 1 ? "" : "s"}, {folderSel.size} folder
                 {folderSel.size === 1 ? "" : "s"} selected
@@ -300,7 +300,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
                   setFileSel(new Set());
                   setFolderSel(new Set());
                 }}
-                className="rounded px-1.5 py-0.5 hover:bg-black/5 hover:text-zinc-800 dark:hover:bg-white/5 dark:hover:text-zinc-200"
+                className="rounded px-1.5 py-0.5 hover:bg-zinc-100 hover:text-zinc-800"
               >
                 Clear
               </button>
@@ -322,7 +322,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
           <button
             onClick={() => run()}
             disabled={disabled}
-            className="flex items-center gap-2 rounded-md bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-500 disabled:opacity-50"
+            className="flex items-center gap-2 pill-filled disabled:opacity-50"
           >
             {busy || (keyHasEmbedding && !statusReady) ? (
               <Loader2 className="h-4 w-4 animate-spin" />
@@ -342,32 +342,32 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
 
       {progress ? (
         <div>
-          <div className="mb-1 flex justify-between text-xs text-zinc-500 dark:text-zinc-400">
+          <div className="mb-1 flex justify-between text-[0.8125rem] text-zinc-500">
             <span>
               {progress.done}/{progress.total} files
             </span>
             <span>{pct}%</span>
           </div>
-          <div className="h-1.5 w-full overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-zinc-100">
             <div
-              className="h-full rounded-full bg-indigo-500 transition-all"
+              className="h-full rounded-full bg-zinc-900 transition-all"
               style={{ width: `${pct}%` }}
             />
           </div>
         </div>
       ) : null}
-      {status ? <p className="text-xs text-zinc-500 dark:text-zinc-400">{status}</p> : null}
+      {status ? <p className="text-[0.8125rem] text-zinc-500">{status}</p> : null}
 
       {/* A file that couldn't be embedded stays unsearchable, so name it and say
           why instead of just leaving the "indexed" count short. */}
       {indexing.skipped.length ? (
         <div className="rounded-lg border border-amber-500/30 bg-amber-500/5 px-3 py-2">
-          <p className="text-xs font-medium text-amber-600 dark:text-amber-400">
+          <p className="text-[0.8125rem] font-medium text-amber-600">
             {indexing.skipped.length} file{indexing.skipped.length === 1 ? "" : "s"} skipped
           </p>
           <ul className="thin-scroll mt-1 max-h-32 space-y-0.5 overflow-y-auto">
             {indexing.skipped.map((sk, i) => (
-              <li key={i} className="text-[0.7rem] leading-snug text-zinc-500 dark:text-zinc-400">
+              <li key={i} className="text-[0.7rem] leading-snug text-zinc-500">
                 {sk}
               </li>
             ))}
@@ -375,7 +375,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
         </div>
       ) : null}
       {indexing.error ? (
-        <p className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-xs text-red-500">
+        <p className="rounded-lg border border-red-500/30 bg-red-500/5 px-3 py-2 text-[0.8125rem] text-red-500">
           {indexing.error}
         </p>
       ) : null}
@@ -384,12 +384,12 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
       {statusReady && indexedIds.size > 0 ? (
         // The label wraps and the buttons don't: without min-w-0 on the text and
         // shrink-0 on the actions, flex squeezes "Confirm clear" onto two lines.
-        <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3 dark:border-white/10">
-          <span className="min-w-0 flex-1 text-xs text-zinc-500">
+        <div className="flex items-center justify-between gap-3 border-t border-zinc-200 pt-3">
+          <span className="min-w-0 flex-1 text-[0.8125rem] text-zinc-500">
             Free space by removing embeddings (re-index anytime).
           </span>
           {confirmClear ? (
-            <span className="flex shrink-0 items-center gap-1.5 text-xs">
+            <span className="flex shrink-0 items-center gap-1.5 text-[0.8125rem]">
               <button
                 onClick={() => void clearAll()}
                 className="flex items-center gap-1.5 whitespace-nowrap rounded-md bg-red-600 px-2.5 py-1.5 font-medium text-white transition hover:bg-red-500"
@@ -398,7 +398,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
               </button>
               <button
                 onClick={() => setConfirmClear(false)}
-                className="whitespace-nowrap rounded-md px-2 py-1.5 text-zinc-500 transition hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                className="whitespace-nowrap rounded-md px-2 py-1.5 text-zinc-500 transition hover:text-zinc-800"
               >
                 Cancel
               </button>
@@ -407,7 +407,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
             <button
               onClick={() => setConfirmClear(true)}
               disabled={clearing}
-              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-zinc-200 px-2.5 py-1.5 text-xs text-zinc-700 transition hover:border-red-400/40 hover:text-red-400 disabled:opacity-60 dark:border-white/10 dark:text-zinc-300"
+              className="flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-md border border-zinc-200 px-2.5 py-1.5 text-[0.8125rem] text-zinc-700 transition hover:border-red-400/40 hover:text-red-400 disabled:opacity-60"
             >
               <Trash2 className="h-3.5 w-3.5 shrink-0" />
               {clearing ? "Clearing…" : `Clear index (${indexedIds.size})`}

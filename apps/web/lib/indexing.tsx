@@ -194,16 +194,14 @@ function IndexingCard({
   const complete = !running && !error;
 
   return (
-    <div className="fixed bottom-[4.75rem] right-5 z-[190] w-72 rounded-xl border border-zinc-200 bg-white/95 p-3 shadow-2xl backdrop-blur-xl dark:border-white/10 dark:bg-zinc-900/95">
+    <div className="surface-artifact fixed bottom-[4.75rem] right-5 z-[190] w-72 p-4">
       <div className="flex items-center gap-2">
         {running ? (
-          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-500" />
+          <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-900" />
         ) : (
-          <Database
-            className={`h-4 w-4 shrink-0 ${error ? "text-red-500" : "text-indigo-500"}`}
-          />
+          <Database className={`h-4 w-4 shrink-0 ${error ? "text-red-500" : "text-zinc-900"}`} />
         )}
-        <span className="flex-1 truncate text-xs font-medium text-zinc-900 dark:text-zinc-100">
+        <span className="flex-1 truncate text-[0.9375rem] text-zinc-900">
           {error
             ? "Indexing stopped"
             : complete
@@ -214,7 +212,7 @@ function IndexingCard({
           <button
             onClick={onCancel}
             aria-label="Stop indexing"
-            className="shrink-0 rounded p-0.5 text-zinc-400 transition hover:bg-black/5 hover:text-red-500 dark:hover:bg-white/5"
+            className="shrink-0 rounded p-0.5 text-zinc-400 transition hover:bg-zinc-100 hover:text-red-500"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -222,7 +220,7 @@ function IndexingCard({
           <button
             onClick={() => setDismissed(true)}
             aria-label="Dismiss"
-            className="shrink-0 rounded p-0.5 text-zinc-400 transition hover:bg-black/5 dark:hover:bg-white/5"
+            className="shrink-0 rounded p-0.5 text-zinc-400 transition hover:bg-zinc-100"
           >
             <X className="h-3.5 w-3.5" />
           </button>
@@ -230,25 +228,29 @@ function IndexingCard({
       </div>
 
       {running || !error ? (
-        <div className="mt-2 h-1 overflow-hidden rounded-full bg-black/10 dark:bg-white/10">
+        <div
+          className={`relative mt-3 h-px overflow-hidden bg-zinc-200 ${
+ running && !total ? "steep-sweep" : ""
+          }`}
+        >
           <div
-            className="h-full rounded-full bg-indigo-500 transition-all duration-300"
+            className="h-full bg-zinc-900 transition-all duration-500"
             style={{ width: `${complete ? 100 : pct}%` }}
           />
         </div>
       ) : null}
 
-      <p className="mt-1.5 truncate text-[0.7rem] text-zinc-500 dark:text-zinc-400">
+      <p className="mt-2 truncate text-[0.8125rem] text-zinc-600">
         {error ?? (running ? current || "Starting…" : "Ready for drive-wide chat.")}
       </p>
 
       {/* Skips are the interesting failure: the run "succeeded" but some files
           aren't searchable, so say which and why rather than hiding it. */}
       {skipped.length ? (
-        <div className="mt-1.5 border-t border-zinc-200 pt-1.5 dark:border-white/10">
+        <div className="mt-1.5 border-t border-zinc-200 pt-1.5">
           <button
             onClick={() => setShowSkipped((v) => !v)}
-            className="text-[0.7rem] text-amber-600 hover:underline dark:text-amber-400"
+            className="text-[0.7rem] text-amber-600 hover:underline"
           >
             {skipped.length} skipped {showSkipped ? "▾" : "▸"}
           </button>

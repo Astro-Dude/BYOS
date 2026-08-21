@@ -185,10 +185,10 @@ function setMultiDragImage(dt: DataTransfer, count: number): void {
     gap: "12px",
     padding: "11px 16px 11px 12px",
     borderRadius: "16px",
-    background: "#4f46e5", // indigo-600 — matches the app's accent
+    background: "#17191c", // ink — the system's only filled surface
     color: "#fff",
-    font: "600 13px ui-sans-serif, system-ui, sans-serif",
-    boxShadow: "0 14px 34px rgba(79,70,229,.45)",
+    font: "500 14px ui-sans-serif, system-ui, sans-serif",
+    boxShadow: "0 8px 40px rgba(0,0,0,.18)",
     whiteSpace: "nowrap",
   });
 
@@ -213,7 +213,7 @@ function setMultiDragImage(dt: DataTransfer, count: number): void {
     justifyContent: "center",
     borderRadius: "8px",
     background: "#fff",
-    color: "#4f46e5",
+    color: "#17191c",
     fontSize: "14px",
     fontWeight: "700",
   });
@@ -841,8 +841,8 @@ export default function DashboardPage() {
     return (
       <>
         {bootOverlay}
-        <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
-        <div className="hidden w-64 shrink-0 border-r border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4 sm:block">
+        <div className="flex h-screen bg-zinc-50">
+        <div className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white p-4 sm:block">
           <Skeleton className="h-8 w-24" />
           <Skeleton className="mt-4 h-12 w-full rounded-2xl" />
           <div className="mt-4 space-y-1.5">
@@ -854,9 +854,9 @@ export default function DashboardPage() {
         <div className="flex-1 p-6">
           <Skeleton className="h-9 w-64 rounded-full" />
           <Skeleton className="mt-6 h-7 w-40" />
-          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+          <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             {Array.from({ length: 6 }).map((_, i) => (
-              <div key={i} className="flex items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-3.5">
+              <div key={i} className="flex items-center gap-4 border-b border-zinc-50 px-4 py-3.5">
                 <Skeleton className="h-5 w-5" />
                 <Skeleton className="h-4 w-1/3" />
                 <Skeleton className="ml-auto h-3 w-14" />
@@ -911,7 +911,7 @@ export default function DashboardPage() {
     SORT_OPTIONS.find((o) => o.field === sortField && o.dir === sortDir)?.label ?? "Sort";
 
   const menuTrigger = (
-    <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100 dark:hover:bg-zinc-800">
+    <span className="flex h-8 w-8 items-center justify-center rounded-full text-zinc-500 hover:bg-zinc-100">
       <MoreVertical className="h-4 w-4" />
     </span>
   );
@@ -947,7 +947,7 @@ export default function DashboardPage() {
             <button
               onClick={(e) => { e.stopPropagation(); applyFolderColor(folder, null); }}
               aria-label="Default color"
-              className="h-4 w-4 rounded-full border border-zinc-300 bg-white dark:bg-zinc-900"
+              className="h-4 w-4 rounded-full border border-zinc-200 bg-white"
             />
             {FOLDER_COLORS.map((c) => (
               <button
@@ -966,20 +966,28 @@ export default function DashboardPage() {
   );
 
   const emptyState = (
-    <div className="flex flex-col items-center justify-center rounded-2xl border border-dashed border-zinc-200 dark:border-zinc-800 py-24 text-center">
-      <p className="text-base font-medium text-zinc-900 dark:text-zinc-100">
-        {searchActive ? "No matching files or folders" : "This folder is empty"}
+    <div className="flex flex-col items-center justify-center py-28 text-center">
+      <p className="type-heading-sm max-w-md">
+        {searchActive ? (
+          <>
+            Nothing <span className="type-em">matches</span> that.
+          </>
+        ) : (
+          <>
+            This folder is <span className="type-em">empty</span>.
+          </>
+        )}
       </p>
-      <p className="mt-1 text-sm text-zinc-500">
-        {searchActive ? "Try a different search." : "Drop files here or use New to upload."}
+      <p className="mt-4 text-[1.0625rem] leading-[1.35] text-zinc-600">
+        {searchActive ? "Try a different search." : "Drop files here, or use New to upload."}
       </p>
     </div>
   );
 
   const listSkeleton = (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
+    <div className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
       {Array.from({ length: 6 }).map((_, i) => (
-        <div key={i} className="flex items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-3.5">
+        <div key={i} className="flex items-center gap-4 border-b border-zinc-50 px-4 py-3.5">
           <Skeleton className="h-5 w-5" />
           <Skeleton className="h-4 w-[45%]" />
           <Skeleton className="ml-auto h-3 w-14" />
@@ -992,7 +1000,7 @@ export default function DashboardPage() {
   const gridSkeleton = (
     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
       {Array.from({ length: 10 }).map((_, i) => (
-        <div key={i} className="rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-4">
+        <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4">
           <Skeleton className="h-7 w-7" />
           <Skeleton className="mt-3 h-4 w-3/4" />
           <Skeleton className="mt-2 h-3 w-1/3" />
@@ -1002,15 +1010,16 @@ export default function DashboardPage() {
   );
 
   const listView = (
-    <div className="overflow-hidden rounded-2xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900">
-      <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-100 dark:border-zinc-800 px-4 py-2.5 text-xs font-medium text-zinc-500">
+    <div className="overflow-hidden">
+      {/* Column headings are museum-signage labels, not a table chrome bar. */}
+      <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 text-[0.8125rem] text-zinc-500">
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
             checked={allSelected}
             onChange={toggleSelectAll}
             aria-label="Select all"
-            className="h-4 w-4 shrink-0 accent-indigo-600"
+            className="h-4 w-4 shrink-0 accent-zinc-900"
           />
           {/* Spacers matching the row's star + file-type icon so "Name" lines up
               with where the file/folder names actually start. */}
@@ -1018,20 +1027,20 @@ export default function DashboardPage() {
           <span className="h-5 w-5 shrink-0" aria-hidden />
           <button
             onClick={() => cycleSort("name")}
-            className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "name" ? "text-indigo-600" : ""}`}
+            className={`flex items-center text-left hover:text-zinc-800 ${sortField === "name" ? "text-zinc-900" : ""}`}
           >
             Name{sortArrow("name")}
           </button>
         </div>
         <button
           onClick={() => cycleSort("modified")}
-          className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "modified" ? "text-indigo-600" : ""}`}
+          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "modified" ? "text-zinc-900" : ""}`}
         >
           Modified{sortArrow("modified")}
         </button>
         <button
           onClick={() => cycleSort("size")}
-          className={`flex items-center text-left hover:text-zinc-800 dark:text-zinc-200 ${sortField === "size" ? "text-indigo-600" : ""}`}
+          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "size" ? "text-zinc-900" : ""}`}
         >
           Size{sortArrow("size")}
         </button>
@@ -1086,12 +1095,12 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
+          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
             dragFolder === folder.id
-              ? "bg-indigo-50 ring-2 ring-inset ring-indigo-400"
+              ? "bg-zinc-100 ring-1 ring-inset ring-zinc-900"
               : selFolders.has(folder.id)
-                ? "bg-indigo-50 dark:bg-indigo-500/10"
-                : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+                ? "bg-zinc-100"
+                : "hover:bg-zinc-50"
           }`}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -1100,19 +1109,19 @@ export default function DashboardPage() {
               checked={selFolders.has(folder.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFolder(folder.id)}
-              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             />
             {/* Folders have no star — reserve the column so names align with files. */}
             <span className="h-4 w-4 shrink-0" aria-hidden />
             <Folder
-              className="h-5 w-5 shrink-0 text-indigo-500"
+              className="h-5 w-5 shrink-0 text-zinc-900"
               fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
-            <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{folder.name}</span>
+            <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{folder.name}</span>
           </div>
-          <span className="text-sm text-zinc-500">{shortDate(folder.created_at)}</span>
-          <span className="text-sm text-zinc-500">{folder.size ? humanSize(folder.size) : "—"}</span>
+          <span className="text-[0.9375rem] text-zinc-500">{shortDate(folder.created_at)}</span>
+          <span className="text-[0.9375rem] text-zinc-500">{folder.size ? humanSize(folder.size) : "—"}</span>
           {folderMenu(folder)}
         </div>
       ))}
@@ -1131,10 +1140,8 @@ export default function DashboardPage() {
             if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-50 dark:border-zinc-800 px-4 py-2.5 ${
-            selFiles.has(file.id)
-              ? "bg-indigo-50 dark:bg-indigo-500/10"
-              : "hover:bg-zinc-50 dark:hover:bg-zinc-800"
+          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
+            selFiles.has(file.id) ? "bg-zinc-100" : "hover:bg-zinc-50"
           }`}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -1143,7 +1150,7 @@ export default function DashboardPage() {
               checked={selFiles.has(file.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFile(file.id)}
-              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             />
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }}
@@ -1155,19 +1162,19 @@ export default function DashboardPage() {
               />
             </button>
             <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-            <span className="truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</span>
+            <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</span>
             {file.tags.slice(0, 3).map((tag) => (
               <button
                 key={tag}
                 onClick={(e) => { e.stopPropagation(); openTag(tag); }}
-                className="hidden rounded-full bg-zinc-100 dark:bg-zinc-800 px-2 py-0.5 text-xs text-zinc-600 hover:bg-zinc-200 sm:inline"
+                className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-[0.8125rem] text-zinc-600 hover:bg-zinc-200 sm:inline"
               >
                 {tag}
               </button>
             ))}
           </div>
-          <span className="text-sm text-zinc-500">{shortDate(file.modified_at)}</span>
-          <span className="text-sm text-zinc-500">{humanSize(file.size)}</span>
+          <span className="text-[0.9375rem] text-zinc-500">{shortDate(file.modified_at)}</span>
+          <span className="text-[0.9375rem] text-zinc-500">{humanSize(file.size)}</span>
           {fileMenu(file)}
         </div>
       ))}
@@ -1225,12 +1232,12 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`group flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white dark:bg-zinc-900 p-4 ${
-            dragFolder === folder.id
-              ? "border-indigo-400 ring-2 ring-indigo-400"
+          className={`group flex cursor-pointer items-center justify-between gap-2 rounded-xl border bg-white p-4 ${
+ dragFolder === folder.id
+              ? "border-zinc-900 ring-2 ring-zinc-900"
               : selFolders.has(folder.id)
-                ? "border-indigo-400 ring-1 ring-indigo-400"
-                : "border-zinc-200 dark:border-zinc-800 hover:border-indigo-300 hover:shadow-sm"
+                ? "border-zinc-900 ring-1 ring-zinc-900"
+                : "border-zinc-200 hover:border-zinc-900/30 hover:bg-zinc-50"
           }`}
         >
           <div className="flex min-w-0 items-center gap-2">
@@ -1239,19 +1246,19 @@ export default function DashboardPage() {
               checked={selFolders.has(folder.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFolder(folder.id)}
-              className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
             />
             <Folder
-              className="h-6 w-6 shrink-0 text-indigo-500"
+              className="h-6 w-6 shrink-0 text-zinc-900"
               fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
             <div className="min-w-0">
-              <span className="block truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">
+              <span className="block truncate text-[0.9375rem] font-medium text-zinc-900">
                 {folder.name}
               </span>
               {folder.size ? (
-                <span className="text-xs text-zinc-400">{humanSize(folder.size)}</span>
+                <span className="text-[0.8125rem] text-zinc-400">{humanSize(folder.size)}</span>
               ) : null}
             </div>
           </div>
@@ -1273,10 +1280,10 @@ export default function DashboardPage() {
             if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className={`group cursor-pointer rounded-xl border bg-white dark:bg-zinc-900 p-4 hover:shadow-sm ${
-            selFiles.has(file.id)
-              ? "border-indigo-400 ring-1 ring-indigo-400"
-              : "border-zinc-200 dark:border-zinc-800 hover:border-indigo-300"
+          className={`group cursor-pointer rounded-xl border bg-white p-4 transition-colors hover:bg-zinc-50 ${
+ selFiles.has(file.id)
+              ? "border-zinc-900 ring-1 ring-zinc-900"
+              : "border-zinc-200 hover:border-zinc-900/30"
           }`}
         >
           <div className="flex items-start justify-between">
@@ -1286,7 +1293,7 @@ export default function DashboardPage() {
                 checked={selFiles.has(file.id)}
                 onClick={(e) => e.stopPropagation()}
                 onChange={() => toggleSelFile(file.id)}
-                className={`h-4 w-4 shrink-0 accent-indigo-600 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
               />
               <span aria-hidden>{fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}</span>
             </div>
@@ -1299,8 +1306,8 @@ export default function DashboardPage() {
               {fileMenu(file)}
             </div>
           </div>
-          <p className="mt-2 truncate text-sm font-medium text-zinc-900 dark:text-zinc-100">{file.name}</p>
-          <p className="text-xs text-zinc-500">{humanSize(file.size)}</p>
+          <p className="mt-2 truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</p>
+          <p className="text-[0.8125rem] text-zinc-500">{humanSize(file.size)}</p>
         </div>
       ))}
     </div>
@@ -1309,7 +1316,7 @@ export default function DashboardPage() {
   return (
     <>
       {bootOverlay}
-      <div className="flex h-screen bg-zinc-50 dark:bg-zinc-950">
+      <div className="flex h-screen bg-zinc-50">
       <Sidebar
         view={view}
         onView={setView}
@@ -1328,29 +1335,29 @@ export default function DashboardPage() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex items-center gap-4 px-6 py-3">
+        <header className="flex items-center gap-4 border-b border-zinc-200 px-6 py-4">
           <div className="flex flex-1 justify-center">
             <button
               onClick={() => setPaletteOpen(true)}
-              className="flex w-full max-w-md items-center gap-2 rounded-full bg-zinc-100 dark:bg-zinc-800 px-4 py-2 text-left transition hover:bg-zinc-200/70"
+              className="flex w-full max-w-lg items-center gap-3 rounded-full border border-zinc-200 bg-white px-4 py-2.5 text-left transition-colors hover:border-zinc-900"
             >
               <Search className="h-4 w-4 shrink-0 text-zinc-400" />
-              <span className="flex-1 text-sm text-zinc-400">Search files &amp; folders…</span>
-              <kbd className="hidden shrink-0 rounded border border-zinc-300 bg-white dark:bg-zinc-900 px-1.5 py-0.5 text-[10px] font-medium text-zinc-500 sm:inline">
+              <span className="flex-1 text-[0.9375rem] text-zinc-400">Search files &amp; folders…</span>
+              <kbd className="hidden shrink-0 rounded-full border border-zinc-200 px-2 py-0.5 text-[0.6875rem] text-zinc-500 sm:inline">
                 ⌘K
               </kbd>
             </button>
           </div>
           <Menu
             trigger={() => (
-              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-medium text-white">
+              <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-[0.9375rem] font-medium text-white">
                 {initials}
               </span>
             )}
           >
             {(close) => (
               <>
-                <div className="border-b border-zinc-100 dark:border-zinc-800 px-4 py-2 text-xs text-zinc-500">
+                <div className="border-b border-zinc-100 px-4 py-2 text-[0.8125rem] text-zinc-500">
                   {user.display_name ?? "Signed in"}
                 </div>
                 <MenuItem label="Profile" onClick={() => { close(); setView("profile"); }} />
@@ -1361,7 +1368,7 @@ export default function DashboardPage() {
         </header>
 
         <main
-          className="flex-1 overflow-auto px-6 pb-8"
+          className="flex-1 overflow-auto px-8 pb-16"
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           onDragOver={(e) => {
             // Only highlight for external file uploads, not internal move-drags.
@@ -1382,15 +1389,15 @@ export default function DashboardPage() {
           {/* Drag-to-upload overlay (hidden while hovering a specific folder,
               which shows its own drop highlight instead). */}
           {dragging && !dragFolder ? (
-            <div className="pointer-events-none fixed bottom-0 left-64 right-0 top-16 z-30 flex items-center justify-center bg-indigo-500/5 p-6">
-              <div className="flex flex-col items-center gap-3 rounded-3xl border-2 border-dashed border-indigo-400 bg-white/90 px-16 py-12 shadow-xl backdrop-blur-sm dark:border-indigo-500/60 dark:bg-zinc-900/85">
-                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/30">
+            <div className="pointer-events-none fixed bottom-0 left-64 right-0 top-16 z-30 flex items-center justify-center bg-zinc-900/5 p-6">
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zinc-900 bg-white px-16 py-12 shadow-xl">
+                <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-900 text-white">
                   <UploadCloud className="h-7 w-7" />
                 </div>
-                <p className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+                <p className="type-heading-sm">
                   Drop to upload
                 </p>
-                <p className="text-sm text-zinc-500">
+                <p className="text-[0.9375rem] text-zinc-500">
                   {folderId ? "Files will be added to this folder" : "Files will be added to My Drive"}
                 </p>
               </div>
@@ -1406,7 +1413,10 @@ export default function DashboardPage() {
             <DeveloperPanel />
           ) : view === "links" ? (
             <div className="pt-2">
-              <h1 className="mb-4 text-2xl font-normal text-zinc-800 dark:text-zinc-200">Links</h1>
+              <div className="pb-5 pt-8">
+                <p className="type-label">Public</p>
+                <h1 className="type-heading mt-2">Links</h1>
+              </div>
               <AliasesPanel
                 refreshKey={aliasRefresh}
                 onOpenLocation={(fid) => {
@@ -1422,13 +1432,13 @@ export default function DashboardPage() {
               {/* Bulk-action bar (multi-select) */}
               {selCount > 0 ? (
                 <div
-                  className={`sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-indigo-200 px-4 py-2.5 text-sm backdrop-blur transition-colors dark:border-indigo-500/30 ${
-                    scrolled
-                      ? "bg-indigo-100/95 shadow-sm dark:bg-indigo-900/95"
-                      : "bg-indigo-50/80 dark:bg-indigo-500/10"
+                  className={`sticky top-0 z-20 mb-2 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 px-4 py-2.5 text-[0.9375rem] transition-colors ${
+ scrolled
+                      ? "bg-zinc-100/95"
+                      : "bg-zinc-50/80"
                   }`}
                 >
-                  <span className="font-medium text-indigo-800 dark:text-indigo-200">
+                  <span className="font-medium text-zinc-900">
                     {selCount} selected
                   </span>
                   <div className="ml-auto flex items-center gap-1.5">
@@ -1436,19 +1446,19 @@ export default function DashboardPage() {
                       <>
                         <button
                           onClick={bulkDownload}
-                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white"
                         >
                           <Download className="h-4 w-4" /> Download
                         </button>
                         <button
                           onClick={bulkStar}
-                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white"
                         >
                           <Star className="h-4 w-4" /> Star
                         </button>
                         <button
                           onClick={() => setBulkTagOpen(true)}
-                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white dark:text-zinc-200 dark:hover:bg-zinc-800"
+                          className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-zinc-700 hover:bg-white"
                         >
                           <Tag className="h-4 w-4" /> Tag
                         </button>
@@ -1456,13 +1466,13 @@ export default function DashboardPage() {
                     ) : null}
                     <button
                       onClick={() => setBulkConfirm(true)}
-                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white dark:hover:bg-zinc-800"
+                      className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white"
                     >
                       <Trash2 className="h-4 w-4" /> Delete
                     </button>
                     <button
                       onClick={clearSelection}
-                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white dark:hover:bg-zinc-800"
+                      className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white"
                       aria-label="Clear selection"
                     >
                       <X className="h-4 w-4" />
@@ -1471,26 +1481,35 @@ export default function DashboardPage() {
                 </div>
               ) : null}
               {/* Title + view toggle */}
-              <div className="flex flex-wrap items-center justify-between gap-3 py-3">
+              <div className="flex flex-wrap items-end justify-between gap-4 pb-5 pt-8">
                 {searchActive ? (
-                  <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Results for “{search.trim()}”</h1>
+                  <div>
+                    <p className="type-label">Search</p>
+                    <h1 className="type-heading mt-2">“{search.trim()}”</h1>
+                  </div>
                 ) : view === "starred" ? (
-                  <h1 className="text-2xl font-normal text-zinc-800 dark:text-zinc-200">Starred</h1>
+                  <div>
+                    <p className="type-label">Favourites</p>
+                    <h1 className="type-heading mt-2">Starred</h1>
+                  </div>
                 ) : tagFilter ? (
-                  <h1 className="flex items-center gap-2 text-2xl font-normal text-zinc-800 dark:text-zinc-200">
-                    Tag: {tagFilter}
-                    <button
-                      onClick={() => setTagFilter(null)}
-                      className="text-sm text-indigo-600 hover:underline"
-                    >
-                      clear
-                    </button>
-                  </h1>
+                  <div>
+                    <p className="type-label">Tag</p>
+                    <h1 className="type-heading mt-2 flex items-baseline gap-3">
+                      {tagFilter}
+                      <button
+                        onClick={() => setTagFilter(null)}
+                        className="text-[0.9375rem] text-zinc-500 hover:text-zinc-900 hover:underline"
+                      >
+                        clear
+                      </button>
+                    </h1>
+                  </div>
                 ) : (
-                  <nav className="flex flex-wrap items-center gap-2 text-2xl font-normal text-zinc-800 dark:text-zinc-200">
+                  <nav className="type-heading flex flex-wrap items-baseline gap-2">
                     <button
                       onClick={() => setFolderId(undefined)}
-                      className={folderId ? "text-zinc-500 hover:text-zinc-800 dark:text-zinc-200" : ""}
+                      className={folderId ? "text-zinc-500 hover:text-zinc-800" : ""}
                     >
                       My Drive
                     </button>
@@ -1508,7 +1527,7 @@ export default function DashboardPage() {
                                 align="left"
                                 trigger={() => (
                                   <span
-                                    className="cursor-pointer px-1 text-zinc-500 hover:text-zinc-800 dark:text-zinc-400 dark:hover:text-zinc-200"
+                                    className="cursor-pointer px-1 text-zinc-500 hover:text-zinc-800"
                                     title="Show hidden folders"
                                   >
                                     …
@@ -1538,7 +1557,7 @@ export default function DashboardPage() {
                                 className={
                                   c.id === folderId
                                     ? "max-w-[16rem] truncate"
-                                    : "max-w-[16rem] truncate text-zinc-500 hover:text-zinc-800 dark:text-zinc-200"
+                                    : "max-w-[16rem] truncate text-zinc-500 hover:text-zinc-800"
                                 }
                               >
                                 {c.name}
@@ -1550,18 +1569,18 @@ export default function DashboardPage() {
                     })()}
                   </nav>
                 )}
-                <div className="flex items-center rounded-full border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 p-0.5">
+                <div className="flex items-center rounded-full border border-zinc-200 bg-white p-0.5">
                   <button
                     onClick={() => setLayout("list")}
                     aria-label="List view"
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${layout === "list" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.9375rem] ${layout === "list" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500"}`}
                   >
                     <List className="h-4 w-4" /> List
                   </button>
                   <button
                     onClick={() => setLayout("grid")}
                     aria-label="Grid view"
-                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-sm ${layout === "grid" ? "bg-indigo-100 text-indigo-800" : "text-zinc-500"}`}
+                    className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.9375rem] ${layout === "grid" ? "bg-zinc-100 text-zinc-900" : "text-zinc-500"}`}
                   >
                     <LayoutGrid className="h-4 w-4" /> Grid
                   </button>
@@ -1573,7 +1592,7 @@ export default function DashboardPage() {
                 <Menu
                   align="left"
                   trigger={() => (
-                    <span className="flex items-center gap-1 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800">
+                    <span className="flex items-center gap-1 field-sm text-zinc-700 hover:bg-zinc-50">
                       {typeLabel} ▾
                     </span>
                   )}
@@ -1595,7 +1614,7 @@ export default function DashboardPage() {
                   <Menu
                     align="left"
                     trigger={() => (
-                      <span className="flex items-center gap-1.5 rounded-full border border-zinc-300 px-3 py-1.5 text-sm text-zinc-700 dark:text-zinc-300 hover:bg-zinc-50 dark:hover:bg-zinc-800 dark:border-zinc-700 dark:text-zinc-300 dark:hover:bg-zinc-800">
+                      <span className="flex items-center gap-1.5 field-sm text-zinc-700 hover:bg-zinc-50">
                         <ArrowUpDown className="h-3.5 w-3.5" /> {sortLabel} ▾
                       </span>
                     )}
@@ -1617,7 +1636,7 @@ export default function DashboardPage() {
                 ) : null}
               </div>
 
-              {error ? <p className="mb-3 text-sm text-red-600">{error}</p> : null}
+              {error ? <p className="mb-3 text-[0.9375rem] text-red-600">{error}</p> : null}
 
               {loading && !searchActive ? (
                 layout === "list" ? (
@@ -1634,7 +1653,7 @@ export default function DashboardPage() {
               )}
 
               {!searchActive && !loading ? (
-                <div ref={sentinelRef} className="py-4 text-center text-sm text-zinc-400">
+                <div ref={sentinelRef} className="py-4 text-center text-[0.9375rem] text-zinc-400">
                   {loadingMore ? "Loading more…" : null}
                 </div>
               ) : null}
@@ -1756,13 +1775,13 @@ export default function DashboardPage() {
       ) : null}
 
       {delProgress ? (
-        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg dark:border-zinc-800 dark:bg-zinc-900">
+        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-red-600" />
           <div>
-            <div className="text-sm font-medium text-zinc-800 dark:text-zinc-200">
+            <div className="text-[0.9375rem] font-medium text-zinc-800">
               Deleting {delProgress.done}/{delProgress.total}…
             </div>
-            <div className="mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+            <div className="mt-1.5 h-1 w-44 overflow-hidden rounded-full bg-zinc-100">
               <div
                 className="h-full rounded-full bg-red-500 transition-all duration-200"
                 style={{ width: `${Math.round((delProgress.done / delProgress.total) * 100)}%` }}
@@ -1773,8 +1792,8 @@ export default function DashboardPage() {
       ) : null}
 
       {uploads.length > 0 ? (
-        <div className="fixed bottom-4 right-4 z-40 w-72 overflow-hidden rounded-xl border border-zinc-200 dark:border-zinc-800 bg-white dark:bg-zinc-900 shadow-lg">
-          <div className="flex items-center justify-between border-b border-zinc-100 dark:border-zinc-800 px-3 py-2 text-sm font-medium text-zinc-800 dark:text-zinc-200">
+        <div className="fixed bottom-4 right-4 z-40 w-72 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+          <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 text-[0.9375rem] font-medium text-zinc-800">
             <span>
               {uploads.some((u) => u.status === "uploading")
                 ? `Uploading ${uploads.filter((u) => u.status === "uploading").length} file(s)…`
@@ -1782,44 +1801,44 @@ export default function DashboardPage() {
             </span>
             <button
               onClick={() => setUploads([])}
-              className="text-zinc-400 hover:text-zinc-700 dark:text-zinc-300"
+              className="text-zinc-400 hover:text-zinc-700"
               aria-label="Dismiss"
             >
               <X className="h-4 w-4" />
             </button>
           </div>
-          <ul className="max-h-56 divide-y divide-zinc-50 dark:divide-zinc-800 overflow-auto">
+          <ul className="max-h-56 divide-y divide-zinc-50 overflow-auto">
             {uploads.map((u) => (
-              <li key={u.id} className="px-3 py-2 text-sm">
+              <li key={u.id} className="px-3 py-2 text-[0.9375rem]">
                 <div className="flex items-center gap-2">
                   {u.status === "uploading" ? (
-                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-indigo-600" />
+                    <Loader2 className="h-4 w-4 shrink-0 animate-spin text-zinc-900" />
                   ) : u.status === "done" ? (
-                    <Check className="h-4 w-4 shrink-0 text-indigo-600" />
+                    <Check className="h-4 w-4 shrink-0 text-zinc-900" />
                   ) : (
                     <AlertCircle className="h-4 w-4 shrink-0 text-red-600" />
                   )}
-                  <span className="min-w-0 flex-1 truncate text-zinc-700 dark:text-zinc-300">{u.name}</span>
+                  <span className="min-w-0 flex-1 truncate text-zinc-700">{u.name}</span>
                   {u.status === "uploading" ? (
-                    <span className="shrink-0 text-xs tabular-nums text-zinc-500">
+                    <span className="shrink-0 text-[0.8125rem] tabular-nums text-zinc-500">
                       {u.progress >= 100 ? "Processing…" : `${u.progress}%`}
                     </span>
                   ) : null}
                 </div>
                 {u.status === "uploading" ? (
-                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-100 dark:bg-zinc-800">
+                  <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
                     {u.progress >= 100 ? (
                       // Bytes are all sent; the server is still saving to Telegram.
-                      <div className="h-full w-full animate-pulse rounded-full bg-indigo-400" />
+                      <div className="h-full w-full animate-pulse rounded-full bg-zinc-900" />
                     ) : (
                       <div
-                        className="h-full rounded-full bg-indigo-600 transition-all duration-200"
+                        className="h-full rounded-full bg-zinc-900 transition-all duration-200"
                         style={{ width: `${u.progress}%` }}
                       />
                     )}
                   </div>
                 ) : u.note ? (
-                  <p className="mt-0.5 pl-6 text-xs text-red-600">{u.note}</p>
+                  <p className="mt-0.5 pl-6 text-[0.8125rem] text-red-600">{u.note}</p>
                 ) : null}
               </li>
             ))}
