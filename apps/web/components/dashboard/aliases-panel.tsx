@@ -73,13 +73,13 @@ export function AliasesPanel({
       {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
       <ul className="mt-4 divide-y divide-zinc-200">
         {aliases.map((alias) => (
-          <li key={alias.id} className="flex items-center justify-between gap-4 py-2">
-            <div className="min-w-0">
+          <li key={alias.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2">
+            <div className="min-w-0 flex-1 basis-full sm:basis-0">
               <code className="block truncate text-[0.9375rem] text-zinc-900">/{username}/{alias.slug}</code>
               {alias.target_name ? (
                 <button
                   onClick={() => onOpenLocation(alias.parent_folder_id)}
-                  className="mt-0.5 truncate text-[0.8125rem] text-zinc-500 hover:text-zinc-800 hover:underline"
+                  className="mt-0.5 block max-w-full truncate text-left text-[0.8125rem] text-zinc-500 hover:text-zinc-800 hover:underline"
                   title={alias.target_type === "folder" ? "Open folder" : "Go to file location"}
                 >
                   {alias.target_type === "folder" ? "📁" : "→"} {alias.target_name}

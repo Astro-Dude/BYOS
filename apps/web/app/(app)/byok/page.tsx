@@ -31,7 +31,26 @@ export default function ByokPage() {
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<AiConversation | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true);
+  // Desktop opens with the sidebar pinned; mobile starts closed and opens it as
+  // an overlay drawer (Claude-style), so the chat owns the whole small screen.
+  const [sidebarOpen, setSidebarOpen] = useState(false);
+
+  useEffect(() => {
+    if (window.matchMedia("(min-width: 768px)").matches) setSidebarOpen(true);
+  }, []);
+
+  const closeOnMobile = useCallback(() => {
+    if (!window.matchMedia("(min-width: 768px)").matches) setSidebarOpen(false);
+  }, []);
+
+  useEffect(() => {
+    if (!sidebarOpen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === "Escape") closeOnMobile();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [sidebarOpen, closeOnMobile]);
 
   useEffect(() => {
     if (!loading && !user) router.replace("/login");
@@ -56,7 +75,10 @@ export default function ByokPage() {
 
   // ChatGPT-style: "New chat" just drops to the home composer; the conversation
   // is created lazily on the first message (DriveChat → onActivate).
-  const newChat = () => setActiveId(null);
+  const newChat = () => {
+    setActiveId(null);
+    closeOnMobile();
+  };
 
   const activateConversation = (c: AiConversation) => {
     setConversations((prev) => [c, ...prev.filter((p) => p.id !== c.id)]);
@@ -98,11 +120,11 @@ export default function ByokPage() {
         />
       ) : null}
 
-      <Glow className="h-screen bg-white text-zinc-900">
-        <div className="relative flex h-screen">
+      <Glow className="h-[100dvh] bg-white text-zinc-900">
+        <div className="relative flex h-[100dvh]">
           {/* Collapsed rail — expand + quick new chat */}
           {!sidebarOpen ? (
-            <div className="flex w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-4">
+            <div className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-4 md:flex">
               <button
                 onClick={() => setSidebarOpen(true)}
                 className="btn-icon-sm"
@@ -130,11 +152,20 @@ export default function ByokPage() {
             </div>
           ) : null}
 
-          {/* Sidebar */}
+          {/* Scrim behind the mobile drawer */}
+          {sidebarOpen ? (
+            <button
+              onClick={() => setSidebarOpen(false)}
+              className="fixed inset-0 z-40 bg-zinc-900/40 backdrop-blur-[1px] md:hidden"
+              aria-label="Close sidebar"
+            />
+          ) : null}
+
+          {/* Sidebar — overlay drawer on mobile, pinned column on desktop */}
           <aside
-            className={`${
-              sidebarOpen ? "flex w-[calc(100vw-3.5rem)] max-w-72" : "hidden"
-            } absolute inset-y-0 left-12 z-30 shrink-0 flex-col border-r border-zinc-200 bg-white shadow-xl md:static md:left-auto md:z-auto md:shadow-none`}
+            className={`fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] shrink-0 flex-col border-r border-zinc-200 bg-white shadow-xl transition-transform duration-200 ease-out md:static md:z-auto md:w-72 md:shadow-none md:transition-none ${
+              sidebarOpen ? "translate-x-0" : "-translate-x-full md:hidden"
+            }`}
           >
             <div className="flex items-center gap-2 px-4 py-4">
               <span className="type-heading-sm flex-1">
@@ -148,7 +179,7 @@ export default function ByokPage() {
               </Link>
               <button
                 onClick={() => setSidebarOpen(false)}
-                className="text-zinc-500 transition hover:text-zinc-800"
+                className="shrink-0 text-zinc-500 transition hover:text-zinc-800"
                 title="Collapse sidebar"
                 aria-label="Collapse sidebar"
               >
@@ -190,8 +221,11 @@ export default function ByokPage() {
                   ) : (
                     <>
                       <button
-                        onClick={() => setActiveId(c.id)}
-                        className="min-w-0 flex-1 truncate text-left"
+                        onClick={() => {
+                          setActiveId(c.id);
+                          closeOnMobile();
+                        }}
+                        className="min-w-0 flex-1 truncate py-0.5 text-left"
                       >
                         {c.title}
                       </button>
@@ -200,14 +234,14 @@ export default function ByokPage() {
                           setRenamingId(c.id);
                           setRenameText(c.title);
                         }}
-                        className="shrink-0 text-zinc-500 opacity-0 hover:text-zinc-800 group-hover:opacity-100"
+                        className="shrink-0 text-zinc-500 opacity-100 hover:text-zinc-800 md:opacity-0 md:group-hover:opacity-100"
                         aria-label="Rename"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => setConfirmDelete(c)}
-                        className="shrink-0 text-zinc-500 opacity-0 hover:text-red-500 group-hover:opacity-100"
+                        className="shrink-0 text-zinc-500 opacity-100 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100"
                         aria-label="Delete"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -227,9 +261,10 @@ export default function ByokPage() {
           </aside>
 
           {/* Main */}
-          <main className="flex min-h-0 flex-1 flex-col">
+          <main className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
             <DriveChat
               conversationId={activeId}
+              onOpenSidebar={() => setSidebarOpen(true)}
               keys={keys}
               prompts={prompts}
               onActivate={activateConversation}

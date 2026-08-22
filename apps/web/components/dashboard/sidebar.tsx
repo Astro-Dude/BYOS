@@ -167,10 +167,12 @@ export function Sidebar({
 
   const iconClass = "h-[17px] w-[17px] shrink-0";
 
+  // Hidden on phones: navigation moves to the floating tab bar, which frees the
+  // whole width for content instead of spending 4.5rem on an icon strip.
   return (
     <aside
-      className={`relative flex shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white px-3 pb-5 pt-6 transition-[width] duration-300 ease-out ${
-        collapsed ? "w-[4.5rem]" : "w-[4.5rem] md:w-64"
+      className={`relative hidden shrink-0 flex-col gap-2 border-r border-zinc-200 bg-white px-3 pb-5 pt-6 transition-[width] duration-300 ease-out md:flex ${
+        collapsed ? "w-[4.5rem]" : "w-64"
       }`}
     >
       {/* The handle straddles the rail's edge rather than living inside it, so

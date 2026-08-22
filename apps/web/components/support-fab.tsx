@@ -26,7 +26,7 @@ export function SupportFab() {
 
   return (
     <>
-      <div className="group fixed bottom-5 right-5 z-[90] print:hidden">
+      <div className="group fixed bottom-24 right-5 z-[90] print:hidden md:bottom-5">
         {/* Blush breath rather than a coloured glow — the accent pair is the only
             warmth the system allows, and it retreats as soon as you engage. */}
         <span

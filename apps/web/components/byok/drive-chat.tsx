@@ -7,7 +7,7 @@ import {
   type AiPrompt,
   type RagStrategies,
 } from "@byos/api-client";
-import { Loader2, Plus, Send } from "lucide-react";
+import { Loader2, Menu, Plus, Send } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 
 import ReactMarkdown from "react-markdown";
@@ -88,12 +88,14 @@ export function DriveChat({
   prompts,
   onActivate,
   onActivity,
+  onOpenSidebar,
 }: {
   conversationId: string | null;
   keys: AiKey[];
   prompts: AiPrompt[];
   onActivate: (c: AiConversation) => void;
   onActivity: () => void;
+  onOpenSidebar?: () => void;
 }) {
   const authed = useAuthed();
   // Shared with the settings panel, so /index drives the same run and the same
@@ -472,12 +474,8 @@ export function DriveChat({
             }
           }}
           rows={1}
-          placeholder={
-            mode === "read_only"
-              ? "Ask across your drive, or / for commands…"
-              : "Ask, tell me what to change, or / for commands…"
-          }
-          className="hair-scroll min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-[0.9375rem] leading-6 text-zinc-900 outline-none placeholder:text-zinc-500"
+          placeholder={mode === "read_only" ? "Ask across your drive…" : "Ask, or / for commands…"}
+          className="hair-scroll min-h-0 flex-1 resize-none overflow-y-auto bg-transparent px-1 py-1.5 text-[0.9375rem] leading-6 text-zinc-900 outline-none placeholder:truncate placeholder:text-[0.875rem] placeholder:text-zinc-400"
           style={{ maxHeight: COMPOSER_MAX_PX }}
         />
         <ModeMenu value={mode} onChange={onMode} />
@@ -494,22 +492,32 @@ export function DriveChat({
   );
 
   return (
-    <div className="flex min-h-0 flex-1">
-      {/* Chat column (shifts left / narrows when a source canvas is open) */}
-      <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 w-full flex-1">
+      {/* Chat column (hidden behind the canvas on mobile; narrows on desktop) */}
+      <div className={`min-h-0 min-w-0 flex-1 flex-col ${openFile ? "hidden md:flex" : "flex"}`}>
       {/* Top bar: model picker (top-left, ChatGPT-style) */}
-      <div className="flex items-center gap-3 px-4 py-3">
+      <div className="flex items-center gap-2 px-3 py-3 sm:gap-3 sm:px-4">
+        {onOpenSidebar ? (
+          <button
+            onClick={onOpenSidebar}
+            className="-ml-1 flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-zinc-600 transition hover:bg-zinc-100 hover:text-zinc-900 md:hidden"
+            title="Open sidebar"
+            aria-label="Open sidebar"
+          >
+            <Menu className="h-5 w-5" />
+          </button>
+        ) : null}
         <Dropdown
           value={keyId}
           onChange={onKey}
           options={keys.map((k) => ({ value: k.id, label: k.name }))}
           placeholder={keys.length ? "Select model" : "No keys — add one in Settings"}
-          className="rounded-lg px-2 py-1 text-[0.9375rem] font-medium text-zinc-900 hover:bg-zinc-100"
+          className="min-w-0 max-w-[55vw] truncate rounded-lg px-2 py-1 text-[0.9375rem] font-medium text-zinc-900 hover:bg-zinc-100 sm:max-w-none"
         />
         {indexing.running ? (
           <span
             title="Indexing in progress"
-            className="flex items-center gap-1.5 rounded-full border border-zinc-900/25 px-2 py-0.5 text-[0.8125rem] text-zinc-900"
+            className="flex shrink-0 items-center gap-1.5 rounded-full border border-zinc-900/25 px-2 py-0.5 text-[0.8125rem] text-zinc-900"
           >
             <Loader2 className="h-3 w-3 animate-spin" />
             indexing {indexing.done}/{indexing.total}
@@ -517,7 +525,7 @@ export function DriveChat({
         ) : idxStatus ? (
           <span
             title="Files embedded for this model — the chat can draw on these"
-            className="rounded-full border border-zinc-200 px-2 py-0.5 text-[0.8125rem] text-zinc-500"
+            className="hidden shrink-0 rounded-full border border-zinc-200 px-2 py-0.5 text-[0.8125rem] text-zinc-500 sm:block"
           >
             {idxStatus.indexed}/{idxStatus.total} files indexed
           </span>
@@ -534,7 +542,7 @@ export function DriveChat({
       ) : messages.length === 0 ? (
         /* Home state */
         <div className="flex min-h-0 flex-1 flex-col items-center justify-center px-4">
-          <h2 className="mb-6 type-heading-sm">What do you want to know?</h2>
+          <h2 className="mb-6 text-balance text-center type-heading-sm">What do you want to know?</h2>
           <div className="w-full max-w-2xl">{composer}</div>
           <p className="mt-3 text-[0.8125rem] text-zinc-400">
             {mode === "read_only"

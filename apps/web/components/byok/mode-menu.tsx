@@ -1,7 +1,7 @@
 "use client";
 
 import type { AgentMode } from "@byos/api-client";
-import { Check, Eye, ShieldAlert, ShieldCheck, Wand2 } from "lucide-react";
+import { Check, ChevronDown, Eye, ShieldAlert, ShieldCheck, Wand2 } from "lucide-react";
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 /** Mirrors the API's Mode: a gradient of how much the model may do unattended.
@@ -12,6 +12,8 @@ export type ChatMode = AgentMode;
 type Entry = {
   value: ChatMode;
   label: string;
+  /** Composer-button label — the full one doesn't fit next to the send button. */
+  short: string;
   hint: string;
   icon: ReactNode;
   /** Tints the button so a permissive mode is visible without opening the menu. */
@@ -23,6 +25,7 @@ const ICON = "h-4 w-4 shrink-0";
 const READ_ONLY: Entry = {
   value: "read_only",
   label: "Read only",
+  short: "Read",
   hint: "Searches and reads your files to answer questions. Changes nothing.",
   icon: <Eye className={ICON} />,
 };
@@ -32,12 +35,14 @@ export const MODES: Entry[] = [
   {
     value: "ask",
     label: "Ask first",
+    short: "Ask",
     hint: "Proposes every change and waits for you to confirm.",
     icon: <ShieldCheck className={ICON} />,
   },
   {
     value: "auto",
     label: "Auto-organize",
+    short: "Auto",
     hint: "Moves, renames, tags and stars on its own. Asks before deleting or sharing.",
     icon: <Wand2 className={ICON} />,
     tone: "warn",
@@ -45,6 +50,7 @@ export const MODES: Entry[] = [
   {
     value: "full",
     label: "Full access",
+    short: "Full",
     hint: "Applies everything itself, including deletes and public links.",
     icon: <ShieldAlert className={ICON} />,
     tone: "danger",
@@ -52,8 +58,8 @@ export const MODES: Entry[] = [
 ];
 
 const TONE = {
-  warn: "text-amber-600 ring-1 ring-amber-400/40",
-  danger: "text-red-600 ring-1 ring-red-400/50",
+  warn: "border-amber-400/60 bg-amber-50 text-amber-700 hover:bg-amber-100",
+  danger: "border-red-400/60 bg-red-50 text-red-600 hover:bg-red-100",
 } as const;
 
 const TEXT_TONE = { warn: "text-amber-600", danger: "text-red-500" } as const;
@@ -92,16 +98,24 @@ export function ModeMenu({
         onClick={() => setOpen((v) => !v)}
         title={`${active.label} — ${active.hint}`}
         aria-label={`Permission mode: ${active.label}`}
-        className={`flex h-9 shrink-0 items-center gap-1.5 rounded-xl px-2 text-[0.8125rem] font-medium transition hover:bg-zinc-100 ${
- active.tone ? TONE[active.tone] : "text-zinc-700"
-        }`}
+        aria-haspopup="menu"
+        aria-expanded={open}
+        className={`flex h-9 shrink-0 items-center gap-1.5 rounded-full border px-2.5 text-[0.8125rem] font-medium transition ${
+          active.tone
+            ? TONE[active.tone]
+            : "border-zinc-200 text-zinc-700 hover:bg-zinc-100 hover:text-zinc-900"
+        } ${open ? "border-zinc-900 text-zinc-900" : ""}`}
       >
         {active.icon}
+        <span className="sm:hidden">{active.short}</span>
         <span className="hidden sm:inline">{active.label}</span>
+        <ChevronDown
+          className={`h-3.5 w-3.5 shrink-0 opacity-60 transition-transform ${open ? "rotate-180" : ""}`}
+        />
       </button>
 
       {open ? (
-        <div className="menu-surface absolute bottom-11 right-0 z-30 w-[min(20rem,calc(100vw-2rem))] p-1.5">
+        <div role="menu" className="menu-surface absolute bottom-11 right-0 z-30 w-[min(20rem,calc(100vw-2rem))] p-1.5">
           <p className="px-2 py-1 text-[0.65rem] uppercase tracking-wide text-zinc-500">
             What the model may do
           </p>
@@ -109,6 +123,8 @@ export function ModeMenu({
             <button
               key={m.value}
               type="button"
+              role="menuitemradio"
+              aria-checked={m.value === value}
               onClick={() => {
                 onChange(m.value);
                 setOpen(false);

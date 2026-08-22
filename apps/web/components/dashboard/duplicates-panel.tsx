@@ -304,29 +304,33 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
       {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
 
       {selected.size > 0 ? (
+        // Opaque: sticky over a scrolling list, so any alpha showed the rows
+        // underneath straight through the bar.
         <div
-          className={`sticky top-0 z-20 flex flex-wrap items-center gap-3 rounded-xl border border-zinc-200 px-4 py-2.5 text-[0.9375rem] transition-colors ${
- scrolled
-              ? "bg-zinc-100/95"
-              : "bg-zinc-50/80"
+          className={`sticky top-0 z-20 flex items-center gap-2 rounded-xl border px-3 py-2 text-[0.9375rem] transition-colors sm:gap-3 sm:px-4 sm:py-2.5 ${
+            scrolled ? "border-zinc-300 bg-zinc-100" : "border-zinc-200 bg-zinc-50"
           }`}
         >
-          <span className="font-medium text-zinc-900">
-            {selected.size} selected
+          <span className="shrink-0 font-medium text-zinc-900">
+            {selected.size} <span className="hidden sm:inline">selected</span>
           </span>
-          <div className="ml-auto flex items-center gap-1.5">
+          <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             <button
               onClick={() => setConfirmBulk(true)}
-              className="flex items-center gap-1.5 rounded-md px-2.5 py-1.5 font-medium text-red-600 hover:bg-white"
+              title="Delete"
+              aria-label="Delete"
+              className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-red-600 transition-colors hover:bg-white sm:px-2.5"
             >
-              <Trash2 className="h-4 w-4" /> Delete
+              <Trash2 className="h-4 w-4 shrink-0" />
+              <span className="hidden sm:inline">Delete</span>
             </button>
             <button
               onClick={() => setSelected(new Set())}
-              className="flex items-center gap-1 rounded-md px-2 py-1.5 text-zinc-500 hover:bg-white"
+              className="flex items-center rounded-full px-2 py-1.5 text-zinc-500 transition-colors hover:bg-white"
+              title="Clear selection"
               aria-label="Clear selection"
             >
-              <X className="h-4 w-4" />
+              <X className="h-4 w-4 shrink-0" />
             </button>
           </div>
         </div>

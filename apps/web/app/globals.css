@@ -223,7 +223,33 @@
     @apply flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[0.9375rem] text-zinc-900 transition-colors hover:bg-zinc-50;
   }
 
-  /* ── Rows ─────────────────────────────────────────────────────────────────
+  /* ── Glass (phone only) ───────────────────────────────────────────────────
+   A deliberate departure from the flat system, and confined to it: DESIGN.md
+   forbids glass, but a floating tab bar over scrolling content is an iOS
+   convention strong enough to be worth the exception. Every use is inside a
+   `md:hidden` element, so nothing above phone width ever renders frosted.
+
+   `saturate` is what makes it read as iOS glass rather than a grey wash — Apple
+   boosts saturation behind the blur so colour bleeds through. The fallback keeps
+   a near-opaque fill for browsers without backdrop-filter, since a 62% panel
+   with no blur is unreadable over text. */
+  .glass {
+    background-color: rgb(var(--c-paper) / 0.96);
+    border: 1px solid rgb(var(--c-900) / 0.08);
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .glass {
+      background-color: rgb(var(--c-paper) / 0.62);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
+    }
+  }
+  /* Sits clear of the home indicator on a notched iPhone. */
+  .safe-bottom {
+    padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+  }
+
+/* ── Rows ─────────────────────────────────────────────────────────────────
      Lists are hairlines, not cards or zebra stripes. Hover lifts to fog, which is
      also what reveals a row's actions. */
   .row {
