@@ -101,7 +101,7 @@ export function ModeMenu({
       </button>
 
       {open ? (
-        <div className="menu-surface absolute bottom-11 right-0 z-30 w-80 p-1.5">
+        <div className="menu-surface absolute bottom-11 right-0 z-30 w-[min(20rem,calc(100vw-2rem))] p-1.5">
           <p className="px-2 py-1 text-[0.65rem] uppercase tracking-wide text-zinc-500">
             What the model may do
           </p>

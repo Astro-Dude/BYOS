@@ -125,7 +125,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
             <iframe
               src={docPreviewUrl(url, true)}
               title={file.name}
-              className="h-[82vh] w-full"
+              className="h-[60vh] w-full sm:h-[82vh]"
             />
           ) : kind === "video" && url ? (
             <video src={url} controls className="max-h-full max-w-full" />

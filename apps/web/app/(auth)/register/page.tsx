@@ -95,7 +95,7 @@ export default function RegisterPage() {
     return (
       <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
         <Skeleton className="h-7 w-24" />
-        <Skeleton className="mt-10 h-11 w-64" />
+        <Skeleton className="mt-10 h-11 w-full max-w-64" />
         <Skeleton className="mt-5 h-5 w-full" />
         <Skeleton className="mt-8 h-12 w-full rounded-lg" />
         <Skeleton className="mt-3 h-12 w-full rounded-full" />

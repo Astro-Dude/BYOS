@@ -65,27 +65,27 @@ export function SettingsModal({
       onClick={onClose}
     >
       <div
-        className="flex h-[80vh] w-full max-w-3xl overflow-hidden rounded-2xl bg-white shadow-xl"
+        className="flex h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-xl sm:h-[80vh] sm:flex-row"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Left rail */}
-        <aside className="flex w-56 shrink-0 flex-col border-r border-zinc-200 bg-zinc-100 p-3">
+        <aside className="flex shrink-0 flex-row items-center gap-2 border-b border-zinc-200 bg-zinc-100 p-3 sm:w-56 sm:flex-col sm:items-stretch sm:border-b-0 sm:border-r">
           <button
             onClick={onClose}
-            className="mb-3 flex h-9 w-9 items-center justify-center rounded-lg text-zinc-500 transition hover:bg-zinc-100 hover:text-zinc-800"
+            className="btn-icon-sm order-last shrink-0 sm:order-first sm:mb-3 sm:self-start"
             aria-label="Close"
           >
             <X className="h-5 w-5" />
           </button>
-          <nav className="space-y-0.5">
+          <nav className="thin-scroll -mx-1 flex min-w-0 flex-1 gap-1 overflow-x-auto px-1 sm:mx-0 sm:flex-col sm:space-y-0.5 sm:overflow-visible sm:px-0">
             {SECTIONS.map((s) => (
               <button
                 key={s.id}
                 onClick={() => setTab(s.id)}
-                className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-[0.9375rem] transition ${
- tab === s.id
-                    ? "bg-zinc-100 text-zinc-900"
-                    : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-800"
+                className={`flex shrink-0 items-center gap-2 whitespace-nowrap rounded-full px-3 py-1.5 text-[0.9375rem] transition-colors sm:w-full sm:rounded-lg sm:px-3 sm:py-2 ${
+                  tab === s.id
+                    ? "bg-white text-zinc-900 sm:bg-white"
+                    : "text-zinc-500 hover:text-zinc-900"
                 }`}
               >
                 <s.icon className="h-4 w-4 shrink-0" />
@@ -97,7 +97,7 @@ export function SettingsModal({
 
         {/* Right pane */}
         <div className="flex min-w-0 flex-1 flex-col">
-          <div className="border-b border-zinc-200 px-6 py-4">
+          <div className="border-b border-zinc-200 px-4 py-3 sm:px-6 sm:py-4">
             <h2 className="type-heading-sm">{activeLabel}</h2>
           </div>
           <div className="thin-scroll min-h-0 flex-1 overflow-y-auto p-6">

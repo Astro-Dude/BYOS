@@ -215,7 +215,7 @@ export function KeyForm({
             placeholder="e.g. text-embedding-3-small — enables semantic retrieval"
           />
         </div>
-        <div className="grid grid-cols-3 gap-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-2">
           <div>
             <span className={label}>Temperature</span>
             <input

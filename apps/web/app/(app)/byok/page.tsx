@@ -133,7 +133,7 @@ export default function ByokPage() {
           {/* Sidebar */}
           <aside
             className={`${
-              sidebarOpen ? "flex w-72" : "hidden"
+              sidebarOpen ? "flex w-[calc(100vw-3.5rem)] max-w-72" : "hidden"
             } absolute inset-y-0 left-12 z-30 shrink-0 flex-col border-r border-zinc-200 bg-white shadow-xl md:static md:left-auto md:z-auto md:shadow-none`}
           >
             <div className="flex items-center gap-2 px-4 py-4">

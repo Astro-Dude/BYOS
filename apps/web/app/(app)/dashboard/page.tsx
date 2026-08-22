@@ -842,7 +842,7 @@ export default function DashboardPage() {
       <>
         {bootOverlay}
         <div className="flex h-screen bg-zinc-50">
-        <div className="hidden w-64 shrink-0 border-r border-zinc-200 bg-white p-4 sm:block">
+        <div className="hidden w-[4.5rem] shrink-0 border-r border-zinc-200 bg-white p-4 sm:block md:w-64">
           <Skeleton className="h-8 w-24" />
           <Skeleton className="mt-4 h-12 w-full rounded-2xl" />
           <div className="mt-4 space-y-1.5">
@@ -851,8 +851,8 @@ export default function DashboardPage() {
             ))}
           </div>
         </div>
-        <div className="flex-1 p-6">
-          <Skeleton className="h-9 w-64 rounded-full" />
+        <div className="flex-1 p-4 sm:p-6">
+          <Skeleton className="h-9 w-full max-w-64 rounded-full" />
           <Skeleton className="mt-6 h-7 w-40" />
           <div className="mt-4 overflow-hidden rounded-2xl border border-zinc-200 bg-white">
             {Array.from({ length: 6 }).map((_, i) => (
@@ -1343,7 +1343,7 @@ export default function DashboardPage() {
 
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
-        <header className="flex items-center gap-4 border-b border-zinc-200 px-6 py-4">
+        <header className="flex items-center gap-3 border-b border-zinc-200 px-4 py-3 sm:gap-4 sm:px-6 sm:py-4">
           <div className="flex flex-1 justify-center">
             <button
               onClick={() => setPaletteOpen(true)}
@@ -1376,7 +1376,7 @@ export default function DashboardPage() {
         </header>
 
         <main
-          className="flex-1 overflow-auto px-8 pb-16"
+          className="flex-1 overflow-auto px-4 pb-16 sm:px-6 lg:px-8"
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           onDragOver={(e) => {
             // Only highlight for external file uploads, not internal move-drags.
@@ -1397,8 +1397,8 @@ export default function DashboardPage() {
           {/* Drag-to-upload overlay (hidden while hovering a specific folder,
               which shows its own drop highlight instead). */}
           {dragging && !dragFolder ? (
-            <div className="pointer-events-none fixed bottom-0 left-64 right-0 top-16 z-30 flex items-center justify-center bg-zinc-900/5 p-6">
-              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zinc-900 bg-white px-16 py-12 shadow-xl">
+            <div className="pointer-events-none fixed inset-0 z-30 flex items-center justify-center bg-zinc-900/5 p-4 sm:p-6">
+              <div className="flex flex-col items-center gap-3 rounded-2xl border border-dashed border-zinc-900 bg-white px-8 py-8 text-center shadow-xl sm:px-16 sm:py-12">
                 <div className="flex h-16 w-16 items-center justify-center rounded-2xl bg-zinc-900 text-white">
                   <UploadCloud className="h-7 w-7" />
                 </div>
@@ -1421,7 +1421,7 @@ export default function DashboardPage() {
             <DeveloperPanel />
           ) : view === "links" ? (
             <div className="pt-2">
-              <div className="pb-5 pt-8">
+              <div className="pb-4 pt-6 sm:pb-5 sm:pt-8">
                 <p className="type-label">Public</p>
                 <h1 className="type-heading mt-2">Links</h1>
               </div>
@@ -1489,7 +1489,7 @@ export default function DashboardPage() {
                 </div>
               ) : null}
               {/* Title + view toggle */}
-              <div className="flex flex-wrap items-end justify-between gap-4 pb-5 pt-8">
+              <div className="flex flex-wrap items-end justify-between gap-3 pb-4 pt-6 sm:gap-4 sm:pb-5 sm:pt-8">
                 {searchActive ? (
                   <div>
                     <p className="type-label">Search</p>
@@ -1564,8 +1564,8 @@ export default function DashboardPage() {
                                 onClick={() => setFolderId(c.id)}
                                 className={
                                   c.id === folderId
-                                    ? "max-w-[16rem] truncate"
-                                    : "max-w-[16rem] truncate text-zinc-500 hover:text-zinc-800"
+                                    ? "max-w-[8rem] truncate sm:max-w-[16rem]"
+                                    : "max-w-[8rem] truncate text-zinc-500 hover:text-zinc-800 sm:max-w-[16rem]"
                                 }
                               >
                                 {c.name}
@@ -1783,7 +1783,7 @@ export default function DashboardPage() {
       ) : null}
 
       {delProgress ? (
-        <div className="fixed bottom-4 left-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg">
+        <div className="fixed bottom-4 left-4 right-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg sm:right-auto">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-red-600" />
           <div>
             <div className="text-[0.9375rem] font-medium text-zinc-800">
@@ -1800,7 +1800,7 @@ export default function DashboardPage() {
       ) : null}
 
       {uploads.length > 0 ? (
-        <div className="fixed bottom-4 right-4 z-40 w-72 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg">
+        <div className="fixed bottom-4 left-4 right-4 z-40 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg sm:left-auto sm:w-72">
           <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 text-[0.9375rem] font-medium text-zinc-800">
             <span>
               {uploads.some((u) => u.status === "uploading")
