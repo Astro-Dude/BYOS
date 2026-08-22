@@ -1,6 +1,18 @@
 "use client";
 
-import { Copy, FileWarning, HardDrive, Link2, MoreHorizontal, Plus, Sparkles, Star, X } from "lucide-react";
+import {
+  Copy,
+  FileWarning,
+  FolderPlus,
+  HardDrive,
+  Link2,
+  MoreHorizontal,
+  Plus,
+  Sparkles,
+  Star,
+  Upload,
+  X,
+} from "lucide-react";
 import Link from "next/link";
 import { useState } from "react";
 
@@ -31,14 +43,21 @@ const MORE: { id: DriveView; label: string; icon: typeof HardDrive }[] = [
 export function MobileTabs({
   view,
   onView,
-  onNew,
+  onNewFolder,
+  onUpload,
 }: {
   view: DriveView;
   onView: (v: DriveView) => void;
-  onNew: () => void;
+  onNewFolder: () => void;
+  onUpload: () => void;
 }) {
-  const [sheet, setSheet] = useState(false);
+  // Only one sheet is ever up: "more" hangs off the last tab, "new" off the
+  // centre button. Both are the same glass card in the same slot.
+  const [sheet, setSheet] = useState<"more" | "new" | null>(null);
   const inMore = MORE.some((m) => m.id === view) || view === "developer";
+
+  const sheetItem =
+    "flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-left text-[0.9375rem] text-zinc-700";
 
   const tab = (active: boolean) =>
     `flex flex-1 flex-col items-center gap-1 rounded-2xl py-1.5 text-[0.625rem] transition-colors ${
@@ -50,30 +69,50 @@ export function MobileTabs({
       {/* Tapping outside closes the sheet; it sits under the sheet but over the
           page so a stray tap can't hit the list behind. */}
       {sheet ? (
-        <div className="fixed inset-0 z-[94] md:hidden" onClick={() => setSheet(false)} />
+        <div className="fixed inset-0 z-[94] md:hidden" onClick={() => setSheet(null)} />
       ) : null}
 
-      {sheet ? (
+      {sheet === "new" ? (
+        <div className="glass safe-bottom fixed bottom-20 left-3 right-3 z-[96] rounded-3xl p-2 shadow-lg md:hidden">
+          <button
+            onClick={() => {
+              setSheet(null);
+              onUpload();
+            }}
+            className={sheetItem}
+          >
+            <Upload className="h-[18px] w-[18px] shrink-0" />
+            Upload files
+          </button>
+          <button
+            onClick={() => {
+              setSheet(null);
+              onNewFolder();
+            }}
+            className={sheetItem}
+          >
+            <FolderPlus className="h-[18px] w-[18px] shrink-0" />
+            New folder
+          </button>
+        </div>
+      ) : null}
+
+      {sheet === "more" ? (
         <div className="glass safe-bottom fixed bottom-20 left-3 right-3 z-[96] rounded-3xl p-2 shadow-lg md:hidden">
           {MORE.map((m) => (
             <button
               key={m.id}
               onClick={() => {
                 onView(m.id);
-                setSheet(false);
+                setSheet(null);
               }}
-              className={`flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[0.9375rem] ${
-                view === m.id ? "bg-zinc-900/[0.06] text-zinc-900" : "text-zinc-700"
-              }`}
+              className={`${sheetItem} ${view === m.id ? "bg-zinc-900/[0.06] text-zinc-900" : ""}`}
             >
               <m.icon className="h-[18px] w-[18px] shrink-0" />
               {m.label}
             </button>
           ))}
-          <Link
-            href="/byok"
-            className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[0.9375rem] text-zinc-700"
-          >
+          <Link href="/byok" className={sheetItem}>
             <Sparkles className="h-[18px] w-[18px] shrink-0" />
             BYOK
           </Link>
@@ -97,11 +136,16 @@ export function MobileTabs({
         ))}
 
         {/* Primary action, centre stage — the iOS pattern, and it keeps New
-            reachable now that the rail is gone. */}
+            reachable now that the rail is gone. It opens the same two choices
+            the desktop rail's New menu offers, so upload isn't phone-only lost. */}
         <button
-          onClick={onNew}
+          onClick={() => setSheet((v) => (v === "new" ? null : "new"))}
           aria-label="New"
-          className="mx-1 flex h-11 w-11 shrink-0 -translate-y-1.5 items-center justify-center self-center rounded-full bg-zinc-900 text-white shadow-md transition-transform active:scale-95"
+          aria-haspopup="menu"
+          aria-expanded={sheet === "new"}
+          className={`mx-1 flex h-11 w-11 shrink-0 -translate-y-1.5 items-center justify-center self-center rounded-full bg-zinc-900 text-white shadow-md transition-transform active:scale-95 ${
+            sheet === "new" ? "rotate-45" : ""
+          }`}
         >
           <Plus className="h-5 w-5" />
         </button>
@@ -115,11 +159,15 @@ export function MobileTabs({
           Links
         </button>
         <button
-          onClick={() => setSheet((v) => !v)}
-          aria-expanded={sheet}
-          className={tab(inMore || sheet)}
+          onClick={() => setSheet((v) => (v === "more" ? null : "more"))}
+          aria-expanded={sheet === "more"}
+          className={tab(inMore || sheet === "more")}
         >
-          {sheet ? <X className="h-[19px] w-[19px]" /> : <MoreHorizontal className="h-[19px] w-[19px]" />}
+          {sheet === "more" ? (
+            <X className="h-[19px] w-[19px]" />
+          ) : (
+            <MoreHorizontal className="h-[19px] w-[19px]" />
+          )}
           More
         </button>
       </nav>

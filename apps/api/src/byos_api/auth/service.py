@@ -11,7 +11,7 @@ import re
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core.config import get_settings
@@ -156,6 +156,17 @@ async def rotate_refresh_token(db: AsyncSession, raw: str) -> tuple[User, str]:
     )
     await db.commit()
     return user, new_raw
+
+
+async def revoke_all_refresh_tokens(db: AsyncSession, user: User) -> None:
+    """Kill every live session for a user. Called on password reset, where the
+    point is to lock out whoever knew the old password. Flushed, not committed —
+    the caller owns the transaction."""
+    await db.execute(
+        update(RefreshToken)
+        .where(RefreshToken.user_id == user.id, RefreshToken.revoked_at.is_(None))
+        .values(revoked_at=datetime.now(UTC))
+    )
 
 
 async def revoke_refresh_token(db: AsyncSession, raw: str) -> None:

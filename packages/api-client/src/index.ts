@@ -344,6 +344,16 @@ export class ByosClient {
     });
   }
 
+  /** Forgot password: sends a Telegram code and carries the new password in the
+   *  OTP ticket. It is applied only when the code verifies (telegramVerify /
+   *  telegramPassword), so nothing changes until Telegram confirms the phone. */
+  resetPassword(phone: string, password: string): Promise<TelegramLoginResult> {
+    return this.request<TelegramLoginResult>("/auth/password/reset", {
+      method: "POST",
+      body: JSON.stringify({ phone, password }),
+    });
+  }
+
   telegramVerify(ticket: string, code: string): Promise<TelegramLoginResult> {
     return this.request<TelegramLoginResult>("/auth/telegram/verify", {
       method: "POST",

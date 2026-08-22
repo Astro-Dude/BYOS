@@ -146,7 +146,9 @@ function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
 
-const PAGE_SIZE = 100;
+// One screenful. The rest streams in as the sentinel scrolls into view, so a
+// drive with thousands of files renders 20 rows rather than all of them.
+const PAGE_SIZE = 20;
 // Telegram's per-file ceiling for a standard account. Keep in sync with the
 // API's max_upload_bytes so oversized files are caught before uploading.
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
@@ -301,6 +303,8 @@ export default function DashboardPage() {
   const filesRef = useRef<FileItem[]>([]);
   const folderIdRef = useRef<string | undefined>(undefined);
   const sentinelRef = useRef<HTMLDivElement | null>(null);
+  const loadingMoreRef = useRef(false);
+  const listGenRef = useRef(0);
   const uploadIdRef = useRef(0);
 
   const searchActive = search.trim().length > 0;
@@ -330,6 +334,8 @@ export default function DashboardPage() {
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
     if (["links", "duplicates", "missing", "developer", "profile"].includes(view)) return;
+    listGenRef.current += 1;
+    loadingMoreRef.current = false;
     setLoading(true);
     setError(null);
     try {
@@ -358,14 +364,19 @@ export default function DashboardPage() {
   }, [authed, folderId, view, tagFilter, fetchPage]);
 
   const loadMore = useCallback(async () => {
+    if (loadingMoreRef.current) return; // observer can fire again mid-flight
+    loadingMoreRef.current = true;
+    const gen = listGenRef.current;
     setLoadingMore(true);
     try {
       const page = await fetchPage(filesRef.current.length);
+      if (listGenRef.current !== gen) return; // navigated away mid-fetch
       setFiles((prev) => [...prev, ...page]);
       setHasMore(page.length === PAGE_SIZE);
     } catch {
       setHasMore(false); // stop the loop on error; the user can retry via reload
     } finally {
+      loadingMoreRef.current = false;
       setLoadingMore(false);
     }
   }, [fetchPage]);
@@ -1331,6 +1342,21 @@ export default function DashboardPage() {
     </div>
   );
 
+  // Both the rail's New menu and the phone tab bar's + run these, so uploading
+  // and folder creation behave identically wherever they're triggered from.
+  const toDrive = () => {
+    setView("drive");
+    setTagFilter(null);
+  };
+  const newFolder = () => {
+    toDrive();
+    setNfOpen(true);
+  };
+  const pickFiles = () => {
+    toDrive();
+    inputRef.current?.click();
+  };
+
   return (
     <>
       {bootOverlay}
@@ -1338,26 +1364,10 @@ export default function DashboardPage() {
       <MobileTabs
         view={view}
         onView={setView}
-        onNew={() => {
-          setView("drive");
-          setTagFilter(null);
-          setNfOpen(true);
-        }}
+        onNewFolder={newFolder}
+        onUpload={pickFiles}
       />
-      <Sidebar
-        view={view}
-        onView={setView}
-        onNewFolder={() => {
-          setView("drive");
-          setTagFilter(null);
-          setNfOpen(true);
-        }}
-        onUpload={() => {
-          setView("drive");
-          setTagFilter(null);
-          inputRef.current?.click();
-        }}
-      />
+      <Sidebar view={view} onView={setView} onNewFolder={newFolder} onUpload={pickFiles} />
       <input ref={inputRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1687,7 +1697,7 @@ export default function DashboardPage() {
                 ) : (
                   gridSkeleton
                 )
-              ) : shownFolders.length === 0 && shownFiles.length === 0 ? (
+              ) : shownFolders.length === 0 && shownFiles.length === 0 && !hasMore ? (
                 emptyState
               ) : layout === "list" ? (
                 listView
@@ -1697,7 +1707,7 @@ export default function DashboardPage() {
 
               {!searchActive && !loading ? (
                 <div ref={sentinelRef} className="py-4 text-center text-[0.9375rem] text-zinc-400">
-                  {loadingMore ? "Loading more…" : null}
+                  {loadingMore || hasMore ? "Loading more…" : null}
                 </div>
               ) : null}
             </div>

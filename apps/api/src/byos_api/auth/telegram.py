@@ -42,6 +42,10 @@ class LoginStateError(Exception):
     pass
 
 
+class NoAccount(Exception):
+    """A password reset verified against a Telegram account we've never seen."""
+
+
 def _make_ticket(data: dict) -> str:
     return crypto.encrypt(json.dumps(data))
 
@@ -79,6 +83,14 @@ async def start_login(phone: str) -> str:
     return await _send_code(phone, {})
 
 
+async def start_password_reset(phone: str, password: str) -> str:
+    """Begin a password reset. The new password rides along (already hashed) in
+    the encrypted ticket and is applied only once Telegram confirms the code —
+    proving the person controls the Telegram account the BYOS account is keyed
+    to. Nothing is written, and no account is revealed, until then."""
+    return await _send_code(phone, {"reset_password_hash": hash_password(password)})
+
+
 async def start_signup(db: AsyncSession, phone: str, username: str, password: str) -> str:
     """Begin sign-up: validate the username and carry it (plus the hashed
     password) inside the encrypted ticket. NOTHING is written to the DB here —
@@ -104,24 +116,26 @@ async def verify_code(
                     "phone": data["phone"],
                     "session": client.session.save(),
                     "awaiting": "password",
-                    # Carry sign-up details forward through the 2FA step.
+                    # Carry sign-up / reset details forward through the 2FA step.
                     "username": data.get("username"),
                     "password_hash": data.get("password_hash"),
+                    "reset_password_hash": data.get("reset_password_hash"),
                 }
             )
             return "password_needed", new_ticket, None
         except (PhoneCodeInvalidError, PhoneCodeExpiredError) as exc:
             raise InvalidCode(str(exc) or "Invalid or expired code") from exc
-        user = await _complete(
+        user, was_reset = await _complete(
             db,
             client,
             data["phone"],
             signup_username=data.get("username"),
             signup_password_hash=data.get("password_hash"),
+            reset_password_hash=data.get("reset_password_hash"),
         )
     finally:
         await client.disconnect()
-    return "connected", None, user
+    return ("password_reset" if was_reset else "connected"), None, user
 
 
 async def verify_password(
@@ -135,16 +149,17 @@ async def verify_password(
             await client.sign_in(password=password)
         except PasswordHashInvalidError as exc:
             raise InvalidCode("Invalid two-factor password") from exc
-        user = await _complete(
+        user, was_reset = await _complete(
             db,
             client,
             data["phone"],
             signup_username=data.get("username"),
             signup_password_hash=data.get("password_hash"),
+            reset_password_hash=data.get("reset_password_hash"),
         )
     finally:
         await client.disconnect()
-    return "connected", None, user
+    return ("password_reset" if was_reset else "connected"), None, user
 
 
 async def _complete(
@@ -154,7 +169,8 @@ async def _complete(
     *,
     signup_username: str | None = None,
     signup_password_hash: str | None = None,
-) -> User:
+    reset_password_hash: str | None = None,
+) -> tuple[User, bool]:
     me = await client.get_me()
     session = client.session.save()
     tg_id = int(me.id)
@@ -164,6 +180,11 @@ async def _complete(
     user = (
         await db.execute(select(User).where(User.telegram_user_id == tg_id))
     ).scalar_one_or_none()
+    if user is None and reset_password_hash is not None:
+        # Resetting a password for a Telegram account that has no BYOS account
+        # would silently create a half-made one. Nothing has been written yet.
+        raise NoAccount
+
     if user is None:
         # New account — persist the sign-up username + password now, atomically
         # with the Telegram identity, in a single transaction.
@@ -187,6 +208,10 @@ async def _complete(
         # Don't overwrite display_name on re-login — the user may have set their
         # own in Profile. (Telegram first_name is only the initial default.)
         user.phone = phone
+        if reset_password_hash is not None:
+            user.password_hash = reset_password_hash
+            # A reset must lock out whoever else was signed in with the old one.
+            await service.revoke_all_refresh_tokens(db, user)
 
     account = (
         await db.execute(
@@ -205,15 +230,17 @@ async def _complete(
 
     await db.commit()
     await db.refresh(user)
-    return user
+    return user, reset_password_hash is not None
 
 
 __all__ = [
     "ExpiredTicket",
     "InvalidCode",
     "LoginStateError",
+    "NoAccount",
     "TelegramNotConfigured",
     "start_login",
+    "start_password_reset",
     "start_signup",
     "verify_code",
     "verify_password",

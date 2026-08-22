@@ -266,6 +266,16 @@ export default function LoginPage() {
         </form>
 
         <div className="mt-4 space-y-2 text-[0.9375rem]">
+          {passwordMode ? (
+            <p>
+              <Link
+                href="/forgot-password"
+                className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition-colors hover:decoration-zinc-900"
+              >
+                Forgot your password?
+              </Link>
+            </p>
+          ) : null}
           <button
             onClick={() => switchMode(passwordMode ? "telegram" : "password")}
             className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition-colors hover:decoration-zinc-900"
@@ -274,7 +284,7 @@ export default function LoginPage() {
           </button>
           <p className="mt-3 text-[0.8125rem] leading-[1.5] text-zinc-500">
             {passwordMode
-              ? "A Telegram code authorises a new device on your Telegram account — you'll see it listed under Devices there. Use it if you've forgotten your password or logged BYOS out of Telegram."
+              ? "A Telegram code authorises a new device on your Telegram account — you'll see it listed under Devices there. Use it if you've logged BYOS out of Telegram."
               : "Signing in with a password reuses the Telegram session BYOS already holds, so nothing new is added to your Telegram Devices list."}
           </p>
           {!passwordMode && step !== "phone" && (

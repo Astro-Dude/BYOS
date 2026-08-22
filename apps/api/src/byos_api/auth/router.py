@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Awaitable
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
@@ -18,6 +19,7 @@ from byos_api.auth.dependencies import CurrentUser, SessionUser
 from byos_api.auth.schemas import (
     DisplayNameRequest,
     PasswordLoginRequest,
+    PasswordResetStartRequest,
     PhoneRequest,
     SetPasswordRequest,
     SignupStartRequest,
@@ -94,22 +96,25 @@ def _flood(exc: FloodWaitError) -> HTTPException:
     )
 
 
-@router.post(
-    "/telegram/start", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+_INVALID_PHONE = (
+    "That phone number looks invalid. Use full international format, "
+    "e.g. +919812345678 (country code, no spaces or leading zeros)."
 )
-async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResult:
+
+
+async def _send_code(
+    op: str, call: Awaitable[str], *, invalid_phone: str = _INVALID_PHONE
+) -> str:
+    """Await a Telegram send-code call, mapping its failure modes onto clean
+    HTTP errors. Shared by every entry point that kicks off an OTP."""
     try:
-        ticket = await telegram.start_login(payload.phone)
+        return await call
     except telegram.TelegramNotConfigured:
         raise HTTPException(
             status.HTTP_503_SERVICE_UNAVAILABLE, "Telegram login is not configured"
         ) from None
     except PhoneNumberInvalidError:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "That phone number looks invalid. Use full international format, "
-            "e.g. +919812345678 (country code, no spaces or leading zeros).",
-        ) from None
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, invalid_phone) from None
     except PhoneNumberBannedError:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "Telegram has banned this phone number."
@@ -122,7 +127,14 @@ async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResul
     except FloodWaitError as exc:
         raise _flood(exc) from exc
     except Exception as exc:
-        raise _telegram_unavailable("start", exc) from exc
+        raise _telegram_unavailable(op, exc) from exc
+
+
+@router.post(
+    "/telegram/start", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
+async def telegram_start(payload: PhoneRequest, db: DbDep) -> TelegramLoginResult:
+    ticket = await _send_code("start", telegram.start_login(payload.phone))
     return TelegramLoginResult(status="code_sent", ticket=ticket)
 
 
@@ -142,31 +154,25 @@ async def telegram_signup(payload: SignupStartRequest, db: DbDep) -> TelegramLog
         ) from None
     except service.UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
-    try:
-        ticket = await telegram.start_signup(db, payload.phone, payload.username, payload.password)
-    except telegram.TelegramNotConfigured:
-        raise HTTPException(
-            status.HTTP_503_SERVICE_UNAVAILABLE, "Telegram login is not configured"
-        ) from None
-    except PhoneNumberInvalidError:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST,
-            "That phone number looks invalid. Use full international format, "
-            "e.g. +919812345678 (country code, no spaces or leading zeros).",
-        ) from None
-    except PhoneNumberBannedError:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Telegram has banned this phone number."
-        ) from None
-    except PhoneNumberFloodError:
-        raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS,
-            "Too many code requests for this number — wait a while before trying again.",
-        ) from None
-    except FloodWaitError as exc:
-        raise _flood(exc) from exc
-    except Exception as exc:
-        raise _telegram_unavailable("signup", exc) from exc
+    ticket = await _send_code(
+        "signup",
+        telegram.start_signup(db, payload.phone, payload.username, payload.password),
+    )
+    return TelegramLoginResult(status="code_sent", ticket=ticket)
+
+
+@router.post(
+    "/password/reset", response_model=TelegramLoginResult, dependencies=[Depends(_auth_limit)]
+)
+async def start_password_reset(payload: PasswordResetStartRequest) -> TelegramLoginResult:
+    """Forgot password: send a Telegram code to the account's phone. Telegram is
+    the only channel — BYOS has no email — and control of the Telegram account
+    is what the password is protecting anyway. The new password is applied only
+    once the code verifies, so this endpoint reveals nothing about whether an
+    account exists."""
+    ticket = await _send_code(
+        "password-reset", telegram.start_password_reset(payload.phone, payload.password)
+    )
     return TelegramLoginResult(status="code_sent", ticket=ticket)
 
 
@@ -184,6 +190,11 @@ async def telegram_verify(
         ) from None
     except telegram.InvalidCode as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
+    except telegram.NoAccount:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "No BYOS account is linked to that Telegram account yet — create one instead.",
+        ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
     except Exception as exc:
@@ -191,6 +202,8 @@ async def telegram_verify(
     if result == "password_needed":
         return TelegramLoginResult(status="password_needed", ticket=ticket)
     assert user is not None
+    if result == "password_reset":
+        await audit.record(user.id, "password_reset", request=request)
     return await _issue_session(db, user, response, request)
 
 
@@ -201,18 +214,25 @@ async def telegram_password(
     payload: TicketPasswordRequest, request: Request, response: Response, db: DbDep
 ) -> TelegramLoginResult:
     try:
-        _, _, user = await telegram.verify_password(db, payload.ticket, payload.password)
+        result, _, user = await telegram.verify_password(db, payload.ticket, payload.password)
     except (telegram.ExpiredTicket, telegram.LoginStateError):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "Login session expired — start again"
         ) from None
     except telegram.InvalidCode as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
+    except telegram.NoAccount:
+        raise HTTPException(
+            status.HTTP_404_NOT_FOUND,
+            "No BYOS account is linked to that Telegram account yet — create one instead.",
+        ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
     except Exception as exc:
         raise _telegram_unavailable("password", exc) from exc
     assert user is not None
+    if result == "password_reset":
+        await audit.record(user.id, "password_reset", request=request)
     return await _issue_session(db, user, response, request)
 
 
@@ -308,21 +328,11 @@ async def login_password(
                 status.HTTP_409_CONFLICT,
                 "Your Telegram access was logged out. Sign in with a Telegram code to reconnect.",
             )
-        try:
-            ticket = await telegram.start_login(user.phone)
-        except telegram.TelegramNotConfigured:
-            raise HTTPException(
-                status.HTTP_503_SERVICE_UNAVAILABLE, "Telegram login is not configured"
-            ) from None
-        except PhoneNumberInvalidError:
-            raise HTTPException(
-                status.HTTP_400_BAD_REQUEST,
-                "Your saved phone number looks invalid — sign in with a Telegram code.",
-            ) from None
-        except FloodWaitError as exc:
-            raise _flood(exc) from exc
-        except Exception as exc:
-            raise _telegram_unavailable("password-reauth", exc) from exc
+        ticket = await _send_code(
+            "password-reauth",
+            telegram.start_login(user.phone),
+            invalid_phone="Your saved phone number looks invalid — sign in with a Telegram code.",
+        )
         # Not a normal login result: the client must complete the OTP step
         # (/telegram/verify), which repairs the session and issues the session.
         return TelegramLoginResult(status="code_sent", ticket=ticket)

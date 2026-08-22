@@ -42,6 +42,14 @@ class SignupStartRequest(BaseModel):
     password: str = Field(min_length=8, max_length=128)
 
 
+class PasswordResetStartRequest(BaseModel):
+    """Forgot-password: the new password is only applied once the Telegram code
+    verifies, so it travels with the request rather than after it."""
+
+    phone: str = Field(min_length=1)
+    password: str = Field(min_length=8, max_length=128)
+
+
 class TicketCodeRequest(BaseModel):
     ticket: str
     code: str
