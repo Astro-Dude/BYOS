@@ -30,3 +30,20 @@ export function truncateMiddle(name: string, max = 42): string {
 export function docPreviewUrl(url: string, isPdf: boolean): string {
   return isPdf ? `${url}#toolbar=0&navpanes=0&scrollbar=0&view=FitH` : url;
 }
+
+/** Human-readable byte count. Binary units (1024), one decimal above bytes.
+ *
+ *  Was duplicated privately in the sidebar and the duplicates panel — identical
+ *  apart from a variable name — and the admin dashboard would have made three.
+ */
+export function formatBytes(n: number): string {
+  if (n < 1024) return `${n} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let value = n / 1024;
+  let i = 0;
+  while (value >= 1024 && i < units.length - 1) {
+    value /= 1024;
+    i += 1;
+  }
+  return `${value.toFixed(1)} ${units[i]}`;
+}

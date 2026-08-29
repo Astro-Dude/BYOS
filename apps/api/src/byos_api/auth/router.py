@@ -13,6 +13,7 @@ from telethon.errors.rpcerrorlist import (
     PhoneNumberInvalidError,
 )
 
+from byos_api.admin import service as admin_service
 from byos_api.audit import recorder as audit
 from byos_api.auth import service, telegram
 from byos_api.auth.dependencies import CurrentUser, SessionUser
@@ -262,9 +263,21 @@ async def logout(request: Request, response: Response, db: DbDep) -> None:
     )
 
 
+def _with_admin(user: User) -> UserResponse:
+    """UserResponse with the computed `is_admin` filled in.
+
+    Every endpoint that returns a user goes through this: admin status is derived
+    from config rather than stored, so `model_validate` alone would leave it
+    False and the client would hide the admin entry after a profile edit.
+    """
+    out = UserResponse.model_validate(user)
+    out.is_admin = admin_service.is_admin(user)
+    return out
+
+
 @router.get("/me", response_model=UserResponse)
 async def me(user: CurrentUser) -> UserResponse:
-    return UserResponse.model_validate(user)
+    return _with_admin(user)
 
 
 @router.post("/username", response_model=UserResponse)
@@ -278,7 +291,7 @@ async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -
         ) from None
     except service.UsernameTaken:
         raise HTTPException(status.HTTP_409_CONFLICT, "That username is taken") from None
-    return UserResponse.model_validate(updated)
+    return _with_admin(updated)
 
 
 @router.post("/display-name", response_model=UserResponse)
@@ -286,7 +299,7 @@ async def set_display_name(
     payload: DisplayNameRequest, user: CurrentUser, db: DbDep
 ) -> UserResponse:
     updated = await service.set_display_name(db, user, payload.display_name)
-    return UserResponse.model_validate(updated)
+    return _with_admin(updated)
 
 
 @router.post("/password", response_model=UserResponse)
@@ -302,7 +315,7 @@ async def set_password(
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST, "Current password is incorrect"
         ) from None
-    return UserResponse.model_validate(updated)
+    return _with_admin(updated)
 
 
 @router.post(

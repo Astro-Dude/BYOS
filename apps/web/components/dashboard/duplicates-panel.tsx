@@ -7,6 +7,7 @@ import { type UIEvent, useCallback, useEffect, useRef, useState } from "react";
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
+import { formatBytes } from "@/lib/utils";
 import { useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 
@@ -25,17 +26,6 @@ function kindOf(file: FileItem): Kind {
   return TEXT_EXT.has((file.ext ?? "").toLowerCase()) ? "text" : "other";
 }
 
-function formatBytes(n: number): string {
-  if (n < 1024) return `${n} B`;
-  const units = ["KB", "MB", "GB", "TB"];
-  let v = n / 1024;
-  let i = 0;
-  while (v >= 1024 && i < units.length - 1) {
-    v /= 1024;
-    i += 1;
-  }
-  return `${v.toFixed(1)} ${units[i]}`;
-}
 
 // Render a PDF blob's pages to image data-URLs (client-only, via pdf.js) so they
 // live in our DOM and can be scroll-synced. Capped to keep it light.

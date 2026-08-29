@@ -70,6 +70,12 @@ class Settings(BaseSettings):
     ai_vision_ocr: bool = True
     ai_vision_max_pages: int = 20
 
+    # Admins get the platform analytics dashboard. Identifiers are matched against
+    # a user's Telegram id *or* their phone number, digits only, by suffix — the
+    # phone is stored E.164 (+917992214793) but is far more likely to be typed
+    # here without the country code.
+    admin_ids: str = "7992214793"
+
     # AI: heuristic auto-tagging of uploads by type. Off by default — the drive's
     # type filter already groups by mime/ext, so a "document"/"image" tag is just
     # noise. Set AUTO_TAGGING=true to re-enable.
@@ -79,6 +85,10 @@ class Settings(BaseSettings):
     # app's disk. The local provider stays available for tests but is NOT
     # registered unless explicitly enabled.
     enable_local_storage: bool = False
+
+    @property
+    def admin_id_set(self) -> set[str]:
+        return {i.strip() for i in self.admin_ids.split(",") if i.strip()}
 
     @property
     def blocked_extensions_set(self) -> set[str]:

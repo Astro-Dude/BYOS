@@ -84,3 +84,6 @@ class UserResponse(BaseModel):
     phone: str | None = None
     is_verified: bool
     has_password: bool = False
+    # Computed, not stored: admin status comes from config, so it can change
+    # without a migration. See admin.service.is_admin.
+    is_admin: bool = False

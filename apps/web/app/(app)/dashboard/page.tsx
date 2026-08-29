@@ -1399,6 +1399,18 @@ export default function DashboardPage() {
                   {user.display_name ?? "Signed in"}
                 </div>
                 <MenuItem label="Profile" onClick={() => { close(); setView("profile"); }} />
+                {/* Admins only. `is_admin` is computed server-side from config,
+                    so hiding this is presentation — the endpoint itself 404s for
+                    anyone else regardless of what the client renders. */}
+                {user.is_admin ? (
+                  <MenuItem
+                    label="Admin dashboard"
+                    onClick={() => {
+                      close();
+                      router.push("/admin");
+                    }}
+                  />
+                ) : null}
                 <MenuItem label="Log out" onClick={() => { close(); void onLogout(); }} />
               </>
             )}

@@ -558,3 +558,42 @@
     transform: scaleX(1);
   }
 }
+
+/* ── Chart gestures ───────────────────────────────────────────────────────
+   Marks draw themselves rather than fading in, which is the same idea as the
+   headline's `steep-settle`: the page assembles instead of appearing. */
+@keyframes steep-draw {
+  0% {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 1200;
+  }
+  100% {
+    stroke-dasharray: 1200;
+    stroke-dashoffset: 0;
+  }
+}
+.steep-draw {
+  animation: steep-draw 1.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes steep-grow {
+  0% {
+    transform: scaleX(0);
+  }
+  100% {
+    transform: scaleX(1);
+  }
+}
+.steep-grow {
+  transform-origin: left;
+  animation: steep-grow 0.9s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .steep-draw,
+  .steep-grow {
+    animation: none;
+    stroke-dashoffset: 0;
+    transform: none;
+  }
+}

@@ -22,6 +22,12 @@ class User(UUIDPrimaryKey, TimestampMixin, Base):
     display_name: Mapped[str | None] = mapped_column(String(120))
     is_active: Mapped[bool] = mapped_column(Boolean, server_default=text("true"), nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
+    # Grants the platform analytics dashboard and the ability to grant it to
+    # others. Managed in-app; `ADMIN_IDS` remains a break-glass bootstrap so the
+    # first admin can always get in. See admin.service.is_admin.
+    is_admin: Mapped[bool] = mapped_column(
+        Boolean, server_default=text("false"), nullable=False
+    )
 
     @property
     def has_password(self) -> bool:

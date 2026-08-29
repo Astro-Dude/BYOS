@@ -13,6 +13,8 @@ export interface User {
   is_verified: boolean;
   phone: string | null;
   has_password: boolean;
+  /** Granted in the database, or named by the server's break-glass ADMIN_IDS. */
+  is_admin: boolean;
 }
 
 export interface TokenResponse {
@@ -147,6 +149,52 @@ export interface ShareInput {
   expires_in_days?: number;
   max_downloads?: number;
   view_only?: boolean;
+}
+
+/** Platform-wide analytics. Admin only — the endpoint 404s for everyone else. */
+export interface PlatformStats {
+  generated_at: string;
+  window_days: number;
+  totals: {
+    users: number;
+    files: number;
+    folders: number;
+    bytes: number;
+    aliases: number;
+    shares: number;
+    api_keys: number;
+    webhooks: number;
+    ai_keys: number;
+    conversations: number;
+    indexed_chunks: number;
+  };
+  signups: { day: string; value: number }[];
+  uploads: { day: string; value: number }[];
+  types: { ext: string; count: number; bytes: number }[];
+  sizes: { bucket: string; count: number }[];
+  hours: { hour: number; value: number }[];
+  actions: { action: string; count: number }[];
+  top_users: { label: string; bytes: number; files: number }[];
+  growth: { day: string; value: number }[];
+  active: { day: string; value: number }[];
+  providers: { label: string; count: number; bytes: number }[];
+  versions: { total: number; versioned_files: number; revisions: number };
+  shares_by_kind: { label: string; count: number; bytes: number }[];
+  aliases_by_kind: { label: string; count: number; bytes: number }[];
+  duplicates: { groups: number; reclaimable_bytes: number };
+  index_coverage: { indexed: number; files: number };
+  tags: { label: string; count: number; bytes: number }[];
+}
+
+/** One row of the managed admin list. */
+export interface AdminRow {
+  id: string;
+  username: string | null;
+  phone: string | null;
+  /** Has the database flag. */
+  granted: boolean;
+  /** Named by ADMIN_IDS — cannot be revoked in-app. */
+  bootstrap: boolean;
 }
 
 export interface AnalyticsOverview {
@@ -413,6 +461,29 @@ export class ByosClient {
       method: "POST",
       body: JSON.stringify({ identifier, password }),
     });
+  }
+
+  /** Platform analytics. 404s unless the caller is an admin. */
+  adminOverview(token: string): Promise<PlatformStats> {
+    return this.request<PlatformStats>("/admin/overview", { token });
+  }
+
+  /** The managed admin list. */
+  listAdmins(token: string): Promise<AdminRow[]> {
+    return this.request<AdminRow[]>("/admin/admins", { token });
+  }
+
+  /** Promote by username or phone (phones match digits-only by suffix). */
+  grantAdmin(token: string, identifier: string): Promise<AdminRow> {
+    return this.request<AdminRow>("/admin/admins", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ identifier }),
+    });
+  }
+
+  revokeAdmin(token: string, userId: string): Promise<void> {
+    return this.request<void>(`/admin/admins/${userId}`, { method: "DELETE", token });
   }
 
   health(): Promise<HealthResponse> {
