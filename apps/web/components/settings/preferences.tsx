@@ -205,6 +205,18 @@ export function AppearanceSettings() {
         </div>
       </SettingsGroup>
 
+      <SettingsGroup title="Feel">
+        <SettingRow label="Click sounds" description="A soft tick when you tap a button, switch or menu item.">
+          <Toggle label="Click sounds" checked={prefs.clickSound} onChange={(clickSound) => setPrefs({ clickSound })} />
+        </SettingRow>
+        <SettingRow
+          label="Haptics"
+          description="A light vibration with each tap on phones. iPhones need iOS 18 or later."
+        >
+          <Toggle label="Haptics" checked={prefs.haptics} onChange={(haptics) => setPrefs({ haptics })} />
+        </SettingRow>
+      </SettingsGroup>
+
       <SettingsGroup title="Cursor">
         <div className="py-5">
           <div role="radiogroup" aria-label="Cursor" className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">

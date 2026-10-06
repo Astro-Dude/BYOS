@@ -11,6 +11,7 @@ import {
 } from "react";
 
 import type { CursorColor, CursorDesign, CursorSizeName } from "@/lib/cursor-design";
+import { configureFeedback, cueFor, feedback } from "@/lib/feedback";
 
 /**
  * User preferences for how the app looks and behaves.
@@ -58,6 +59,10 @@ export type EditorFontSize = "13" | "14" | "15" | "16" | "18";
 export interface Preferences {
   // Appearance
   theme: ThemeChoice;
+  /** A soft click on taps. */
+  clickSound: boolean;
+  /** A light vibration on taps (phones). */
+  haptics: boolean;
   cursorDesign: CursorChoice;
   cursorColor: CursorColor;
   cursorSize: CursorSize;
@@ -91,6 +96,8 @@ export interface Preferences {
 
 export const DEFAULT_PREFERENCES: Preferences = {
   theme: "light",
+  clickSound: true,
+  haptics: true,
   cursorDesign: "arrow",
   cursorColor: "blush",
   cursorSize: "default",
@@ -149,6 +156,8 @@ function sanitize(raw: unknown): Preferences {
   if (!raw || typeof raw !== "object") return out;
   const r = raw as Record<string, unknown>;
   for (const key of [
+    "clickSound",
+    "haptics",
     "cursorMotion",
     "confirmDelete",
     "editorWrap",
@@ -218,6 +227,20 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     html.dataset.highlight = prefs.highlight;
     html.dataset.density = prefs.density;
   }, [prefs.textSize, prefs.headingFont, prefs.uiFont, prefs.highlight, prefs.density]);
+
+  // Taps click and buzz (lib/feedback): one listener for every button, switch,
+  // tab and menu item, so nothing has to wire it up on its own.
+  useEffect(() => {
+    configureFeedback({ sound: prefs.clickSound, haptics: prefs.haptics });
+  }, [prefs.clickSound, prefs.haptics]);
+  useEffect(() => {
+    const onClick = (e: MouseEvent) => {
+      const cue = cueFor(e.target);
+      if (cue) feedback(cue);
+    };
+    document.addEventListener("click", onClick, true);
+    return () => document.removeEventListener("click", onClick, true);
+  }, []);
 
   // The theme: the choice, or the device's setting (followed live) for System.
   // The root layout's boot script sets the same attribute before first paint.

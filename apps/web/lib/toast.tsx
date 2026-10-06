@@ -3,6 +3,8 @@
 import { AlertCircle, Check } from "lucide-react";
 import { createContext, type ReactNode, useCallback, useContext, useRef, useState } from "react";
 
+import { feedback } from "@/lib/feedback";
+
 type ToastType = "success" | "error";
 interface Toast {
   id: number;
@@ -17,6 +19,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const idRef = useRef(0);
 
   const push = useCallback((message: string, type: ToastType = "success") => {
+    feedback(type === "error" ? "error" : "success");
     const id = (idRef.current += 1);
     setToasts((t) => [...t, { id, message, type }]);
     setTimeout(() => setToasts((t) => t.filter((x) => x.id !== id)), 3000);
