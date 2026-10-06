@@ -409,7 +409,7 @@ function ExpiringLinks({
   const live = (shares ?? []).filter((s) => !s.expires_at || new Date(s.expires_at) > new Date());
   const pill = (on: boolean) =>
     `rounded-full px-2.5 py-1 text-[0.75rem] transition-colors ${
-      on ? "bg-zinc-900 text-[rgb(var(--c-paper))]" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
+      on ? "sel-fill" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
     }`;
 
   return (

@@ -494,7 +494,7 @@ function AddWebhook({ onClose, onAdded }: { onClose: () => void; onAdded: () => 
                   aria-pressed={on}
                   onClick={() => setEvents((cur) => (on ? cur.filter((e) => e !== ev.id) : [...cur, ev.id]))}
                   className={`inline-flex items-center gap-1.5 rounded-full border px-3 py-1.5 text-[0.8125rem] transition-colors ${
-                    on ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 text-zinc-700 hover:border-zinc-400"
+                    on ? "sel-fill" : "border-zinc-200 text-zinc-700 hover:border-zinc-400"
                   }`}
                 >
                   {on ? <Check className="h-3.5 w-3.5" /> : null}

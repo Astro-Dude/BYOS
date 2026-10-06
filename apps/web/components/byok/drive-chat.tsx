@@ -1187,12 +1187,12 @@ export function DriveChat({
                   onMouseDown={(e) => e.preventDefault()}
                   onClick={() => void choosePicker(o.value)}
                   className={`flex w-full items-center gap-3 rounded-xl px-2.5 py-2 text-left transition-colors ${
-                    lit ? "bg-zinc-900 text-white" : "text-zinc-900 hover:bg-zinc-100"
+                    lit ? "sel-fill" : "text-zinc-900 hover:bg-zinc-100"
                   }`}
                 >
                   {picker.searchable ? null : (
                     <span
-                      className={`w-4 shrink-0 text-center font-mono text-[0.75rem] ${lit ? "text-white/60" : "text-zinc-400"}`}
+                      className={`w-4 shrink-0 text-center font-mono text-[0.75rem] ${lit ? "opacity-60" : "text-zinc-400"}`}
                     >
                       {i < 9 ? i + 1 : ""}
                     </span>
@@ -1204,7 +1204,7 @@ export function DriveChat({
                   </span>
                   {o.hint ? (
                     <span
-                      className={`min-w-0 flex-1 truncate text-[0.8125rem] ${lit ? "text-white/70" : "text-zinc-500"}`}
+                      className={`min-w-0 flex-1 truncate text-[0.8125rem] ${lit ? "opacity-70" : "text-zinc-500"}`}
                     >
                       {o.hint}
                     </span>
@@ -1268,17 +1268,17 @@ export function DriveChat({
                 onMouseDown={(e) => e.preventDefault()}
                 onClick={() => void send(c.name)}
                 className={`flex w-full items-baseline gap-2 rounded-xl px-2.5 py-1.5 text-left transition-colors ${
-                  lit ? "bg-zinc-900 text-white" : "text-zinc-900 hover:bg-zinc-100"
+                  lit ? "sel-fill" : "text-zinc-900 hover:bg-zinc-100"
                 }`}
               >
                 <span className="font-mono text-[0.8125rem]">{c.name}</span>
                 {c.args ? (
-                  <span className={`font-mono text-[0.8125rem] ${lit ? "text-white/60" : "text-zinc-400"}`}>
+                  <span className={`font-mono text-[0.8125rem] ${lit ? "opacity-60" : "text-zinc-400"}`}>
                     {c.args}
                   </span>
                 ) : null}
                 <span
-                  className={`min-w-0 flex-1 truncate text-[0.8125rem] ${lit ? "text-white/70" : "text-zinc-500"}`}
+                  className={`min-w-0 flex-1 truncate text-[0.8125rem] ${lit ? "opacity-70" : "text-zinc-500"}`}
                 >
                   {c.hint}
                 </span>
@@ -1499,7 +1499,7 @@ export function DriveChat({
                 {messages.map((m, i) =>
                   m.role === "user" ? (
                     <div key={i} className="flex justify-end">
-                      <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-5 py-3 text-[0.9375rem] leading-[1.35] text-white">
+                      <div className="user-bubble max-w-[85%] whitespace-pre-wrap rounded-2xl bg-zinc-900 px-5 py-3 text-[0.9375rem] leading-[1.35] text-white">
                         {m.content}
                       </div>
                     </div>

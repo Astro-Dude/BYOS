@@ -32,6 +32,7 @@ import {
   type TextSize,
   type UploadConflict,
   usePreferences,
+  type ThemeChoice,
 } from "@/lib/preferences";
 import { ANSWER_ADDONS, SEARCH_ADDONS } from "@/lib/chat-addons";
 import { useToast } from "@/lib/toast";
@@ -124,6 +125,44 @@ const TEXT_SIZES: { value: TextSize; label: string; px: number }[] = [
   { value: "xlarge", label: "Extra large", px: 26 },
 ];
 
+/** The two palettes as fixed colours, so each preview shows its own theme
+ *  whichever one the app is in. Kept in step with the tokens in globals.css. */
+const PREVIEW = {
+  light: { page: "#ffffff", band: "#f2f2f3", line: "#e3e3e5", ink: "#17191c", muted: "#a3a6af", blush: "#fbe1d1" },
+  dark: { page: "#131417", band: "#202126", line: "#3a3c43", ink: "#ece9e4", muted: "#65676f", blush: "#34231c" },
+};
+
+/** A tiny drive: a rail, a title, three rows and a peach chip, in one palette. */
+function ThemeSketch({ tone }: { tone: keyof typeof PREVIEW }) {
+  const c = PREVIEW[tone];
+  return (
+    <svg viewBox="0 0 120 72" preserveAspectRatio="xMidYMid slice" className="h-full w-full" aria-hidden>
+      <rect width="120" height="72" fill={c.page} />
+      <rect width="22" height="72" fill={c.band} />
+      <circle cx="11" cy="11" r="4.5" fill={c.ink} />
+      {[24, 34, 44].map((y) => (
+        <rect key={y} x="7" y={y} width="8" height="3" rx="1.5" fill={c.muted} />
+      ))}
+      <rect x="30" y="9" width="36" height="6" rx="2" fill={c.ink} />
+      <rect x="92" y="8" width="20" height="8" rx="4" fill={c.ink} />
+      {[26, 38, 50].map((y, i) => (
+        <g key={y}>
+          <rect x="30" y={y} width="5" height="5" rx="1" fill={c.muted} />
+          <rect x="39" y={y + 1} width={[44, 32, 38][i]} height="3" rx="1.5" fill={c.ink} opacity={0.85} />
+          <rect x="30" y={y + 8} width="82" height="0.8" fill={c.line} />
+        </g>
+      ))}
+      <rect x="92" y="25" width="20" height="7" rx="3.5" fill={c.blush} />
+    </svg>
+  );
+}
+
+const THEMES: { value: ThemeChoice; label: string; blurb: string }[] = [
+  { value: "light", label: "Light", blurb: "White paper, ink text" },
+  { value: "dark", label: "Dark", blurb: "Warm graphite, easy at night" },
+  { value: "system", label: "System", blurb: "Follows your device" },
+];
+
 export function AppearanceSettings() {
   const { prefs, setPrefs, resetPrefs } = usePreferences();
   const toast = useToast();
@@ -133,6 +172,38 @@ export function AppearanceSettings() {
   return (
     <>
       <SettingsHeader title="Appearance" description="How BYOS looks and moves on this device." />
+
+      <SettingsGroup title="Theme">
+        <div className="py-5">
+          <div role="radiogroup" aria-label="Theme" className="grid grid-cols-3 gap-3">
+            {THEMES.map((t) => (
+              <ChoiceTile
+                key={t.value}
+                selected={prefs.theme === t.value}
+                onSelect={() => setPrefs({ theme: t.value })}
+                label={t.label}
+                blurb={t.blurb}
+              >
+                <span className="relative block h-full w-full overflow-hidden">
+                  {t.value === "system" ? (
+                    <>
+                      <ThemeSketch tone="light" />
+                      <span
+                        className="absolute inset-0"
+                        style={{ clipPath: "polygon(55% 0, 100% 0, 100% 100%, 45% 100%)" }}
+                      >
+                        <ThemeSketch tone="dark" />
+                      </span>
+                    </>
+                  ) : (
+                    <ThemeSketch tone={t.value} />
+                  )}
+                </span>
+              </ChoiceTile>
+            ))}
+          </div>
+        </div>
+      </SettingsGroup>
 
       <SettingsGroup title="Cursor">
         <div className="py-5">

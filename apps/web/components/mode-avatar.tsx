@@ -18,10 +18,12 @@ import { useId } from "react";
  *  (`aura`). Motion runs when `live`, or while a surrounding `.group` is
  *  hovered, and never under reduced motion. Loops live in globals.css (`av-`). */
 
-const INK = "rgb(var(--c-900))";
-const PAPER = "rgb(var(--c-paper))";
-const SIENNA = "rgb(var(--c-blush-ink))";
-const PEACH = "rgb(var(--c-blush-mid))";
+// Fixed colours, not theme tokens: Bao is a black-and-white panda in dark
+// mode too (an ink token would turn his patches off-white).
+const INK = "rgb(23 25 28)";
+const PAPER = "rgb(255 255 255)";
+const SIENNA = "rgb(93 42 26)";
+const PEACH = "rgb(224 166 129)";
 const FUR_LIGHT = "rgb(255 255 255)";
 const FUR = "rgb(230 228 226)";
 const GOLD = "rgb(246 196 92)";

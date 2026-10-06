@@ -145,7 +145,7 @@ export function Segmented<T extends string>({
           onClick={() => onChange(o.value)}
           className={`flex items-center gap-1.5 rounded-full px-3 py-1 text-[0.8125rem] transition-colors ${
             o.value === value
-              ? "bg-zinc-900 text-white shadow-sm"
+              ? "sel-fill shadow-sm"
               : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
           }`}
         >

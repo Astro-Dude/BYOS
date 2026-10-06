@@ -5,6 +5,7 @@ import { ChevronRight, Download, File as FileIcon, Folder } from "lucide-react";
 import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import NotFound from "@/app/not-found";
 import { api } from "@/lib/api";
 
 function humanSize(bytes: number | null): string {
@@ -28,6 +29,9 @@ export default function SharedFolderPage() {
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  // No such link (any two-part URL lands here): show the 404 page, not an
+  // empty "shared folder" named after the URL.
+  const [missing, setMissing] = useState(false);
 
   const load = useCallback(
     async (fid?: string) => {
@@ -58,10 +62,10 @@ export default function SharedFolderPage() {
         }
         await load(undefined);
       } catch (err) {
-        if (!cancelled) {
-          setError(err instanceof ApiError ? err.detail : "Not found");
-          setLoading(false);
-        }
+        if (cancelled) return;
+        if (err instanceof ApiError && err.status === 404) setMissing(true);
+        else setError(err instanceof ApiError ? err.detail : "Couldn't open this link");
+        setLoading(false);
       }
     })();
     return () => {
@@ -75,6 +79,8 @@ export default function SharedFolderPage() {
     void load(id);
   };
 
+  if (missing) return <NotFound />;
+
   return (
     <main className="mx-auto min-h-screen max-w-page px-6 py-16">
       <header className="mb-10">
@@ -82,10 +88,17 @@ export default function SharedFolderPage() {
           <Folder className="h-4 w-4" />
           <span>Shared folder</span>
         </div>
-        <h1 className="type-heading mt-4">
-          {view?.root_name ?? slug}
-        </h1>
-        <p className="mt-4 text-[1.0625rem] text-zinc-600">by @{view?.owner_username ?? username}</p>
+        {view ? (
+          <>
+            <h1 className="type-heading mt-4">{view.root_name}</h1>
+            <p className="mt-4 text-[1.0625rem] text-zinc-600">by @{view.owner_username}</p>
+          </>
+        ) : loading ? (
+          <div aria-hidden>
+            <div className="byok-shimmer mt-5 h-10 w-64 max-w-full rounded-lg" />
+            <div className="byok-shimmer mt-4 h-5 w-32 rounded-md" />
+          </div>
+        ) : null}
       </header>
 
       {view && view.breadcrumb.length > 0 ? (

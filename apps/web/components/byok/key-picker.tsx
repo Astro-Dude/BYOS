@@ -209,7 +209,7 @@ export function KeyPicker({
                       key={k.id}
                       onMouseEnter={() => setActive(i)}
                       className={`flex items-center gap-1 rounded-xl pr-1.5 transition-colors ${
-                        current ? "bg-zinc-900 text-white" : i === active ? "bg-zinc-100 text-zinc-900" : "text-zinc-900"
+                        current ? "sel-fill" : i === active ? "bg-zinc-100 text-zinc-900" : "text-zinc-900"
                       }`}
                     >
                       <button
@@ -221,7 +221,7 @@ export function KeyPicker({
                       >
                         <span className="min-w-0 flex-1">
                           <span className="block truncate text-[0.875rem]">{k.name}</span>
-                          <span className={`block truncate text-[0.75rem] ${current ? "text-white/65" : "text-zinc-500"}`}>
+                          <span className={`block truncate text-[0.75rem] ${current ? "opacity-70" : "text-zinc-500"}`}>
                             <span className="font-mono">{k.model}</span>
                             {k.reasoning_effort ? ` · ${EFFORT_LABELS[k.reasoning_effort]} effort` : ""}
                           </span>
@@ -235,7 +235,7 @@ export function KeyPicker({
                         title="Edit settings"
                         className={`flex shrink-0 items-center gap-1 rounded-full px-2.5 py-1 text-[0.75rem] transition-colors ${
                           current
-                            ? "text-white/80 hover:bg-white/15 hover:text-white"
+                            ? "opacity-80 hover:bg-[rgb(var(--c-paper)/0.15)] hover:opacity-100"
                             : "text-zinc-500 hover:bg-zinc-200 hover:text-zinc-900"
                         }`}
                       >

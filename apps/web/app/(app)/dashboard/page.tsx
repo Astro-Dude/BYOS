@@ -1877,7 +1877,7 @@ export default function DashboardPage() {
                     trigger={() => (
                       <span
                         className={`flex items-center gap-1.5 field-sm ${
-                          storageFilterOn ? "border-zinc-900 bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-50"
+                          storageFilterOn ? "sel-fill" : "text-zinc-700 hover:bg-zinc-50"
                         }`}
                       >
                         {storageFilterOn ? (

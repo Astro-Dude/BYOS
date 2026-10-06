@@ -143,7 +143,7 @@ export function StorageArtifact({ className = "" }: { className?: string }) {
           <span
             key={s.provider}
             className="h-full rounded-full"
-            style={{ width: `${s.used}%`, background: ["#18181b", "#71717a", "var(--ink-on-blush)"][i] }}
+            style={{ width: `${s.used}%`, background: ["rgb(var(--c-900))", "rgb(var(--c-500))", "var(--ink-on-blush)"][i] }}
           />
         ))}
       </div>

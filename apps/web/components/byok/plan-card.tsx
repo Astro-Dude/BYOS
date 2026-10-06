@@ -167,7 +167,7 @@ export function PlanCard({
                   aria-selected={view === v}
                   onClick={() => setView(v)}
                   className={`rounded-full px-2.5 py-0.5 text-[0.75rem] transition ${
-                    view === v ? "bg-zinc-900 text-white" : "text-zinc-600 hover:bg-zinc-200/70"
+                    view === v ? "sel-fill" : "text-zinc-600 hover:bg-zinc-200/70"
                   }`}
                 >
                   {v === "tree" ? "Diagram" : "List"}

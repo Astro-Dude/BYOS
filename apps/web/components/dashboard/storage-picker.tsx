@@ -42,12 +42,12 @@ export function StoragePicker({
                 onClick={() => setChoice(s.id)}
                 onDoubleClick={() => onPick(s.id)}
                 className={`flex w-full items-center gap-3 rounded-xl border px-4 py-3 text-left transition-colors ${
-                  on ? "border-zinc-900 bg-zinc-900 text-white" : "border-zinc-200 hover:border-zinc-400"
+                  on ? "sel-fill" : "border-zinc-200 hover:border-zinc-400"
                 }`}
               >
                 <span
                   className={`flex h-9 w-9 shrink-0 items-center justify-center rounded-full ${
-                    on ? "bg-white/15 text-white" : "bg-zinc-100 text-zinc-700"
+                    on ? "bg-[color-mix(in_srgb,currentColor_15%,transparent)]" : "bg-zinc-100 text-zinc-700"
                   }`}
                 >
                   <StorageIcon provider={s.provider} />
@@ -56,7 +56,7 @@ export function StoragePicker({
                   <span className={`block truncate text-[0.9375rem] ${on ? "text-white" : "text-zinc-900"}`}>
                     {s.label || providerName(s.provider)}
                   </span>
-                  <span className={`block text-[0.8125rem] ${on ? "text-white/70" : "text-zinc-500"}`}>
+                  <span className={`block text-[0.8125rem] ${on ? "opacity-70" : "text-zinc-500"}`}>
                     {providerName(s.provider)} · {formatBytes(s.bytes)} used
                     {s.is_default ? " · Default" : ""}
                   </span>

@@ -307,7 +307,7 @@ export function SearchPalette({
             onClick={() => setShowHelp((v) => !v)}
             aria-expanded={showHelp}
             className={`flex shrink-0 items-center gap-1.5 rounded-full px-3 py-1 text-[0.8125rem] transition-colors ${
-              showHelp ? "bg-zinc-900 text-[rgb(var(--c-paper))]" : "text-zinc-500 hover:text-zinc-900"
+              showHelp ? "sel-fill" : "text-zinc-500 hover:text-zinc-900"
             }`}
           >
             <SlidersHorizontal className="h-3.5 w-3.5" /> All filters

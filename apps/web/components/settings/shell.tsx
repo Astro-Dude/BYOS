@@ -59,7 +59,7 @@ export function SettingsShell({
                   aria-current={active === item.id ? "page" : undefined}
                   className={`flex items-center gap-2 rounded-full px-3 py-1.5 text-[0.9375rem] transition-colors ${
                     active === item.id
-                      ? "bg-zinc-900 text-white"
+                      ? "sel-fill"
                       : "text-zinc-500 hover:bg-zinc-100 hover:text-zinc-900"
                   }`}
                 >
@@ -181,12 +181,12 @@ export function SettingsShell({
                         href={`/settings/${item.id}`}
                         aria-current={on ? "page" : undefined}
                         className={`flex items-center gap-3 rounded-2xl px-3 py-3 transition-colors ${
-                          on ? "bg-zinc-900 text-white" : "text-zinc-900 active:bg-zinc-100"
+                          on ? "sel-fill" : "text-zinc-900 active:bg-zinc-100"
                         }`}
                       >
                         <span
                           className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-                            on ? "bg-white/15 text-white" : "bg-zinc-100 text-zinc-700"
+                            on ? "bg-[color-mix(in_srgb,currentColor_15%,transparent)]" : "bg-zinc-100 text-zinc-700"
                           }`}
                         >
                           <item.icon className="h-4 w-4" />

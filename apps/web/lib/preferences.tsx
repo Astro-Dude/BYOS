@@ -24,6 +24,8 @@ import type { CursorColor, CursorDesign, CursorSizeName } from "@/lib/cursor-des
  */
 
 export type TextSize = "small" | "default" | "large" | "xlarge";
+/** Light, dark, or whatever the device is set to. */
+export type ThemeChoice = "system" | "light" | "dark";
 /** A cursor from lib/cursor-design.ts, or "system" for the computer's own. */
 export type CursorChoice = CursorDesign | "system";
 export type CursorSize = CursorSizeName;
@@ -55,6 +57,7 @@ export type EditorFontSize = "13" | "14" | "15" | "16" | "18";
 
 export interface Preferences {
   // Appearance
+  theme: ThemeChoice;
   cursorDesign: CursorChoice;
   cursorColor: CursorColor;
   cursorSize: CursorSize;
@@ -87,6 +90,7 @@ export interface Preferences {
 }
 
 export const DEFAULT_PREFERENCES: Preferences = {
+  theme: "light",
   cursorDesign: "arrow",
   cursorColor: "blush",
   cursorSize: "default",
@@ -117,6 +121,7 @@ const STORAGE_KEY = "byos:prefs";
 // Every allowed value, so a stale or hand-edited entry can't put the app in a
 // state it doesn't know (a permissive chat mode, say).
 const ALLOWED: { [K in keyof Preferences]?: readonly Preferences[K][] } = {
+  theme: ["system", "light", "dark"],
   cursorDesign: ["arrow", "classic", "plane", "pebble", "system"],
   cursorColor: ["ink", "graphite", "sienna", "ember", "blush", "paper"],
   cursorSize: ["small", "default", "large"],
@@ -213,6 +218,21 @@ export function PreferencesProvider({ children }: { children: ReactNode }) {
     html.dataset.highlight = prefs.highlight;
     html.dataset.density = prefs.density;
   }, [prefs.textSize, prefs.headingFont, prefs.uiFont, prefs.highlight, prefs.density]);
+
+  // The theme: the choice, or the device's setting (followed live) for System.
+  // The root layout's boot script sets the same attribute before first paint.
+  useEffect(() => {
+    if (!ready) return;
+    const media = window.matchMedia("(prefers-color-scheme: dark)");
+    const apply = () => {
+      const dark = prefs.theme === "dark" || (prefs.theme === "system" && media.matches);
+      document.documentElement.dataset.theme = dark ? "dark" : "light";
+    };
+    apply();
+    if (prefs.theme !== "system") return;
+    media.addEventListener("change", apply);
+    return () => media.removeEventListener("change", apply);
+  }, [prefs.theme, ready]);
 
   const setPrefs = useCallback((patch: Partial<Preferences>) => {
     setState((prev) => {

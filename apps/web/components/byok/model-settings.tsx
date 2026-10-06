@@ -19,7 +19,7 @@ import {
 
 const pill = (on: boolean) =>
   `rounded-full px-3 py-1 text-[0.8125rem] transition-colors ${
-    on ? "bg-zinc-900 text-white" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
+    on ? "sel-fill" : "bg-zinc-100 text-zinc-700 hover:bg-zinc-200"
   }`;
 
 /** The key's model: the current one, opening in place (not a floating menu,
@@ -157,7 +157,7 @@ function ModelField({
                   onMouseEnter={() => setActive(i)}
                   onClick={() => pick(m)}
                   className={`flex w-full items-center gap-2 rounded-lg px-2.5 py-1.5 text-left transition-colors ${
-                    current ? "bg-zinc-900 text-white" : i === active ? "bg-zinc-100 text-zinc-900" : "text-zinc-800"
+                    current ? "sel-fill" : i === active ? "bg-zinc-100 text-zinc-900" : "text-zinc-800"
                   }`}
                 >
                   <span className="min-w-0 flex-1 truncate font-mono text-[0.8125rem]">

@@ -49,7 +49,7 @@ export function Terminal({
   };
 
   return (
-    <div className={`overflow-hidden rounded-xl bg-ink ${className}`}>
+    <div className={`overflow-hidden rounded-xl bg-[rgb(var(--terminal))] ${className}`}>
       <div className="flex items-center gap-2 border-b border-paper/10 px-4 py-2.5">
         <span className="flex gap-1.5" aria-hidden>
           <span className="h-2 w-2 rounded-full bg-paper/20" />

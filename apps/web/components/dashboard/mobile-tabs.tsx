@@ -146,8 +146,8 @@ export function MobileTabs({
             {/* The rim: white light along the edge, over a hairline that keeps
                 the shape defined on a white page. */}
             <svg aria-hidden className="pointer-events-none absolute inset-0 h-full w-full overflow-visible">
-              <path d={shape.path} fill="none" stroke="rgb(0 0 0 / 0.1)" strokeWidth="1" />
-              <path d={shape.path} fill="none" stroke="rgb(255 255 255 / 0.9)" strokeWidth="1.5" transform="translate(0 0.75)" />
+              <path d={shape.path} fill="none" stroke="var(--tabbar-edge)" strokeWidth="1" />
+              <path d={shape.path} fill="none" stroke="var(--tabbar-rim)" strokeWidth="1.5" transform="translate(0 0.75)" />
             </svg>
           </>
         ) : null}

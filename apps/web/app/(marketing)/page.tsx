@@ -13,6 +13,7 @@ import Link from "next/link";
 import { Logo } from "@/components/logo";
 import { AskDemo } from "@/components/marketing/ask-demo";
 import { SwipeRow } from "@/components/marketing/swipe-row";
+import { ThemeToggle } from "@/components/theme-toggle";
 import { BaoCompanion } from "@/components/marketing/bao-companion";
 import { ModeAvatar } from "@/components/mode-avatar";
 import { AVATAR_TINT, AVATARS } from "@/lib/avatars";
@@ -163,7 +164,8 @@ export default function LandingPage() {
       {/* Transparent top bar — no background, no border, no shadow. */}
       <header className={`${WRAP} flex items-center justify-between py-6`}>
         <Logo wordClassName="text-xl" />
-        <nav className="flex items-center gap-6">
+        <nav className="flex items-center gap-3 sm:gap-6">
+          <ThemeToggle />
           <Link href="/login" className="link-arrow hidden sm:inline-flex">
             Log in
           </Link>
@@ -296,7 +298,7 @@ export default function LandingPage() {
         <div className={`${WRAP} grid items-stretch gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]`}>
           <Reveal className="surface-blush flex flex-col p-7 sm:p-10">
             <span className="text-[0.8125rem]">The flagship</span>
-            <h2 className="type-heading-sm mt-4 font-display" style={{ color: "#5d2a1a" }}>
+            <h2 className="type-heading-sm mt-4 font-display" style={{ color: "var(--ink-on-blush)" }}>
               One link, forever. Replace what sits behind it whenever you like.
             </h2>
             <p className="mt-5 text-[1.125rem] leading-[1.4]">

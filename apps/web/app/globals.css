@@ -65,6 +65,15 @@
   --surface-blush: rgb(var(--c-blush));
   --ink-on-blush: rgb(var(--c-blush-ink));
 
+  /* The terminal blocks in the docs: dark in both themes, a shade deeper than
+     the page in dark mode so they still read as a separate pane. */
+  --terminal: 23 25 28;
+  /* The phone tab bar's outline: a hairline, and a light rim just inside it. */
+  --tabbar-edge: rgb(0 0 0 / 0.1);
+  --tabbar-rim: rgb(255 255 255 / 0.9);
+  /* Behind dialogs: ink at low opacity on paper; deeper on graphite. */
+  --scrim: rgba(23, 25, 28, 0.28);
+
   /* Skeleton sweep: mist ground, a step darker through the middle. */
   --skeleton-base: rgb(var(--c-100));
   --skeleton-sweep: rgb(var(--c-300));
@@ -80,6 +89,68 @@
     rgba(0, 0, 0, 0.1) 0px 20px 25px -5px, rgba(0, 0, 0, 0.1) 0px 8px 10px -6px;
   --shadow-overlay: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.1) 0px 8px 40px 0px;
   --shadow-popover: oklab(0 0 0 / 0.05) 0px 0px 0px 1px, rgba(0, 0, 0, 0.08) 0px 4px 24px 0px;
+}
+
+/* ── Dark theme ────────────────────────────────────────────────────────────
+   The same system, inverted: warm graphite paper (the editor's Graphite theme,
+   "the platform's own palette"), warm off-white ink, and the blush accent
+   turned into sienna grounds with a peach ink. No cool blue-blacks, no glow:
+   it should read as the same paper with the lights down.
+
+   Applied by data-theme="dark" on <html> (the Appearance setting, set before
+   the first paint by the script in the root layout). */
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --c-paper: 19 20 23; /* #131417 — the page */
+  --c-50: 24 25 29; /* fog — bands, hover */
+  --c-100: 32 33 38; /* mist — nested surfaces, inputs */
+  --c-200: 43 45 51; /* hairline */
+  --c-300: 58 60 67;
+  --c-400: 101 103 111; /* smoke — placeholders */
+  --c-500: 126 128 136; /* ash */
+  --c-600: 154 156 163; /* slate — muted text */
+  --c-700: 194 192 188;
+  --c-800: 220 217 212;
+  --c-900: 236 233 228; /* ink — warm off-white text, filled actions */
+  --c-950: 246 244 240;
+  --c-sel: 70 72 80; /* selected fills: raised graphite */
+
+  --c-danger-50: 52 27 24;
+  --c-danger-300: 110 54 45;
+  --c-danger-500: 226 112 92;
+  --c-danger-600: 236 128 108;
+  --c-danger-700: 246 160 142;
+
+  --c-go-50: 28 40 25;
+  --c-go-300: 74 108 58;
+  --c-go-500: 136 190 104;
+  --c-caution-50: 46 38 18;
+  --c-caution-300: 120 96 36;
+  --c-caution-500: 226 180 76;
+
+  /* The warm pair: a deep sienna ground with peach ink. */
+  --c-blush: 52 35 28;
+  --c-blush-mid: 160 106 80;
+  --c-blush-ink: 244 198 169;
+
+  --skeleton-base: rgb(var(--c-100));
+  --skeleton-sweep: rgb(var(--c-200));
+
+  --terminal: 11 12 14;
+  --tabbar-edge: rgb(255 255 255 / 0.1);
+  --tabbar-rim: rgb(255 255 255 / 0.05);
+  --scrim: rgba(0, 0, 0, 0.55);
+
+  --grid-line: rgb(var(--c-900) / 0.05);
+  --grid-lit: rgb(var(--c-blush-ink) / 0.28);
+
+  /* Shadows barely show on a dark ground, so a faint light ring defines the
+     edge and a deeper shadow does the lifting. */
+  --shadow-artifact: rgb(255 255 255 / 0.06) 0px 0px 0px 1px, rgba(0, 0, 0, 0.45) 0px 20px 25px -5px,
+    rgba(0, 0, 0, 0.35) 0px 8px 10px -6px;
+  --shadow-overlay: rgb(255 255 255 / 0.07) 0px 0px 0px 1px, rgba(0, 0, 0, 0.55) 0px 12px 40px 0px;
+  --shadow-popover: rgb(255 255 255 / 0.07) 0px 0px 0px 1px, rgba(0, 0, 0, 0.45) 0px 6px 24px 0px;
 }
 
 @layer base {
@@ -253,7 +324,7 @@
   /* The z-index stays with the call site, which knows what it must sit above. */
   .modal-scrim {
     @apply fixed inset-0 flex items-center justify-center p-3 sm:p-4;
-    background-color: rgba(23, 25, 28, 0.28);
+    background-color: var(--scrim);
   }
   .modal-surface {
     /* Height is capped so a long list scrolls inside the dialog rather than off
@@ -286,6 +357,23 @@
   }
   .row-actions {
     @apply flex items-center gap-1 opacity-0 transition-opacity focus-within:opacity-100 group-hover:opacity-100;
+  }
+
+  /* ── Selected ─────────────────────────────────────────────────────────────
+     The one style for "this is the chosen one" (segmented pickers, the key
+     list, nav, filter chips, radio cards). Filled and unmistakable: ink on
+     paper; on graphite a raised pill with light text and a faint edge, since
+     an off-white slab glares in the dark. */
+  .sel-fill {
+    background-color: rgb(var(--c-900));
+    border-color: rgb(var(--c-900));
+    color: rgb(var(--c-paper));
+  }
+  :root[data-theme="dark"] .sel-fill {
+    background-color: rgb(var(--c-sel));
+    border-color: rgb(var(--c-sel));
+    color: rgb(var(--c-950));
+    box-shadow: inset 0 0 0 1px rgb(255 255 255 / 0.07);
   }
 
   /* ── Navigation ───────────────────────────────────────────────────────────
@@ -357,7 +445,7 @@
   /* Scrollbars matched to the paper palette. */
   .thin-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.18) transparent;
+    scrollbar-color: rgb(var(--c-900) / 0.18) transparent;
   }
   .thin-scroll::-webkit-scrollbar {
     width: 6px;
@@ -367,18 +455,18 @@
     background: transparent;
   }
   .thin-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.18);
+    background-color: rgb(var(--c-900) / 0.18);
     border-radius: 9999px;
   }
   .thin-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(0, 0, 0, 0.32);
+    background-color: rgb(var(--c-900) / 0.32);
   }
 
   /* Hairline variant for the chat composer: present enough to show there's more
      text, quiet enough not to read as a UI element. */
   .hair-scroll {
     scrollbar-width: thin;
-    scrollbar-color: rgba(0, 0, 0, 0.16) transparent;
+    scrollbar-color: rgb(var(--c-900) / 0.16) transparent;
   }
   .hair-scroll::-webkit-scrollbar {
     width: 3px;
@@ -388,11 +476,11 @@
     background: transparent;
   }
   .hair-scroll::-webkit-scrollbar-thumb {
-    background-color: rgba(0, 0, 0, 0.16);
+    background-color: rgb(var(--c-900) / 0.16);
     border-radius: 9999px;
   }
   .hair-scroll::-webkit-scrollbar-thumb:hover {
-    background-color: rgba(0, 0, 0, 0.3);
+    background-color: rgb(var(--c-900) / 0.3);
   }
 
   /* Shimmer sweep for skeleton loaders (BYOK dark surfaces). */
@@ -519,7 +607,7 @@
   position: absolute;
   inset: 0;
   width: 33%;
-  background: linear-gradient(90deg, transparent, #fbe1d1, transparent);
+  background: linear-gradient(90deg, transparent, rgb(var(--c-blush)), transparent);
   animation: steep-sweep 1.5s ease-in-out infinite;
 }
 
@@ -2228,4 +2316,81 @@ html[data-text-size="xlarge"] {
 }
 .no-scrollbar::-webkit-scrollbar {
   display: none;
+}
+
+/* Dark theme: your own chat messages sit on a raised graphite bubble rather
+   than the inverted off-white, which glares on a dark page. */
+:root[data-theme="dark"] .user-bubble {
+  background-color: rgb(var(--c-200));
+  color: rgb(var(--c-900));
+}
+
+/* The landing page's theme switch (components/theme-toggle.tsx): the knob
+   glides across, the sun turns away as the moon turns in, and the stars come
+   out. Transforms and opacity only, on their own layer, so it stays smooth
+   while the page repaints. */
+.theme-switch-knob {
+  view-transition-name: theme-switch-knob;
+  will-change: transform;
+  transition: transform 420ms cubic-bezier(0.65, 0, 0.35, 1), background-color 300ms ease;
+}
+.theme-switch[data-on] .theme-switch-knob {
+  transform: translateX(28px);
+}
+.theme-switch-sun,
+.theme-switch-moon {
+  will-change: transform, opacity;
+  transition: transform 420ms cubic-bezier(0.65, 0, 0.35, 1), opacity 300ms ease;
+}
+.theme-switch-moon {
+  opacity: 0;
+  transform: rotate(-90deg) scale(0.5);
+}
+.theme-switch[data-on] .theme-switch-sun {
+  opacity: 0;
+  transform: rotate(90deg) scale(0.5);
+}
+.theme-switch[data-on] .theme-switch-moon {
+  opacity: 1;
+  transform: rotate(0) scale(1);
+}
+.theme-switch-stars span {
+  opacity: 0;
+  transform: scale(0.3);
+  transition: opacity 300ms ease, transform 300ms ease;
+}
+.theme-switch[data-on] .theme-switch-stars span {
+  opacity: 0.7;
+  transform: scale(1);
+}
+.theme-switch[data-on] .theme-switch-stars span:nth-child(2) {
+  transition-delay: 80ms;
+}
+.theme-switch[data-on] .theme-switch-stars span:nth-child(3) {
+  transition-delay: 160ms;
+}
+/* During the view transition the browser animates the knob between its old
+   and new places (and cross-fades sun into moon), so its CSS transitions
+   stand down to avoid a second, competing move. */
+html.theme-vt .theme-switch-knob,
+html.theme-vt .theme-switch-sun,
+html.theme-vt .theme-switch-moon {
+  transition: none !important;
+}
+::view-transition-group(theme-switch-knob) {
+  animation-duration: 420ms;
+  animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1);
+}
+::view-transition-old(root),
+::view-transition-new(root) {
+  animation-duration: 380ms;
+  animation-timing-function: ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .theme-switch-knob,
+  .theme-switch-sun,
+  .theme-switch-moon,
+  .theme-switch-stars span {
+    transition: none;
+  }
 }

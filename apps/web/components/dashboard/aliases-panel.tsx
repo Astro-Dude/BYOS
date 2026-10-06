@@ -93,7 +93,7 @@ export function AliasesPanel({
 
   const tab = (on: boolean) =>
     `rounded-full px-3 py-1 text-[0.8125rem] transition-colors ${
-      on ? "bg-zinc-900 text-[rgb(var(--c-paper))] shadow-sm" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
+      on ? "sel-fill shadow-sm" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
     }`;
 
   return (
@@ -199,7 +199,7 @@ export function AliasesPanel({
                       onClick={() => void copy(alias)}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition-colors ${
                         copied === alias.id
-                          ? "bg-zinc-900 text-[rgb(var(--c-paper))]"
+                          ? "sel-fill"
                           : "border border-zinc-200 text-zinc-800 hover:border-zinc-900"
                       }`}
                     >

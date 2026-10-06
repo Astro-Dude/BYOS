@@ -425,16 +425,16 @@ export function IndexingSection({
                   onClick={() => setKeyId(k.id)}
                   className={`flex items-center gap-3 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${
                     on
-                      ? "border-zinc-900 bg-zinc-900 text-[rgb(var(--c-paper))]"
+                      ? "sel-fill"
                       : "border-zinc-200 bg-white text-zinc-900 hover:border-zinc-400"
                   }`}
                 >
                   <span
                     className={`flex h-4 w-4 shrink-0 items-center justify-center rounded-full border ${
-                      on ? "border-[rgb(var(--c-paper))]" : "border-zinc-300"
+                      on ? "border-current" : "border-zinc-300"
                     }`}
                   >
-                    {on ? <span className="h-2 w-2 rounded-full bg-[rgb(var(--c-paper))]" /> : null}
+                    {on ? <span className="h-2 w-2 rounded-full bg-current" /> : null}
                   </span>
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-[0.875rem] font-medium">{k.name}</span>

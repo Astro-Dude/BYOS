@@ -182,7 +182,7 @@ export default function LoginPage() {
               onClick={() => mode !== m && switchMode(m)}
               className={`flex items-center justify-center gap-2 rounded-full py-2 text-[0.875rem] transition ${
                 mode === m
-                  ? "bg-zinc-900 font-medium text-white shadow-sm"
+                  ? "sel-fill font-medium shadow-sm"
                   : "text-zinc-600 hover:text-zinc-900"
               }`}
             >

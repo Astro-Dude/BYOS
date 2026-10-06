@@ -168,7 +168,7 @@ export function IndexPanel({ keyId, keyHasEmbedding }: { keyId: string; keyHasEm
     busy || !keyHasEmbedding || !statusReady || allDone || (!all && !folderSel.size && !fileSel.size);
   const scopeTab = (on: boolean) =>
     `rounded-full px-3.5 py-1 text-[0.8125rem] transition-colors ${
-      on ? "bg-zinc-900 text-[rgb(var(--c-paper))] shadow-sm" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
+      on ? "sel-fill shadow-sm" : "text-zinc-600 hover:bg-zinc-200/70 hover:text-zinc-900"
     }`;
 
   return (
