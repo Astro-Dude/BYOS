@@ -38,6 +38,8 @@ from byos_api.streaming import stream_object
 from byos_api.webhooks import dispatcher
 
 logger = logging.getLogger("byos")
+_PROVIDER_NAMES = {"github": "GitHub", "s3": "S3", "telegram": "Telegram"}
+
 router = APIRouter(
     prefix="/files",
     tags=["files"],
@@ -56,7 +58,7 @@ async def _validate_upload(file: UploadFile, filename: str) -> None:
         limit_gb = settings.max_upload_bytes / (1024**3)
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            f"File is too large — the maximum upload size is {limit_gb:.0f} GB.",
+            f"File is too large. The limit is {limit_gb:.0f} GB.",
         )
     _, ext = service.split_filename(filename)
     if ext and ext.lower() in settings.blocked_extensions_set:
@@ -80,7 +82,8 @@ def _file_event_payload(record: File) -> dict[str, object]:
 
 def _flood(exc: FloodWaitError) -> HTTPException:
     return HTTPException(
-        status.HTTP_429_TOO_MANY_REQUESTS, f"Telegram rate limit — retry in {exc.seconds}s"
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        f"Telegram is limiting requests. Try again in {exc.seconds}s.",
     )
 
 
@@ -90,6 +93,8 @@ async def upload_file(
     db: DbDep,
     file: UploadFile,
     folder_id: Annotated[uuid.UUID | None, Form()] = None,
+    # Which connected storage to put it in; the user's default when omitted.
+    storage_account_id: Annotated[uuid.UUID | None, Form()] = None,
 ) -> FileOut:
     # Validate the target folder BEFORE touching storage (prevents cross-user
     # attach and avoids uploading bytes we'd then fail to record).
@@ -102,10 +107,24 @@ async def upload_file(
     await _validate_upload(file, filename)
 
     try:
-        provider_name, account, storage_account_id = await service.resolve_upload_target(db, user)
-    except service.NoStorageConnected:
+        provider_name, account, storage_account_id = await service.resolve_upload_target(
+            db, user, storage_account_id
+        )
+    except service.NoStorageConnected as exc:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "Connect your Telegram storage before uploading"
+            status.HTTP_409_CONFLICT,
+            f"Your {_PROVIDER_NAMES.get(exc.expired, exc.expired)} storage needs reconnecting "
+            "before you can upload. Update it in Settings, Storage."
+            if exc.expired
+            else "Connect a storage in Settings before uploading.",
+        ) from None
+    except service.StorageUnavailable as exc:
+        raise HTTPException(
+            status.HTTP_400_BAD_REQUEST,
+            f"{_PROVIDER_NAMES.get(exc.expired, exc.expired)} needs reconnecting in Settings, "
+            "Storage. Pick another storage for now."
+            if exc.expired
+            else "That storage isn't connected. Pick another one.",
         ) from None
     provider = get_provider(provider_name)
 
@@ -125,7 +144,7 @@ async def upload_file(
         logger.warning("telegram upload rejected: %s", exc)
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            "Telegram rejected this file — it may exceed your account's size limit "
+            "Telegram rejected this file. It may be over your size limit "
             "(2 GB, or 4 GB with Telegram Premium).",
         ) from exc
 
@@ -334,6 +353,7 @@ async def download_file(
         size=version.size,
         checksum=version.hash,
     )
+
     async def _mark_missing() -> None:
         record.missing_at = datetime.now(UTC)
         await db.commit()
@@ -351,9 +371,7 @@ async def download_file(
 
 
 @router.delete("/{file_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def delete_file(
-    file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep
-) -> None:
+async def delete_file(file_id: uuid.UUID, request: Request, user: CurrentUser, db: DbDep) -> None:
     record = await db.get(File, file_id)
     if record is None or record.owner_id != user.id:
         return  # idempotent: nothing to delete for this user
@@ -402,15 +420,13 @@ async def replace_file(
         logger.warning("telegram upload rejected: %s", exc)
         raise HTTPException(
             status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
-            "Telegram rejected this file — it may exceed your account's size limit "
+            "Telegram rejected this file. It may be over your size limit "
             "(2 GB, or 4 GB with Telegram Premium).",
         ) from exc
 
     # Idempotent replace: identical content creates no new version.
     current = (
-        await db.get(FileVersion, record.current_version_id)
-        if record.current_version_id
-        else None
+        await db.get(FileVersion, record.current_version_id) if record.current_version_id else None
     )
     if current is not None and current.hash == ref.checksum:
         try:
@@ -500,7 +516,7 @@ async def delete_version(
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
     except service.CannotDeleteCurrentVersion:
         raise HTTPException(
-            status.HTTP_409_CONFLICT, "Cannot delete the current version — restore another first"
+            status.HTTP_409_CONFLICT, "Can't delete the current version. Restore another one first."
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
@@ -575,9 +591,7 @@ async def set_favorite(
 
 
 @router.post("/{file_id}/tags", response_model=FileOut)
-async def add_tag(
-    file_id: uuid.UUID, payload: TagRequest, user: CurrentUser, db: DbDep
-) -> FileOut:
+async def add_tag(file_id: uuid.UUID, payload: TagRequest, user: CurrentUser, db: DbDep) -> FileOut:
     try:
         record = await service.add_tag(db, user, file_id, payload.name)
     except service.FileNotFound:

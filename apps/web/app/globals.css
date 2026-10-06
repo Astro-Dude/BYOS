@@ -40,6 +40,15 @@
   --c-danger-600: 178 58 46;
   --c-danger-700: 147 48 30;
 
+  /* Bao's mode tints (the permission chip and the landing glow), rising from
+     grey through green and yellow to the danger red above. */
+  --c-go-50: 230 242 220;
+  --c-go-300: 160 198 128;
+  --c-caution-50: 253 243 205;
+  --c-caution-300: 232 196 92;
+  --c-go-500: 98 156 70;
+  --c-caution-500: 214 158 36;
+
   /* Surfaces, derived from the ramp so they invert with it. */
   --surface-canvas: rgb(var(--c-paper));
   --surface-mist: rgb(var(--c-100));
@@ -221,6 +230,12 @@
   }
   .menu-item {
     @apply flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[0.9375rem] text-zinc-900 transition-colors hover:bg-zinc-50;
+  }
+  /* Leaving (Log out): reads like any other item, and only turns red under the
+     pointer or keyboard focus, so it's clear before the click without shouting
+     from the menu the rest of the time. */
+  .menu-item-exit {
+    @apply hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700;
   }
 
   /* ── Glass (phone only) ───────────────────────────────────────────────────
@@ -595,5 +610,1591 @@
     animation: none;
     stroke-dashoffset: 0;
     transform: none;
+  }
+}
+
+/* ── Cursor ─────────────────────────────────────────────────────────────────
+   Designs are in lib/cursor-design.ts. Normally the OS draws them (an inline
+   <style> from cursor-native.tsx). With Live motion on, the page draws one
+   (components/cursor.tsx), and these rules hide the system cursor under it. */
+html.has-custom-cursor,
+html.has-custom-cursor * {
+  cursor: none !important;
+}
+.byos-cursor {
+  position: fixed;
+  left: 0;
+  top: 0;
+  z-index: 2147483647;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.15s ease;
+  will-change: transform;
+}
+.byos-cursor-stage {
+  perspective: 240px;
+}
+.byos-cursor-body {
+  position: absolute;
+  will-change: transform;
+}
+.byos-cursor-body svg {
+  display: block;
+}
+
+/* ── Preferences (lib/preferences.tsx) ─────────────────────────────────────
+   Text size scales the root, so everything sized in rem follows. Reduce motion
+   stops animations and transitions app-wide, whatever the OS says. */
+html[data-text-size="small"] {
+  font-size: 93.75%;
+}
+html[data-text-size="large"] {
+  font-size: 112.5%;
+}
+/* Headings and interface font. next/font defines both on <html>; the choices
+   override them one level down, on <body>, so <html> keeps the originals for
+   the previews in Settings (--font-serif-original, --font-inter-original). */
+:root {
+  --font-serif-original: var(--font-display);
+  --font-inter-original: var(--font-ui);
+  --font-system:
+    -apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
+}
+html[data-ui-font="system"] body {
+  --font-ui: var(--font-system);
+}
+html[data-heading-font="sans"] body {
+  --font-display: var(--font-ui);
+}
+/* Re-read the font on <body>, so the override above applies to all text. */
+body {
+  font-family: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+}
+
+/* Selected text and highlighted answers. */
+html[data-highlight="blush"] ::selection {
+  background: rgb(var(--c-blush));
+  color: var(--ink-on-blush);
+}
+html[data-highlight="ink"] ::selection {
+  background: rgb(var(--c-900));
+  color: rgb(var(--c-paper));
+}
+html[data-highlight="ink"] mark {
+  background: rgb(var(--c-900));
+  color: rgb(var(--c-paper));
+}
+
+/* File rows in the Drive. */
+:root {
+  --row-py: 0.75rem;
+}
+html[data-density="compact"] {
+  --row-py: 0.375rem;
+}
+html[data-text-size="xlarge"] {
+  font-size: 125%;
+}
+
+/* ── Prompt editor (components/byok/prompt-editor.tsx) ──────────────────────
+   Dark by default, as an editor should be; every colour is a palette token.
+   The coloured layer and the textarea share every metric below, so the text
+   you type and the colours under it stay aligned glyph for glyph. */
+.md-editor {
+  --ed-size: 14px;
+  --ed-line: 1.65;
+  --ed-gutter: 3.5rem;
+  --ed-font: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  background: var(--ed-bg);
+  color: var(--ed-text);
+}
+.md-editor[data-font="sans"] {
+  --ed-font: var(--font-ui), ui-sans-serif, system-ui, sans-serif;
+}
+.md-editor[data-numbers="off"] {
+  --ed-gutter: 1.25rem;
+}
+/* Themes. Set on the editor and on the little previews in its theme picker, so
+   both read the same variables. Each one has its own syntax colours: headings,
+   markers, bold, italic, code and links are told apart by colour alone (weight
+   or style would change glyph widths and break alignment). */
+.md-editor,
+[data-ed-theme="graphite"] {
+  /* Warm graphite with the blush accent: the platform's own palette. */
+  --ed-bg: #131417;
+  --ed-panel: #1a1b1f;
+  --ed-raised: #2a2c32;
+  --ed-hairline: #26282d;
+  --ed-text: #e7e4e0;
+  --ed-muted: #8d8f97;
+  --ed-faint: #4b4e56;
+  --ed-accent: #f4c6a9;
+  --ed-on-accent: #2b160d;
+  --ed-heading: #f4c6a9;
+  --ed-mark: #d9895f;
+  --ed-strong: #fbe2d2;
+  --ed-em: #bfb3d6;
+  --ed-code: #93d1c0;
+  --ed-code-bg: rgb(147 209 192 / 0.08);
+  --ed-link: #8fb6ec;
+  --ed-sel: rgb(244 198 169 / 0.22);
+}
+[data-ed-theme="plum"] {
+  /* Deep plum with rose, gold and seafoam. */
+  --ed-bg: #191724;
+  --ed-panel: #1f1d2e;
+  --ed-raised: #2c2941;
+  --ed-hairline: #2a2740;
+  --ed-text: #e0def4;
+  --ed-muted: #908caa;
+  --ed-faint: #524f67;
+  --ed-accent: #ebbcba;
+  --ed-on-accent: #191724;
+  --ed-heading: #ebbcba;
+  --ed-mark: #eb6f92;
+  --ed-strong: #f6c177;
+  --ed-em: #c4a7e7;
+  --ed-code: #9ccfd8;
+  --ed-code-bg: rgb(156 207 216 / 0.09);
+  --ed-link: #6fb3d2;
+  --ed-sel: rgb(196 167 231 / 0.24);
+}
+[data-ed-theme="fjord"] {
+  /* Cool slate blues with frost and moss. */
+  --ed-bg: #1d2129;
+  --ed-panel: #232833;
+  --ed-raised: #323947;
+  --ed-hairline: #2e3440;
+  --ed-text: #dbe1ea;
+  --ed-muted: #8a94a6;
+  --ed-faint: #4c566a;
+  --ed-accent: #88c0d0;
+  --ed-on-accent: #16202a;
+  --ed-heading: #88c0d0;
+  --ed-mark: #81a1c1;
+  --ed-strong: #ebcb8b;
+  --ed-em: #b48ead;
+  --ed-code: #a3be8c;
+  --ed-code-bg: rgb(163 190 140 / 0.09);
+  --ed-link: #8fbcbb;
+  --ed-sel: rgb(136 192 208 / 0.22);
+}
+[data-ed-theme="linen"] {
+  /* Light: warm linen with sienna headings, for daylight. */
+  --ed-bg: #fbf8f4;
+  --ed-panel: #f3eee7;
+  --ed-raised: #e8e0d5;
+  --ed-hairline: #e4dbcf;
+  --ed-text: #2b2622;
+  --ed-muted: #7b7168;
+  --ed-faint: #b9aea2;
+  --ed-accent: #9a3f22;
+  --ed-on-accent: #fff8f3;
+  --ed-heading: #9a3f22;
+  --ed-mark: #c56a3f;
+  --ed-strong: #5d2a1a;
+  --ed-em: #6d5a92;
+  --ed-code: #2c7062;
+  --ed-code-bg: rgb(44 112 98 / 0.08);
+  --ed-link: #2d5f9e;
+  --ed-sel: rgb(224 166 129 / 0.35);
+}
+
+.md-editor .md-bar {
+  background: var(--ed-panel);
+  border-bottom: 1px solid var(--ed-hairline);
+}
+.md-editor .md-status {
+  border-top: 1px solid var(--ed-hairline);
+  border-bottom: 0;
+  color: var(--ed-muted);
+}
+.md-editor .md-tab {
+  background: var(--ed-bg);
+  color: var(--ed-text);
+  border: 1px solid var(--ed-hairline);
+}
+.md-editor .md-dot {
+  background: var(--ed-accent);
+}
+.md-editor .md-tool,
+.md-editor .md-ghost {
+  color: var(--ed-muted);
+  transition:
+    background-color 0.15s,
+    color 0.15s;
+}
+.md-editor .md-tool:hover,
+.md-editor .md-ghost:hover {
+  background: var(--ed-raised);
+  color: var(--ed-text);
+}
+.md-editor .md-primary {
+  background: var(--ed-accent);
+  color: var(--ed-on-accent);
+}
+.md-editor .md-sep {
+  background: var(--ed-hairline);
+}
+.md-editor .md-divider {
+  border-color: var(--ed-hairline);
+}
+.md-editor .md-muted {
+  color: var(--ed-muted);
+}
+.md-editor .md-over {
+  color: rgb(var(--c-danger-300));
+}
+.md-editor .md-menu {
+  background: var(--ed-panel);
+  color: var(--ed-text);
+  border: 1px solid var(--ed-hairline);
+  box-shadow: var(--shadow-overlay);
+}
+.md-editor .md-menu-item:hover {
+  background: var(--ed-raised);
+}
+.md-editor .md-scrim {
+  background: rgb(var(--c-950) / 0.55);
+}
+/* The shared segmented control, recoloured for the editor. */
+.md-editor .md-seg [role="radiogroup"] {
+  background: var(--ed-bg);
+  box-shadow: inset 0 0 0 1px var(--ed-hairline);
+}
+.md-editor .md-seg [role="radio"] {
+  color: var(--ed-muted);
+}
+.md-editor .md-seg [role="radio"]:hover {
+  color: var(--ed-text);
+}
+.md-editor .md-seg [role="radio"][aria-checked="true"] {
+  background: var(--ed-accent);
+  color: var(--ed-on-accent);
+}
+/* The shared switch: off is a visible track, on takes the accent. */
+.md-editor [role="switch"] {
+  background: var(--ed-raised);
+  box-shadow: inset 0 0 0 1px var(--ed-hairline);
+}
+.md-editor [role="switch"][aria-checked="true"] {
+  background: var(--ed-accent);
+  box-shadow: none;
+}
+.md-editor [role="switch"] > span {
+  background: var(--ed-muted);
+}
+.md-editor [role="switch"][aria-checked="true"] > span {
+  background: var(--ed-on-accent);
+}
+
+/* Source: the coloured layer and the textarea on top of it. */
+.md-editor .md-layer {
+  position: absolute;
+  inset: 0;
+  margin: 0;
+  border: 0;
+  padding: 1rem 1.25rem 40vh var(--ed-gutter);
+  font-family: var(--ed-font);
+  font-size: var(--ed-size);
+  line-height: var(--ed-line);
+  letter-spacing: 0;
+  tab-size: 2;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  word-break: normal;
+  scrollbar-gutter: stable;
+}
+.md-editor[data-wrap="off"] .md-layer {
+  white-space: pre;
+  overflow-wrap: normal;
+}
+.md-editor .md-highlight {
+  overflow: hidden;
+  pointer-events: none;
+  color: var(--ed-text);
+  counter-reset: md-line;
+}
+.md-editor .md-input-layer {
+  width: 100%;
+  height: 100%;
+  overflow: auto;
+  resize: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+  caret-color: var(--ed-accent);
+}
+.md-editor .md-input-layer::placeholder {
+  color: var(--ed-faint);
+  -webkit-text-fill-color: var(--ed-faint);
+}
+.md-editor .md-input-layer::selection {
+  background: var(--ed-sel);
+}
+.md-editor .md-line {
+  position: relative;
+}
+.md-editor .md-line::before {
+  counter-increment: md-line;
+  content: counter(md-line);
+  position: absolute;
+  left: calc(-1 * var(--ed-gutter));
+  width: calc(var(--ed-gutter) - 1rem);
+  text-align: right;
+  color: var(--ed-faint);
+  font-size: 0.85em;
+}
+.md-editor[data-numbers="off"] .md-line::before {
+  display: none;
+}
+
+/* Colour only: weight or style would change glyph widths and break alignment. */
+.md-editor .md-mark {
+  color: var(--ed-mark);
+}
+.md-editor .md-heading {
+  color: var(--ed-heading);
+}
+.md-editor .md-h1 .md-heading,
+.md-editor .md-h2 .md-heading {
+  text-decoration: underline;
+  text-decoration-color: var(--ed-faint);
+  text-underline-offset: 4px;
+}
+.md-editor .md-bold {
+  color: var(--ed-strong);
+}
+.md-editor .md-italic {
+  color: var(--ed-em);
+}
+.md-editor .md-quote {
+  color: var(--ed-muted);
+}
+.md-editor .md-code,
+.md-editor .md-codeblock {
+  color: var(--ed-code);
+  background: var(--ed-code-bg);
+  border-radius: 3px;
+}
+.md-editor .md-fence,
+.md-editor .md-hr {
+  color: var(--ed-faint);
+}
+.md-editor .md-link {
+  color: var(--ed-link);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+.md-editor .md-var {
+  color: var(--ed-on-accent);
+  background: var(--ed-mark);
+  border-radius: 3px;
+}
+.md-editor .md-check {
+  color: var(--ed-mark);
+}
+
+/* Preview: the rendered prompt. */
+.md-editor .md-preview {
+  font-size: calc(var(--ed-size) + 1px);
+  line-height: 1.65;
+}
+.md-editor .md-preview > *:first-child {
+  margin-top: 0;
+}
+.md-editor .md-preview h1,
+.md-editor .md-preview h2,
+.md-editor .md-preview h3 {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 400;
+  color: var(--ed-heading);
+  margin: 1.4em 0 0.5em;
+  line-height: 1.25;
+}
+.md-editor .md-preview h1 {
+  font-size: 1.75em;
+}
+.md-editor .md-preview h2 {
+  font-size: 1.35em;
+}
+.md-editor .md-preview h3 {
+  font-size: 1.1em;
+}
+.md-editor .md-preview p,
+.md-editor .md-preview ul,
+.md-editor .md-preview ol,
+.md-editor .md-preview blockquote,
+.md-editor .md-preview pre {
+  margin: 0.7em 0;
+}
+.md-editor .md-preview ul {
+  list-style: disc;
+  padding-left: 1.4em;
+}
+.md-editor .md-preview ol {
+  list-style: decimal;
+  padding-left: 1.4em;
+}
+.md-editor .md-preview li::marker {
+  color: var(--ed-mark);
+}
+.md-editor .md-preview strong {
+  color: var(--ed-strong);
+  font-weight: 600;
+}
+.md-editor .md-preview a {
+  color: var(--ed-link);
+  text-decoration: underline;
+}
+.md-editor .md-preview blockquote {
+  border-left: 2px solid var(--ed-mark);
+  padding-left: 1em;
+  color: var(--ed-muted);
+}
+.md-editor .md-preview code {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+  font-size: 0.9em;
+  background: var(--ed-code-bg);
+  color: var(--ed-code);
+  padding: 0.1em 0.35em;
+  border-radius: 4px;
+}
+.md-editor .md-preview pre {
+  background: var(--ed-code-bg);
+  padding: 0.9em 1em;
+  border-radius: 10px;
+  overflow-x: auto;
+}
+.md-editor .md-preview pre code {
+  background: none;
+  padding: 0;
+}
+.md-editor .md-preview hr {
+  border: 0;
+  border-top: 1px solid var(--ed-hairline);
+  margin: 1.5em 0;
+}
+.md-editor .md-preview input[type="checkbox"] {
+  margin-right: 0.4em;
+  accent-color: var(--ed-accent);
+}
+.md-editor .md-preview em {
+  color: var(--ed-em);
+}
+.md-editor .md-preview mark {
+  background: var(--ed-mark);
+  color: var(--ed-on-accent);
+}
+.md-editor .md-tab-input {
+  color: var(--ed-text);
+}
+.md-editor .md-tab-input::placeholder {
+  color: var(--ed-muted);
+}
+.md-editor .md-tab:focus-within {
+  border-color: var(--ed-muted);
+}
+
+/* ── Prompt thumbnails (Settings → System prompts) ──────────────────────────
+   A prompt's Markdown at document scale, like a page seen from a little way off. */
+.prompt-thumb {
+  pointer-events: none;
+  font-size: 0.75rem;
+  line-height: 1.55;
+  color: rgb(var(--c-600));
+}
+.prompt-thumb h1,
+.prompt-thumb h2,
+.prompt-thumb h3 {
+  font-family: var(--font-display), ui-serif, Georgia, serif;
+  font-weight: 400;
+  color: rgb(var(--c-900));
+  margin: 0.6em 0 0.25em;
+  line-height: 1.25;
+}
+.prompt-thumb h1 {
+  font-size: 1.25em;
+}
+.prompt-thumb h2 {
+  font-size: 1.1em;
+}
+.prompt-thumb > *:first-child {
+  margin-top: 0;
+}
+.prompt-thumb p,
+.prompt-thumb ul,
+.prompt-thumb ol {
+  margin: 0.35em 0;
+}
+.prompt-thumb ul {
+  list-style: disc;
+  padding-left: 1.2em;
+}
+.prompt-thumb ol {
+  list-style: decimal;
+  padding-left: 1.2em;
+}
+.prompt-thumb strong {
+  color: rgb(var(--c-900));
+  font-weight: 600;
+}
+.prompt-thumb code {
+  font-size: 0.9em;
+  background: rgb(var(--c-200));
+  border-radius: 3px;
+  padding: 0 0.25em;
+}
+.prompt-thumb pre {
+  background: rgb(var(--c-100));
+  border-radius: 6px;
+  padding: 0.5em;
+  overflow: hidden;
+}
+
+/* ── Dropdown menus (components/byok/dropdown.tsx) ─────────────────────────
+   A soft drop from the trigger; from below when the menu opens upward. */
+.dropdown-menu {
+  box-shadow: var(--shadow-overlay);
+  transform-origin: top;
+  animation: dropdown-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
+}
+.dropdown-menu.dropdown-up {
+  transform-origin: bottom;
+  animation-name: dropdown-in-up;
+}
+@keyframes dropdown-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px) scale(0.98);
+  }
+}
+@keyframes dropdown-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .dropdown-menu {
+    animation: none;
+  }
+}
+
+/* Phone bottom sheet (Settings' section switcher): slides up from the edge. */
+@keyframes sheet-up {
+  from {
+    transform: translateY(100%);
+  }
+  to {
+    transform: translateY(0);
+  }
+}
+.sheet-up {
+  animation: sheet-up 0.24s cubic-bezier(0.2, 0.8, 0.2, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .sheet-up {
+    animation: none;
+  }
+}
+
+/* The landing page's example answers, swapping as the examples rotate. */
+@keyframes ask-demo-swap {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.ask-demo-swap {
+  animation: ask-demo-swap 0.35s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .ask-demo-swap {
+    animation: none;
+  }
+}
+
+/* A slash command's result, just above the chat composer. */
+@keyframes notice-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.notice-in {
+  animation: notice-in 0.18s cubic-bezier(0.22, 1, 0.36, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .notice-in {
+    animation: none;
+  }
+}
+
+/* A passage an answer was taken from, marked in the opened document. */
+.source-mark {
+  background: rgb(var(--c-blush-mid) / 0.38);
+  box-shadow: 0 0 0 1px rgb(var(--c-blush-ink) / 0.35);
+  mix-blend-mode: multiply;
+  animation: source-mark-in 0.9s ease-out;
+}
+.source-mark-text {
+  background: rgb(var(--c-blush-mid) / 0.45);
+  color: inherit;
+}
+@keyframes source-mark-in {
+  0% {
+    box-shadow: 0 0 0 6px rgb(var(--c-blush-mid) / 0.5);
+  }
+  100% {
+    box-shadow: 0 0 0 1px rgb(var(--c-blush-ink) / 0.35);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .source-mark {
+    animation: none;
+  }
+}
+
+/* ── Mode avatars ──────────────────────────────────────────────────────────
+   Bao the panda, dressed per permission mode (components/mode-avatar.tsx).
+   Every loop starts from the resting pose, so a paused avatar is that pose.
+   Paused unless live or a surrounding .group is hovered (specific enough to
+   beat each loop's `animation` shorthand, which resets the play state). The
+   tempo rises with the mode: the reader drifts, the butler waves and waits,
+   the worker bounces and sweeps, the royal stands still with its cape moving. */
+.av * {
+  transform-box: fill-box;
+  transform-origin: center;
+}
+/* Shapes placed with a transform attribute (tilted eye patches, leaves) keep
+   SVG's own origin, or the rule above would move them. */
+.av [transform] {
+  transform-box: view-box;
+  transform-origin: 0 0;
+}
+.av:not([data-live]) * {
+  animation-play-state: paused;
+}
+.group:hover .av:not([data-live]) * {
+  animation-play-state: running;
+}
+
+.av-float,
+.av-shadow {
+  animation: av-float 4.6s ease-in-out infinite;
+}
+.av-shadow {
+  animation-name: av-shadow;
+}
+.av-ask .av-float,
+.av-ask .av-shadow {
+  animation-duration: 3.4s;
+}
+.av-auto .av-float,
+.av-auto .av-shadow {
+  animation-duration: 0.9s;
+}
+.av-full .av-float,
+.av-full .av-shadow {
+  animation-duration: 4.2s;
+}
+@keyframes av-float {
+  0%,
+  100% {
+    transform: translateY(0);
+  }
+  50% {
+    transform: translateY(-2.5px);
+  }
+}
+@keyframes av-shadow {
+  0%,
+  100% {
+    transform: scaleX(1);
+    opacity: 0.12;
+  }
+  50% {
+    transform: scaleX(0.82);
+    opacity: 0.07;
+  }
+}
+
+/* Same face everywhere: it blinks; the reader's eyes follow the line. */
+.av-blink {
+  animation: av-blink 4.4s ease-in-out infinite;
+}
+@keyframes av-blink {
+  0%,
+  90%,
+  100% {
+    transform: scaleY(1);
+  }
+  94% {
+    transform: scaleY(0.1);
+  }
+}
+.av-read_only .av-look {
+  animation: av-look 3.4s ease-in-out infinite;
+}
+@keyframes av-look {
+  0%,
+  100% {
+    transform: translate(-1.2px, 1px);
+  }
+  50% {
+    transform: translate(1.2px, 1px);
+  }
+}
+.av-book {
+  transform-origin: 50% 100%;
+  animation: av-book 4.6s ease-in-out infinite;
+}
+@keyframes av-book {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(-3deg);
+  }
+}
+
+/* Butler: the raised paw waves, the bubble bobs. */
+.av-wave {
+  transform-box: view-box;
+  transform-origin: 42.5px 47px;
+  animation: av-wave 1.7s ease-in-out infinite;
+}
+@keyframes av-wave {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  50% {
+    transform: rotate(16deg);
+  }
+}
+.av-bubble {
+  animation: av-bubble 3.4s ease-in-out infinite;
+}
+@keyframes av-bubble {
+  0%,
+  30%,
+  100% {
+    transform: translateY(0) scale(1);
+  }
+  45% {
+    transform: translateY(-2px) scale(1.08);
+  }
+}
+
+/* Worker: headband tails flap, the broom sweeps, files circle. */
+.av-tails {
+  transform-origin: 0% 30%;
+  animation: av-tails 0.45s ease-in-out infinite alternate;
+}
+@keyframes av-tails {
+  from {
+    transform: rotate(-8deg);
+  }
+  to {
+    transform: rotate(10deg);
+  }
+}
+.av-sweep {
+  transform-box: view-box;
+  transform-origin: 51.7px 43.5px;
+  animation: av-sweep 0.9s ease-in-out infinite alternate;
+}
+@keyframes av-sweep {
+  from {
+    transform: rotate(-9deg);
+  }
+  to {
+    transform: rotate(9deg);
+  }
+}
+.av-orbit {
+  transform-box: view-box;
+  transform-origin: 32px 36px;
+  animation: av-spin 9s linear infinite;
+}
+.av-upright {
+  animation: av-spin 9s linear infinite reverse;
+}
+@keyframes av-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* Royal: cape billows, crown tips, the sword lifts, rings go out. */
+.av-cape {
+  transform-origin: 50% 0%;
+  animation: av-cape 3s ease-in-out infinite;
+}
+@keyframes av-cape {
+  0%,
+  100% {
+    transform: skewX(0deg) scaleX(1);
+  }
+  50% {
+    transform: skewX(-5deg) scaleX(1.04);
+  }
+}
+.av-crown {
+  transform-origin: 50% 100%;
+  animation: av-crown 4.2s ease-in-out infinite;
+}
+@keyframes av-crown {
+  0%,
+  60%,
+  100% {
+    transform: rotate(0deg);
+  }
+  70% {
+    transform: rotate(-6deg);
+  }
+  80% {
+    transform: rotate(4deg);
+  }
+}
+.av-sword {
+  transform-box: view-box;
+  transform-origin: 46.5px 47px;
+  animation: av-sword 4.2s ease-in-out infinite;
+}
+@keyframes av-sword {
+  0%,
+  55%,
+  100% {
+    transform: rotate(0deg);
+  }
+  65% {
+    transform: rotate(-12deg);
+  }
+  75% {
+    transform: rotate(-12deg);
+  }
+}
+.av-ring {
+  animation: av-ring 2.6s ease-out infinite;
+}
+@keyframes av-ring {
+  0% {
+    transform: scale(0.8);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(1.4);
+    opacity: 0;
+  }
+}
+
+.av-aura {
+  animation: av-breathe 5s ease-in-out infinite;
+}
+@keyframes av-breathe {
+  0%,
+  100% {
+    opacity: 0.75;
+    transform: scale(0.94);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1.05);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .av * {
+    animation: none !important;
+  }
+}
+
+/* ── Composer mode ring ────────────────────────────────────────────────────
+   An arc of light travels the chat box's border in Bao's colour for the
+   permission mode, faster and busier as the mode may do more: grey drifts,
+   green glides, yellow runs two arcs, red races with a pulse. The ring is a
+   masked conic gradient on the box's own pseudo-element, so it never shifts
+   layout and always shares the box's radius. */
+@property --ring-angle {
+  syntax: "<angle>";
+  inherits: false;
+  initial-value: 0deg;
+}
+.mode-ring {
+  --ring: var(--c-400);
+  --ring-speed: 13s;
+  position: relative;
+}
+.mode-ring[data-mode="ask"] {
+  --ring: var(--c-go-500);
+  --ring-speed: 9s;
+}
+.mode-ring[data-mode="auto"] {
+  --ring: var(--c-caution-500);
+  --ring-speed: 6s;
+}
+.mode-ring[data-mode="full"] {
+  --ring: var(--c-danger-500);
+  --ring-speed: 4s;
+}
+.mode-ring::before {
+  content: "";
+  position: absolute;
+  inset: -1px; /* over the element's own 1px border, so the edges line up */
+  z-index: 1;
+  border-radius: inherit; /* whatever the element's radius is, the ring matches */
+  padding: 2px;
+  pointer-events: none;
+  background: conic-gradient(
+    from var(--ring-angle),
+    transparent 0deg,
+    rgb(var(--ring) / 0.9) 50deg,
+    transparent 120deg,
+    transparent 360deg
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  animation: ring-spin var(--ring-speed) linear infinite;
+}
+/* The more it may do, the busier the ring: two arcs chasing each other. */
+.mode-ring[data-mode="auto"]::before,
+.mode-ring[data-mode="full"]::before {
+  background: conic-gradient(
+    from var(--ring-angle),
+    transparent 0deg,
+    rgb(var(--ring) / 0.95) 45deg,
+    transparent 110deg,
+    transparent 180deg,
+    rgb(var(--ring) / 0.95) 225deg,
+    transparent 290deg
+  );
+}
+/* Full access also breathes a soft red glow. */
+.mode-ring[data-mode="full"] {
+  animation: ring-pulse 4s ease-in-out infinite;
+}
+@keyframes ring-spin {
+  to {
+    --ring-angle: 360deg;
+  }
+}
+@keyframes ring-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 rgb(var(--ring) / 0);
+  }
+  50% {
+    box-shadow: 0 0 0 4px rgb(var(--ring) / 0.12);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mode-ring,
+  .mode-ring::before {
+    animation: none;
+  }
+  /* Still: the whole border tinted instead of a moving arc. */
+  .mode-ring::before {
+    background: rgb(var(--ring) / 0.55);
+  }
+}
+
+/* ── Plan tree ─────────────────────────────────────────────────────────────
+   An organizing plan drawn as the drive will look (components/byok/plan-tree).
+   Each branch draws its own elbow, and the last child's vertical stops at its
+   elbow, so the lines read as a tree without any measuring. */
+.plan-row {
+  display: flex;
+  min-height: 1.75rem;
+  align-items: center;
+  gap: 0.4rem;
+  font-size: 0.8125rem;
+}
+.plan-branch {
+  margin-left: 0.4rem;
+}
+.plan-branch > li {
+  position: relative;
+  padding-left: 1.1rem;
+}
+.plan-branch > li::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  border-left: 1px solid rgb(var(--c-400) / 0.7);
+}
+.plan-branch > li:last-child::before {
+  bottom: auto;
+  height: 0.875rem;
+}
+.plan-branch > li::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0.875rem;
+  width: 0.75rem;
+  border-top: 1px solid rgb(var(--c-400) / 0.7);
+}
+.plan-badge {
+  border-radius: 9999px;
+  border: 1px solid;
+  padding: 0 0.4rem;
+  font-size: 0.6875rem;
+  line-height: 1.1rem;
+}
+.plan-badge-new {
+  border-color: rgb(var(--c-go-300));
+  background: rgb(var(--c-go-50));
+  color: rgb(var(--c-go-500));
+}
+.plan-badge-renamed {
+  border-color: rgb(var(--c-caution-300));
+  background: rgb(var(--c-caution-50));
+  color: rgb(var(--c-blush-ink));
+}
+/* A tag the plan adds, and (struck) one it removes. */
+.plan-tag {
+  flex-shrink: 0;
+  border-radius: 9999px;
+  background: rgb(var(--c-blush) / 0.8);
+  padding: 0 0.4rem;
+  font-size: 0.6875rem;
+  line-height: 1.1rem;
+  color: rgb(var(--c-blush-ink));
+}
+.plan-tag-removed {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px rgb(var(--c-300));
+  color: rgb(var(--c-500));
+  text-decoration: line-through;
+}
+@keyframes plan-node-in {
+  from {
+    opacity: 0;
+    transform: translateX(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+.plan-node-in {
+  animation: plan-node-in 260ms ease-out both;
+}
+@media (prefers-reduced-motion: reduce) {
+  .plan-node-in {
+    animation: none;
+  }
+}
+
+/* ── Bao the builder ───────────────────────────────────────────────────────
+   Bao at work on a plan being revised (components/byok/bao-builder.tsx):
+   walks between rows, hammers, sparks fly, the row under him lights up, and
+   he cheers when the new plan is ready. */
+.bao-walker {
+  transition: transform 850ms cubic-bezier(0.45, 0, 0.25, 1);
+  will-change: transform;
+}
+.bao-walking {
+  animation: bao-walk 0.28s ease-in-out infinite alternate;
+}
+@keyframes bao-walk {
+  from {
+    transform: translateY(0) rotate(-5deg);
+  }
+  to {
+    transform: translateY(-3px) rotate(5deg);
+  }
+}
+.bao-working {
+  animation: bao-lean 0.7s ease-in-out infinite;
+}
+@keyframes bao-lean {
+  0%,
+  100% {
+    transform: rotate(0deg);
+  }
+  45% {
+    transform: rotate(4deg) translateY(1px);
+  }
+}
+.bao-hammer {
+  transform-box: view-box;
+  transform-origin: 6px 20px;
+  animation: bao-hammer 0.7s cubic-bezier(0.5, 0, 0.7, 1) infinite;
+}
+@keyframes bao-hammer {
+  0%,
+  100% {
+    transform: rotate(-55deg);
+  }
+  45% {
+    transform: rotate(18deg);
+  }
+  55% {
+    transform: rotate(12deg);
+  }
+}
+.bao-sparks {
+  transform-box: view-box;
+  transform-origin: 18px 20px;
+  animation: bao-sparks 0.7s ease-out infinite;
+}
+@keyframes bao-sparks {
+  0%,
+  40% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  80%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+/* The row he's working on: a warm wash with a sweep, like scaffolding light. */
+.bao-worksite {
+  background: linear-gradient(
+    90deg,
+    rgb(var(--c-caution-50) / 0) 0%,
+    rgb(var(--c-caution-50)) 35%,
+    rgb(var(--c-caution-300) / 0.45) 50%,
+    rgb(var(--c-caution-50)) 65%,
+    rgb(var(--c-caution-50) / 0) 100%
+  );
+  background-size: 220% 100%;
+  box-shadow: inset 0 0 0 1px rgb(var(--c-caution-300) / 0.7);
+  animation: bao-worksite 1.4s linear infinite;
+}
+@keyframes bao-worksite {
+  from {
+    background-position: 100% 0;
+  }
+  to {
+    background-position: -120% 0;
+  }
+}
+.bao-bubble {
+  animation: notice-in 200ms ease-out both;
+}
+.bao-cheer {
+  animation: bao-cheer 0.5s cubic-bezier(0.3, 1.6, 0.5, 1) infinite alternate;
+}
+@keyframes bao-cheer {
+  from {
+    transform: translateY(0) scale(1);
+  }
+  to {
+    transform: translateY(-8px) scale(1.06);
+  }
+}
+.bao-confetti {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bao-confetti 0.8s ease-out both;
+}
+@keyframes bao-confetti {
+  from {
+    opacity: 0;
+    transform: translate(0, 10px) scale(0.3);
+  }
+  60% {
+    opacity: 1;
+  }
+  to {
+    opacity: 0;
+    transform: translate(0, -6px) scale(1.2);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bao-walker {
+    transition: none;
+  }
+  .bao-walking,
+  .bao-working,
+  .bao-hammer,
+  .bao-sparks,
+  .bao-worksite,
+  .bao-cheer,
+  .bao-confetti {
+    animation: none;
+  }
+}
+
+/* Each Bao works a row his own way (bao-builder.tsx, Tool). */
+.bao-worksite-read_only {
+  /* A grey scan line passing over: reading, nothing changes. */
+  background: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgb(var(--c-400) / 0.25) 45%,
+    rgb(var(--c-400) / 0.45) 50%,
+    rgb(var(--c-400) / 0.25) 55%,
+    transparent 100%
+  );
+  background-size: 220% 100%;
+  box-shadow: none;
+  animation-duration: 2.6s;
+}
+.bao-worksite-ask {
+  /* A dashed green outline: a proposal, waiting for you. */
+  background: rgb(var(--c-go-50) / 0.7);
+  box-shadow: none;
+  outline: 1.5px dashed rgb(var(--c-go-300));
+  outline-offset: -1px;
+  animation: none;
+}
+.bao-worksite-full {
+  /* A red flash with each stamp. */
+  background: rgb(var(--c-danger-50));
+  box-shadow: inset 0 0 0 1px rgb(var(--c-danger-300) / 0.8);
+  animation: bao-stamped 2.1s ease-out infinite;
+}
+@keyframes bao-stamped {
+  0%,
+  30% {
+    background: rgb(var(--c-danger-50) / 0.4);
+  }
+  38% {
+    background: rgb(var(--c-danger-300) / 0.55);
+  }
+  100% {
+    background: rgb(var(--c-danger-50) / 0.6);
+  }
+}
+.bao-magnify {
+  transform-box: view-box;
+  animation: bao-magnify 1.8s ease-in-out infinite alternate;
+}
+@keyframes bao-magnify {
+  from {
+    transform: translate(-6px, 1px) rotate(-6deg);
+  }
+  to {
+    transform: translate(5px, -1px) rotate(6deg);
+  }
+}
+.bao-pencil {
+  transform-box: view-box;
+  transform-origin: 5px 20px;
+  animation: bao-pencil 0.9s ease-in-out infinite;
+}
+@keyframes bao-pencil {
+  0%,
+  100% {
+    transform: rotate(-10deg) translateY(-2px);
+  }
+  20% {
+    transform: rotate(4deg) translateY(1px);
+  }
+  40% {
+    transform: rotate(-4deg) translateY(-1px);
+  }
+  60% {
+    transform: rotate(6deg) translateY(1px);
+  }
+}
+.bao-tick {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bao-tick 2.8s ease-out infinite;
+}
+@keyframes bao-tick {
+  0%,
+  55% {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  65% {
+    opacity: 1;
+    transform: scale(1.15);
+  }
+  75%,
+  92% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1);
+  }
+}
+.bao-stamp {
+  transform-box: view-box;
+  animation: bao-stamp 2.1s cubic-bezier(0.6, 0, 0.4, 1) infinite;
+}
+@keyframes bao-stamp {
+  0%,
+  20% {
+    transform: translateY(-6px);
+  }
+  34% {
+    transform: translateY(3px);
+  }
+  42%,
+  100% {
+    transform: translateY(-6px);
+  }
+}
+.bao-thump {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: bao-thump 2.1s ease-out infinite;
+}
+@keyframes bao-thump {
+  0%,
+  33% {
+    opacity: 0;
+    transform: scale(0.4);
+  }
+  38% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  70%,
+  100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bao-magnify,
+  .bao-pencil,
+  .bao-tick,
+  .bao-stamp,
+  .bao-thump,
+  .bao-worksite-full {
+    animation: none;
+  }
+}
+
+/* Bao on the landing page (components/marketing/bao-companion.tsx): a file he's
+   carrying bobs toward its folder; a filed file or published link pops. */
+.bao-carry {
+  animation: bao-carry 1.6s ease-in-out infinite;
+}
+@keyframes bao-carry {
+  0%, 100% { transform: translate(0, -2px) rotate(-3deg); }
+  50% { transform: translate(6px, 1px) rotate(2deg); }
+}
+.bao-filed {
+  animation: bao-filed 420ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes bao-filed {
+  from { transform: scale(0.85); opacity: 0.4; }
+  to { transform: none; opacity: 1; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bao-carry,
+  .bao-filed {
+    animation: none;
+  }
+}
+
+/* ── Bao jail (components/marketing/bao-companion.tsx) ─────────────────────
+   Four Baos behind bars, each wanting out his own way: Bookish paces, Butler
+   rattles the bars, Busy hops, Boss stands on tiptoe to peek over. The bars
+   shake now and then as if someone just grabbed them. */
+.jail-bao {
+  transform-origin: 50% 100%;
+}
+.jail-bao-0 {
+  animation: jail-pace 2.4s ease-in-out infinite;
+}
+.jail-bao-1 {
+  animation: jail-shake 0.5s ease-in-out infinite;
+}
+.jail-bao-2 {
+  animation: jail-hop 0.9s cubic-bezier(0.3, 0, 0.4, 1) infinite;
+}
+.jail-bao-3 {
+  animation: jail-peek 2.2s ease-in-out infinite;
+}
+.jail-bars {
+  animation: jail-rattle 3.2s linear infinite;
+}
+/* The cell builds itself while the Baos are rounded up: the frame pops in,
+   the plaque drops, then the bars slide down one after another. */
+.jail-cell {
+  animation: jail-cell-in 260ms cubic-bezier(0.3, 1.4, 0.5, 1) both;
+  transform-origin: 100% 100%;
+}
+.jail-bar {
+  transform-origin: 50% 0;
+  animation: jail-bar-drop 260ms cubic-bezier(0.5, 0, 0.3, 1.3) both;
+}
+.jail-plaque {
+  animation: jail-plaque-in 300ms 80ms ease-out both;
+}
+.jail-in {
+  animation: jail-in 280ms cubic-bezier(0.3, 1.6, 0.5, 1) both;
+}
+@keyframes jail-cell-in {
+  from {
+    opacity: 0;
+    transform: scale(0.85);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+@keyframes jail-bar-drop {
+  from {
+    transform: scaleY(0);
+  }
+  to {
+    transform: scaleY(1);
+  }
+}
+@keyframes jail-plaque-in {
+  from {
+    transform: translate(-50%, -100%);
+  }
+  to {
+    transform: translate(-50%, 0);
+  }
+}
+@keyframes jail-in {
+  from {
+    opacity: 0;
+    transform: translateY(10px) scale(0.8);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+@keyframes jail-pace {
+  0%,
+  100% {
+    transform: translateX(-6px) scaleX(1);
+  }
+  49% {
+    transform: translateX(6px) scaleX(1);
+  }
+  50%,
+  99% {
+    transform: translateX(6px) scaleX(-1);
+  }
+}
+@keyframes jail-shake {
+  0%,
+  100% {
+    transform: rotate(-5deg);
+  }
+  50% {
+    transform: rotate(5deg);
+  }
+}
+@keyframes jail-hop {
+  0%,
+  100% {
+    transform: translateY(0) scale(1.04, 0.96);
+  }
+  45% {
+    transform: translateY(-14px) scale(0.97, 1.03);
+  }
+}
+@keyframes jail-peek {
+  0%,
+  55%,
+  100% {
+    transform: translateY(0);
+  }
+  65%,
+  90% {
+    transform: translateY(-8px) scale(1.06);
+  }
+}
+@keyframes jail-rattle {
+  0%,
+  84%,
+  100% {
+    transform: translateX(0);
+  }
+  86% {
+    transform: translateX(-2px);
+  }
+  88% {
+    transform: translateX(2px);
+  }
+  90% {
+    transform: translateX(-2px);
+  }
+  92% {
+    transform: translateX(1px);
+  }
+  94% {
+    transform: translateX(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .jail-bao,
+  .jail-bars,
+  .jail-cell,
+  .jail-bar,
+  .jail-plaque,
+  .jail-in {
+    animation: none;
+  }
+}
+
+/* Missing files: the scan's indeterminate bar (components/dashboard/missing-panel.tsx). */
+.missing-scan {
+  animation: missing-scan 1.1s ease-in-out infinite;
+}
+@keyframes missing-scan {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(300%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .missing-scan {
+    animation: none;
+  }
+}
+
+/* BYOK's home greeting settles in (components/byok/drive-chat.tsx). */
+.greeting-in {
+  animation: greeting-in 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+}
+@keyframes greeting-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .greeting-in {
+    animation: none;
   }
 }

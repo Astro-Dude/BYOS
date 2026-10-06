@@ -32,12 +32,8 @@ def _out(share) -> ShareOut:
         id=share.id,
         file_id=share.file_id,
         token=share.token,
-        visibility=share.visibility,
-        has_password=share.password_hash is not None,
         expires_at=share.expires_at,
-        max_downloads=share.max_downloads,
         download_count=share.download_count,
-        view_only=share.view_only,
         created_at=share.created_at,
     )
 
@@ -51,10 +47,7 @@ async def create_share(
             db,
             user,
             file_id=payload.file_id,
-            password=payload.password,
             expires_in_days=payload.expires_in_days,
-            max_downloads=payload.max_downloads,
-            view_only=payload.view_only,
         )
     except service.FileNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "File not found") from None
@@ -75,22 +68,14 @@ async def revoke_share(share_id: uuid.UUID, user: CurrentUser, db: DbDep) -> Non
 
 
 @public_router.get("/s/{token}", dependencies=[Depends(_public_limit)])
-async def open_share(
-    token: str, request: Request, db: DbDep, pw: str | None = None
-) -> Response:
-    """PUBLIC: stream a shared file's current version, enforcing access controls."""
+async def open_share(token: str, request: Request, db: DbDep) -> Response:
+    """PUBLIC: stream a shared file's current version, while the link is still good."""
     try:
-        share, file, version = await service.resolve_share(db, token, pw)
+        share, file, version = await service.resolve_share(db, token)
     except service.ShareNotFound:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Share not found") from None
     except service.ShareExpired:
         raise HTTPException(status.HTTP_410_GONE, "This link has expired") from None
-    except service.ShareLimitReached:
-        raise HTTPException(status.HTTP_410_GONE, "This link's download limit is reached") from None
-    except service.SharePasswordRequired:
-        raise HTTPException(
-            status.HTTP_401_UNAUTHORIZED, "Password required (append ?pw=...)"
-        ) from None
 
     account = await files_service.account_for_file_public(db, file)
     if account is None:
@@ -102,15 +87,15 @@ async def open_share(
         size=version.size,
         checksum=version.hash,
     )
-    if not share.view_only:
-        await service.register_download(db, share)
+    await service.register_download(db, share)
     return await stream_object(
         get_provider(file.provider),
         account,
         ref,
         filename=file.name,
         mime=file.mime,
-        disposition="inline" if share.view_only else "attachment",
+        disposition="attachment",
         etag=version.hash,
         request=request,
+        public=True,
     )

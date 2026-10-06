@@ -30,10 +30,33 @@ _settings = get_settings()
 USERNAME_RE = re.compile(r"^[a-z0-9][a-z0-9_-]{2,29}$")
 # Names that would collide with (or shadow) top-level API paths.
 RESERVED_USERNAMES = {
-    "a", "s", "auth", "providers", "folders", "files", "aliases", "shares",
-    "analytics", "api-keys", "webhooks", "audit", "health", "docs", "redoc",
-    "openapi.json", "admin", "api", "www", "dashboard", "login", "register",
-    "settings", "help", "support", "static", "public",
+    "a",
+    "s",
+    "auth",
+    "providers",
+    "folders",
+    "files",
+    "aliases",
+    "shares",
+    "analytics",
+    "api-keys",
+    "webhooks",
+    "audit",
+    "health",
+    "docs",
+    "redoc",
+    "openapi.json",
+    "admin",
+    "api",
+    "www",
+    "dashboard",
+    "login",
+    "register",
+    "settings",
+    "help",
+    "support",
+    "static",
+    "public",
 }
 
 
@@ -53,9 +76,7 @@ async def ensure_username_available(
     username = raw.strip().lower()
     if not USERNAME_RE.match(username) or username in RESERVED_USERNAMES:
         raise InvalidUsername
-    clash = (
-        await db.execute(select(User).where(User.username == username))
-    ).scalar_one_or_none()
+    clash = (await db.execute(select(User).where(User.username == username))).scalar_one_or_none()
     if clash is not None and clash.id != exclude_user_id:
         raise UsernameTaken
     return username
@@ -79,9 +100,7 @@ async def set_display_name(db: AsyncSession, user: User, raw: str) -> User:
     return user
 
 
-async def set_password(
-    db: AsyncSession, user: User, raw: str, current: str | None = None
-) -> User:
+async def set_password(db: AsyncSession, user: User, raw: str, current: str | None = None) -> User:
     """Set/replace the account password (hashed with Argon2). Changing an
     existing password requires the correct current one."""
     if user.password_hash is not None and (
@@ -94,9 +113,7 @@ async def set_password(
     return user
 
 
-async def authenticate_password(
-    db: AsyncSession, identifier: str, password: str
-) -> User | None:
+async def authenticate_password(db: AsyncSession, identifier: str, password: str) -> User | None:
     """Resolve a user by username OR phone and verify the password. Returns None
     for any miss (generic — never reveal which part failed)."""
     ident = identifier.strip()

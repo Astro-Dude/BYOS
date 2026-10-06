@@ -6,7 +6,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, exists, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core import crypto
@@ -55,6 +55,7 @@ async def create_key(
     temperature: float,
     max_tokens: int,
     top_p: float | None,
+    reasoning_effort: str | None = None,
 ) -> AiKey:
     key = AiKey(
         user_id=user.id,
@@ -66,6 +67,7 @@ async def create_key(
         temperature=temperature,
         max_tokens=max_tokens,
         top_p=top_p,
+        reasoning_effort=reasoning_effort,
     )
     db.add(key)
     await db.commit()
@@ -86,6 +88,7 @@ async def update_key(
     temperature: float,
     max_tokens: int,
     top_p: float | None,
+    reasoning_effort: str | None = None,
 ) -> AiKey | None:
     key = await get_key(db, user, key_id)
     if key is None:
@@ -99,6 +102,7 @@ async def update_key(
     key.temperature = temperature
     key.max_tokens = max_tokens
     key.top_p = top_p
+    key.reasoning_effort = reasoning_effort
     await db.commit()
     await db.refresh(key)
     return key
@@ -159,12 +163,18 @@ async def delete_prompt(db: AsyncSession, user: User, prompt_id: uuid.UUID) -> N
 
 
 # ── Conversations (drive-wide chat threads) ──────────────────────────────────
+def _has_messages():  # type: ignore[no-untyped-def]
+    return exists().where(AiChatMessage.conversation_id == AiConversation.id)
+
+
 async def list_conversations(db: AsyncSession, user: User) -> list[AiConversation]:
+    """The user's chats, newest first. A chat whose first message never got an
+    answer saved (the model call failed) has nothing in it, so it isn't listed."""
     return list(
         (
             await db.execute(
                 select(AiConversation)
-                .where(AiConversation.user_id == user.id)
+                .where(AiConversation.user_id == user.id, _has_messages())
                 .order_by(AiConversation.updated_at.desc())
             )
         ).scalars()
@@ -209,9 +219,7 @@ async def delete_conversation(db: AsyncSession, user: User, conversation_id: uui
         return
     # Delete the thread's messages explicitly, then the conversation — so no
     # orphaned messages are left behind regardless of the FK's on-delete rule.
-    await db.execute(
-        delete(AiChatMessage).where(AiChatMessage.conversation_id == conversation_id)
-    )
+    await db.execute(delete(AiChatMessage).where(AiChatMessage.conversation_id == conversation_id))
     await db.delete(convo)
     await db.commit()
 
@@ -225,8 +233,16 @@ async def purge_old_chats(db: AsyncSession, *, days: int = CHAT_RETENTION_DAYS) 
     # Sweep up any conversation-less messages left by older deletes that didn't
     # cascade (e.g. legacy single-doc rows, or SET NULL orphans).
     r2 = await db.execute(delete(AiChatMessage).where(AiChatMessage.conversation_id.is_(None)))
+    # Chats that never got a message saved, once they're clearly abandoned (an
+    # hour leaves room for one that's being answered right now).
+    r3 = await db.execute(
+        delete(AiConversation).where(
+            AiConversation.created_at < datetime.now(UTC) - timedelta(hours=1),
+            ~_has_messages(),
+        )
+    )
     await db.commit()
-    return sum(int(getattr(r, "rowcount", 0) or 0) for r in (r1, r2))
+    return sum(int(getattr(r, "rowcount", 0) or 0) for r in (r1, r2, r3))
 
 
 async def purge_stale_index(db: AsyncSession, *, days: int = INDEX_RETENTION_DAYS) -> int:

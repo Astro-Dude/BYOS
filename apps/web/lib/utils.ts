@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]): string {
 }
 
 /** Shorten a long name with a middle ellipsis, preserving the start and the
- *  file extension (e.g. "EAadhaar_0815…3115.pdf"). Used in confirm dialogs so
+ *  file extension (e.g. "Statement_2026…0331.pdf"). Used in confirm dialogs so
  *  huge filenames can't overflow the layout. */
 export function truncateMiddle(name: string, max = 42): string {
   if (name.length <= max) return name;

@@ -26,6 +26,7 @@ dependencies = [
     "pypdfium2>=4.30",
     "pillow>=11.0",
     "numpy>=2.5.1",
+    "boto3>=1.35",
 ]
 
 [dependency-groups]

@@ -40,6 +40,7 @@ def _params(key: AiKey) -> dict:
         "temperature": 0.1,
         "max_tokens": 512,
         "top_p": key.top_p,
+        "reasoning_effort": key.reasoning_effort,
     }
 
 
@@ -162,7 +163,7 @@ async def retrieve(
 
     if strategies.crag and hits and not await _sufficient(key, question, hits):
         query2 = await _rewrite(key, question)
-        yield {"kind": "step", "label": "Retrieval looked weak — retried (CRAG)", "detail": query2}
+        yield {"kind": "step", "label": "Results looked weak, so searched again", "detail": query2}
         hits = await semantic.drive_semantic_chunks(
             db, user, key, await semantic.embed_query(key, query2), k=k
         )

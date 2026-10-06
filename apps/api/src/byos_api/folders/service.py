@@ -29,9 +29,7 @@ async def subtree_sizes(db: AsyncSession, user: User) -> dict[uuid.UUID, int]:
     direct = {fid: int(total) for fid, total in rows}
 
     folder_rows = (
-        await db.execute(
-            select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id)
-        )
+        await db.execute(select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id))
     ).all()
     children: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
     for fid, pid in folder_rows:
@@ -79,14 +77,10 @@ FOLDER_COLORS = {
 }
 
 
-async def subtree_folder_ids(
-    db: AsyncSession, user: User, root_id: uuid.UUID
-) -> set[uuid.UUID]:
+async def subtree_folder_ids(db: AsyncSession, user: User, root_id: uuid.UUID) -> set[uuid.UUID]:
     """All folder ids in the subtree rooted at root_id (inclusive), owner-scoped."""
     rows = (
-        await db.execute(
-            select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id)
-        )
+        await db.execute(select(Folder.id, Folder.parent_id).where(Folder.owner_id == user.id))
     ).all()
     children: dict[uuid.UUID | None, list[uuid.UUID]] = defaultdict(list)
     for fid, pid in rows:
@@ -102,9 +96,7 @@ async def subtree_folder_ids(
     return result
 
 
-async def search_folders(
-    db: AsyncSession, user: User, query: str, limit: int = 20
-) -> list[Folder]:
+async def search_folders(db: AsyncSession, user: User, query: str, limit: int = 20) -> list[Folder]:
     """Case-insensitive substring match on folder names, owner-scoped."""
     q = query.strip()
     if not q:
@@ -154,9 +146,7 @@ async def create_folder(
     return folder
 
 
-async def list_children(
-    db: AsyncSession, user: User, parent_id: uuid.UUID | None
-) -> list[Folder]:
+async def list_children(db: AsyncSession, user: User, parent_id: uuid.UUID | None) -> list[Folder]:
     stmt = select(Folder).where(Folder.owner_id == user.id)
     stmt = (
         stmt.where(Folder.parent_id == parent_id)
@@ -238,8 +228,10 @@ async def delete_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -> N
     # via the parent_id FK. Files are NOT orphaned to the root.
     ids = await subtree_folder_ids(db, user, folder_id)
     files = (
-        await db.execute(select(File).where(File.owner_id == user.id, File.folder_id.in_(ids)))
-    ).scalars().all()
+        (await db.execute(select(File).where(File.owner_id == user.id, File.folder_id.in_(ids))))
+        .scalars()
+        .all()
+    )
     for record in files:
         await _delete_file_bytes(db, user, record)
         record.current_version_id = None
@@ -249,9 +241,7 @@ async def delete_folder(db: AsyncSession, user: User, folder_id: uuid.UUID) -> N
     await db.commit()
 
 
-async def breadcrumb(
-    db: AsyncSession, user: User, folder_id: uuid.UUID
-) -> list[dict[str, object]]:
+async def breadcrumb(db: AsyncSession, user: User, folder_id: uuid.UUID) -> list[dict[str, object]]:
     result = await db.execute(
         text(
             """

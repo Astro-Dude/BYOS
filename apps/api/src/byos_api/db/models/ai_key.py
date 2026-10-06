@@ -29,3 +29,5 @@ class AiKey(UUIDPrimaryKey, TimestampMixin, Base):
     temperature: Mapped[float] = mapped_column(Float, server_default=text("0.2"), nullable=False)
     max_tokens: Mapped[int] = mapped_column(Integer, server_default=text("1024"), nullable=False)
     top_p: Mapped[float | None] = mapped_column(Float)
+    # How hard a reasoning model thinks; None means the lowest it takes.
+    reasoning_effort: Mapped[str | None] = mapped_column(String(16))

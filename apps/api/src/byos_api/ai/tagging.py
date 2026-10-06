@@ -15,8 +15,21 @@ _DOC_EXTS = {"doc", "docx", "txt", "md", "rtf", "odt", "pages"}
 _SHEET_EXTS = {"xls", "xlsx", "csv", "ods", "numbers"}
 _ARCHIVE_EXTS = {"zip", "tar", "gz", "rar", "7z", "bz2"}
 _CODE_EXTS = {
-    "py", "js", "ts", "tsx", "jsx", "go", "rs", "java",
-    "c", "cpp", "rb", "sh", "json", "yaml", "yml",
+    "py",
+    "js",
+    "ts",
+    "tsx",
+    "jsx",
+    "go",
+    "rs",
+    "java",
+    "c",
+    "cpp",
+    "rb",
+    "sh",
+    "json",
+    "yaml",
+    "yml",
 }
 
 

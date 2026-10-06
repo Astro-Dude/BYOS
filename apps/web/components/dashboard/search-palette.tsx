@@ -224,7 +224,7 @@ export function SearchPalette({
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             onKeyDown={onKeyDown}
-            placeholder="Search files & folders —  try  type:pdf  after:2026-06-01  invoice"
+            placeholder="Search files and folders, e.g. type:pdf invoice"
             className="w-full bg-transparent py-4 text-[0.9375rem] text-zinc-900 outline-none placeholder:text-zinc-400"
           />
           <button
@@ -243,7 +243,7 @@ export function SearchPalette({
         {showHelp ? (
           <div className="border-b border-zinc-100 bg-zinc-50/60 p-3">
             <p className="px-1 pb-2 text-[0.8125rem] font-medium text-zinc-500">
-              Click to add a filter — combine as many as you like
+              Click to add filters
             </p>
             <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
               {FILTERS.map((f) => (
@@ -303,11 +303,11 @@ export function SearchPalette({
             </div>
           ) : noMatches ? (
             <p className="px-2 py-8 text-center text-[0.9375rem] text-zinc-400">
-              No files or folders match — press{" "}
+              Nothing matches. Press{" "}
               <kbd className="rounded border border-zinc-200 bg-zinc-50 px-1">
                 ↵
               </kbd>{" "}
-              anyway to open the results page.
+              to see all results.
             </p>
           ) : (
             <>

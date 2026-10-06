@@ -1,45 +1,19 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
-import { Pencil } from "lucide-react";
-import { type ReactNode, useState } from "react";
+import { LogOut } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useState } from "react";
 
 import { RenameModal } from "@/components/dashboard/rename-modal";
+import { SettingRow, SettingsGroup, SettingsHeader } from "@/components/settings/controls";
 import { Button } from "@/components/ui/button";
 import { PasswordInput } from "@/components/ui/password-input";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
 
-function Row({
-  label,
-  value,
-  onEdit,
-}: {
-  label: string;
-  value: ReactNode;
-  onEdit?: () => void;
-}) {
-  return (
-    <div className="flex items-center justify-between gap-4 py-3">
-      <span className="text-[0.9375rem] text-zinc-500">{label}</span>
-      <div className="flex min-w-0 items-center gap-3">
-        <span className="truncate text-[0.9375rem] font-medium text-zinc-900">
-          {value}
-        </span>
-        {onEdit ? (
-          <button
-            onClick={onEdit}
-            aria-label={`Edit ${label.toLowerCase()}`}
-            className="shrink-0 text-zinc-400 transition hover:text-zinc-700"
-          >
-            <Pencil className="h-4 w-4" />
-          </button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
+const editButton = "pill-sm-ghost shrink-0";
 
 /** Modal to set or change the account password (used for password login). */
 function PasswordModal({
@@ -85,7 +59,7 @@ function PasswordModal({
           {hasPassword ? "Change password" : "Set a password"}
         </h3>
         <p className="mt-1 text-[0.9375rem] text-zinc-500">
-          Sign in with your username or phone — no Telegram code needed.
+          Sign in with your username or phone. No Telegram code needed.
         </p>
         <div className="mt-4 space-y-3">
           {hasPassword ? (
@@ -133,21 +107,14 @@ function PasswordModal({
   );
 }
 
-/** Account profile: identity details with inline edit for display name and
- *  password (used for password login, skipping Telegram OTP). */
-export function ProfilePanel() {
-  const { user, refresh } = useAuth();
+/** Who you are: name, username, phone, and the storage behind the account. */
+export function ProfileSettings() {
+  const { user, refresh, logout } = useAuth();
   const authed = useAuthed();
   const toast = useToast();
-  const [editing, setEditing] = useState<"name" | "password" | null>(null);
-
+  const router = useRouter();
+  const [editing, setEditing] = useState<"name" | "username" | "password" | null>(null);
   const hasPassword = user?.has_password ?? false;
-
-  const saveName = async (name: string) => {
-    await authed((t) => api.setDisplayName(t, name));
-    toast("Display name updated");
-    await refresh();
-  };
 
   const savePassword = async (current: string | undefined, next: string) => {
     await authed((t) => api.setPassword(t, next, current));
@@ -155,27 +122,70 @@ export function ProfilePanel() {
     await refresh();
   };
 
-  return (
-    <div className="mx-auto flex min-h-full max-w-xl flex-col justify-center py-8">
-      <h1 className="mb-6 type-heading-sm">Profile</h1>
+  const saveName = async (name: string) => {
+    await authed((t) => api.setDisplayName(t, name));
+    toast("Display name updated");
+    await refresh();
+  };
 
-      <section className="surface-card p-6">
-        <h2 className="mb-1 font-medium text-zinc-900">Account</h2>
-        <div className="divide-y divide-zinc-200">
-          <Row
-            label="Display name"
-            value={user?.display_name || "—"}
-            onEdit={() => setEditing("name")}
-          />
-          <Row label="Username" value={user?.username ? `@${user.username}` : "—"} />
-          <Row label="Phone" value={user?.phone || "—"} />
-          <Row
-            label="Password"
-            value={hasPassword ? "••••••••" : "Not set"}
-            onEdit={() => setEditing("password")}
-          />
-        </div>
-      </section>
+  const saveUsername = async (username: string) => {
+    try {
+      await authed((t) => api.setUsername(t, username));
+      toast("Username saved");
+      await refresh();
+    } catch (err) {
+      toast(err instanceof ApiError ? err.detail : "Couldn't save that username", "error");
+    }
+  };
+
+  return (
+    <>
+      <SettingsHeader title="Profile" description="How you appear in BYOS, and the account behind it." />
+      <SettingsGroup title="Account">
+        <SettingRow label="Display name" description={user?.display_name || "Not set"}>
+          <button className={editButton} onClick={() => setEditing("name")}>
+            Edit
+          </button>
+        </SettingRow>
+        <SettingRow
+          label="Username"
+          description={
+            user?.username
+              ? `@${user.username}. Your public links use it.`
+              : "Not set. Pick one to get public links like byos.link/you."
+          }
+        >
+          {user?.username ? null : (
+            <button className={editButton} onClick={() => setEditing("username")}>
+              Set username
+            </button>
+          )}
+        </SettingRow>
+        <SettingRow label="Phone" description={user?.phone || "Not set"} />
+      </SettingsGroup>
+
+      <SettingsGroup title="Sign in">
+        <SettingRow
+          label="Password"
+          description={
+            hasPassword
+              ? "Set. Sign in with your username or phone and this password."
+              : "Not set. Without one, you sign in with a Telegram code."
+          }
+        >
+          <button className={editButton} onClick={() => setEditing("password")}>
+            {hasPassword ? "Change" : "Set password"}
+          </button>
+        </SettingRow>
+        <SettingRow label="Log out" description="Signs you out on this device. Your files stay where they are.">
+          <button
+            className={`${editButton} flex items-center gap-1.5`}
+            onClick={() => void logout().then(() => router.replace("/login"))}
+          >
+            <LogOut className="h-3.5 w-3.5" /> Log out
+          </button>
+        </SettingRow>
+      </SettingsGroup>
 
       {editing === "name" ? (
         <RenameModal
@@ -188,12 +198,18 @@ export function ProfilePanel() {
         />
       ) : null}
       {editing === "password" ? (
-        <PasswordModal
-          hasPassword={hasPassword}
+        <PasswordModal hasPassword={hasPassword} onClose={() => setEditing(null)} onSubmit={savePassword} />
+      ) : null}
+      {editing === "username" ? (
+        <RenameModal
+          title="Username"
+          initial=""
+          placeholder="3 to 30 letters, numbers, - or _"
+          confirmLabel="Save"
           onClose={() => setEditing(null)}
-          onSubmit={savePassword}
+          onSubmit={saveUsername}
         />
       ) : null}
-    </div>
+    </>
   );
 }

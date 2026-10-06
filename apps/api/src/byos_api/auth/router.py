@@ -49,8 +49,9 @@ def _telegram_unavailable(op: str, exc: Exception) -> HTTPException:
     logger.error("telegram %s failed: %s", op, type(exc).__name__, exc_info=True)
     return HTTPException(
         status.HTTP_502_BAD_GATEWAY,
-        "Telegram is having trouble right now — please try again in a moment.",
+        "Telegram is having trouble right now. Try again in a moment.",
     )
+
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -93,7 +94,8 @@ async def _issue_session(
 
 def _flood(exc: FloodWaitError) -> HTTPException:
     return HTTPException(
-        status.HTTP_429_TOO_MANY_REQUESTS, f"Telegram rate limit — retry in {exc.seconds}s"
+        status.HTTP_429_TOO_MANY_REQUESTS,
+        f"Telegram is limiting requests. Try again in {exc.seconds}s.",
     )
 
 
@@ -103,9 +105,7 @@ _INVALID_PHONE = (
 )
 
 
-async def _send_code(
-    op: str, call: Awaitable[str], *, invalid_phone: str = _INVALID_PHONE
-) -> str:
+async def _send_code(op: str, call: Awaitable[str], *, invalid_phone: str = _INVALID_PHONE) -> str:
     """Await a Telegram send-code call, mapping its failure modes onto clean
     HTTP errors. Shared by every entry point that kicks off an OTP."""
     try:
@@ -123,7 +123,7 @@ async def _send_code(
     except PhoneNumberFloodError:
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            "Too many code requests for this number — wait a while before trying again.",
+            "Too many codes sent to this number. Wait a while and try again.",
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
@@ -187,14 +187,14 @@ async def telegram_verify(
         result, ticket, user = await telegram.verify_code(db, payload.ticket, payload.code)
     except (telegram.ExpiredTicket, telegram.LoginStateError):
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Login session expired — start again"
+            status.HTTP_400_BAD_REQUEST, "Login session expired. Please start again."
         ) from None
     except telegram.InvalidCode as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     except telegram.NoAccount:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            "No BYOS account is linked to that Telegram account yet — create one instead.",
+            "No BYOS account uses this Telegram account yet. Create one instead.",
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
@@ -218,14 +218,14 @@ async def telegram_password(
         result, _, user = await telegram.verify_password(db, payload.ticket, payload.password)
     except (telegram.ExpiredTicket, telegram.LoginStateError):
         raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Login session expired — start again"
+            status.HTTP_400_BAD_REQUEST, "Login session expired. Please start again."
         ) from None
     except telegram.InvalidCode as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
     except telegram.NoAccount:
         raise HTTPException(
             status.HTTP_404_NOT_FOUND,
-            "No BYOS account is linked to that Telegram account yet — create one instead.",
+            "No BYOS account uses this Telegram account yet. Create one instead.",
         ) from None
     except FloodWaitError as exc:
         raise _flood(exc) from exc
@@ -303,18 +303,12 @@ async def set_display_name(
 
 
 @router.post("/password", response_model=UserResponse)
-async def set_password(
-    payload: SetPasswordRequest, user: SessionUser, db: DbDep
-) -> UserResponse:
+async def set_password(payload: SetPasswordRequest, user: SessionUser, db: DbDep) -> UserResponse:
     """Set or change the account password. Requires an interactive login."""
     try:
-        updated = await service.set_password(
-            db, user, payload.password, payload.current_password
-        )
+        updated = await service.set_password(db, user, payload.password, payload.current_password)
     except service.InvalidCurrentPassword:
-        raise HTTPException(
-            status.HTTP_400_BAD_REQUEST, "Current password is incorrect"
-        ) from None
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, "Current password is incorrect") from None
     return _with_admin(updated)
 
 
@@ -344,7 +338,7 @@ async def login_password(
         ticket = await _send_code(
             "password-reauth",
             telegram.start_login(user.phone),
-            invalid_phone="Your saved phone number looks invalid — sign in with a Telegram code.",
+            invalid_phone="Your saved phone number looks wrong. Sign in with a Telegram code.",
         )
         # Not a normal login result: the client must complete the OTP step
         # (/telegram/verify), which repairs the session and issues the session.

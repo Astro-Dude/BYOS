@@ -16,7 +16,7 @@ import tempfile
 from collections.abc import AsyncIterator
 
 from telethon import TelegramClient
-from telethon.errors import UnauthorizedError
+from telethon.errors import FloodWaitError, RPCError, UnauthorizedError
 from telethon.sessions import StringSession
 from telethon.tl.types import DocumentAttributeFilename
 
@@ -24,6 +24,7 @@ from byos_api.storage.base import (
     AccessHandle,
     ProviderAccount,
     ProviderAuthError,
+    ProviderError,
     ProviderObjectMeta,
     StoredObjectRef,
 )
@@ -198,6 +199,15 @@ class TelegramStorageProvider:
             await client.delete_messages(ref.locator["chat"], [ref.locator["message_id"]])
         except UnauthorizedError as exc:
             raise await self._auth_failed(session, exc) from exc
+        except FloodWaitError:
+            raise  # the router turns this into "try again in N seconds"
+        except (RPCError, ValueError) as exc:
+            # e.g. MESSAGE_DELETE_FORBIDDEN, or a chat the session can't resolve.
+            # Say why instead of a bare 500; the file is kept, so it can be retried.
+            logger.warning("telegram delete failed: %r", exc)
+            raise ProviderError(
+                f"Telegram wouldn't delete the file: {exc}", provider=self.name
+            ) from exc
 
     async def get_metadata(
         self, account: ProviderAccount, ref: StoredObjectRef

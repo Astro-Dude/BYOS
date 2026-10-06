@@ -13,8 +13,9 @@ from collections.abc import AsyncIterator, Awaitable, Callable
 from fastapi import HTTPException, Request, status
 from fastapi.responses import Response, StreamingResponse
 
+from byos_api.providers.accounts import flag_rejected
 from byos_api.storage import ProviderAccount, StorageProvider, StoredObjectRef
-from byos_api.storage.base import ProviderAuthError
+from byos_api.storage.base import ProviderAuthError, ProviderError
 
 logger = logging.getLogger("byos")
 
@@ -55,7 +56,12 @@ async def stream_object(
     etag: str | None = None,
     request: Request | None = None,
     on_missing: Callable[[], Awaitable[None]] | None = None,
+    public: bool = False,
 ) -> Response:
+    """Stream a stored object. `public` is for visitors through a shared link:
+    when the owner's storage credentials have stopped working they get a plain
+    "unavailable" instead of instructions meant for the owner (the storage is
+    still flagged, so the owner sees it)."""
     from telethon.errors import FloodWaitError
 
     # Conditional GET: the client already holds this exact content.
@@ -78,11 +84,22 @@ async def stream_object(
     except FloodWaitError as exc:
         await _aclose(stream)
         raise HTTPException(
-            status.HTTP_429_TOO_MANY_REQUESTS, f"Telegram rate limit — retry in {exc.seconds}s"
+            status.HTTP_429_TOO_MANY_REQUESTS,
+            f"Telegram is limiting requests. Try again in {exc.seconds}s.",
         ) from exc
-    except ProviderAuthError:
+    except ProviderAuthError as exc:
         await _aclose(stream)
-        raise  # → global handler → 409 "sign in again to reconnect"
+        if public and exc.provider != "telegram":
+            if exc.revoked:
+                await flag_rejected(exc.account_id)
+            raise HTTPException(
+                status.HTTP_503_SERVICE_UNAVAILABLE,
+                "This file is unavailable right now. Try again later.",
+            ) from None
+        raise  # → global handler: the owner's reconnect prompt
+    except ProviderError:
+        await _aclose(stream)
+        raise  # → global handler: the provider's own reason
     except Exception as exc:
         # Anything else (malformed locator, unexpected provider error) — log the
         # real cause and return a clear message instead of a bare 500.

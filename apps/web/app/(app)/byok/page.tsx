@@ -1,7 +1,7 @@
 "use client";
 
 import { type AiConversation, type AiKey, type AiPrompt } from "@byos/api-client";
-import { ArrowLeft, PanelLeftClose, PanelLeftOpen, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, ChevronLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -9,9 +9,10 @@ import { useCallback, useEffect, useState } from "react";
 import { AccountMenu, initialsOf } from "@/components/byok/account-menu";
 import { DriveChat } from "@/components/byok/drive-chat";
 import { Glow } from "@/components/byok/glow";
-import { SettingsModal } from "@/components/byok/settings-modal";
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
+import { settingsHref } from "@/components/settings/sections";
 import { IntroSplash } from "@/components/intro-splash";
+import { RailToggle, RingButton } from "@/components/ui/rail-toggle";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
@@ -27,7 +28,6 @@ export default function ByokPage() {
   const [prompts, setPrompts] = useState<AiPrompt[]>([]);
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
-  const [showSettings, setShowSettings] = useState(false);
   const [renamingId, setRenamingId] = useState<string | null>(null);
   const [renameText, setRenameText] = useState("");
   const [confirmDelete, setConfirmDelete] = useState<AiConversation | null>(null);
@@ -120,19 +120,15 @@ export default function ByokPage() {
         />
       ) : null}
 
-      <Glow className="h-[100dvh] bg-white text-zinc-900">
-        <div className="relative flex h-[100dvh]">
+      {/* overflow-clip (not hidden): a hidden box can still be scrolled by focus()
+          or scrollIntoView, which shoved the whole frame up mid-run and left the
+          page blank below. A clipped one can't be scrolled at all. */}
+      <Glow className="h-[100dvh] overflow-clip bg-white text-zinc-900">
+        <div className="relative flex h-[100dvh] overflow-clip">
           {/* Collapsed rail — expand + quick new chat */}
           {!sidebarOpen ? (
-            <div className="hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-4 md:flex">
-              <button
-                onClick={() => setSidebarOpen(true)}
-                className="btn-icon-sm"
-                title="Open sidebar"
-                aria-label="Open sidebar"
-              >
-                <PanelLeftOpen className="h-5 w-5" />
-              </button>
+            <div className="relative hidden w-12 shrink-0 flex-col items-center gap-1 border-r border-zinc-200 bg-white py-4 md:flex">
+              <RailToggle collapsed onToggle={() => setSidebarOpen(true)} />
               <button
                 onClick={newChat}
                 className="btn-icon-sm"
@@ -163,29 +159,24 @@ export default function ByokPage() {
 
           {/* Sidebar — overlay drawer on mobile, pinned column on desktop */}
           <aside
-            className={`fixed inset-y-0 left-0 z-50 flex w-[min(18rem,85vw)] shrink-0 flex-col border-r border-zinc-200 bg-white shadow-xl transition-transform duration-200 ease-out md:static md:z-auto md:w-72 md:shadow-none md:transition-none ${
+            className={`fixed inset-y-0 left-0 z-50 flex w-[min(20rem,86vw)] shrink-0 flex-col border-r border-zinc-200 bg-white pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)] shadow-xl transition-transform duration-200 ease-out md:relative md:z-auto md:w-72 md:pb-0 md:pt-0 md:shadow-none md:transition-none ${
               sidebarOpen ? "translate-x-0" : "-translate-x-full md:hidden"
             }`}
           >
             <div className="flex items-center gap-2 px-4 py-4">
-              <span className="type-heading-sm flex-1">
-                BYOK
-              </span>
+              <span className="type-heading-sm flex-1">BYOK</span>
               <Link
                 href="/dashboard"
-                className="flex items-center gap-1 text-[0.8125rem] text-zinc-500 hover:text-zinc-800"
+                className="flex items-center gap-1.5 rounded-full border border-zinc-200 px-3 py-1.5 text-[0.8125rem] text-zinc-600 transition-colors hover:border-zinc-900 hover:text-zinc-900"
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Drive
               </Link>
-              <button
-                onClick={() => setSidebarOpen(false)}
-                className="shrink-0 text-zinc-500 transition hover:text-zinc-800"
-                title="Collapse sidebar"
-                aria-label="Collapse sidebar"
-              >
-                <PanelLeftClose className="h-4 w-4" />
-              </button>
+              {/* Phones: the drawer's own close, styled like the desktop handle. */}
+              <RingButton label="Close sidebar" onClick={() => setSidebarOpen(false)} className="md:hidden">
+                <ChevronLeft className="h-4 w-4" />
+              </RingButton>
             </div>
+            <RailToggle collapsed={false} onToggle={() => setSidebarOpen(false)} />
 
             <div className="px-3">
               <button
@@ -234,14 +225,14 @@ export default function ByokPage() {
                           setRenamingId(c.id);
                           setRenameText(c.title);
                         }}
-                        className="shrink-0 text-zinc-500 opacity-100 hover:text-zinc-800 md:opacity-0 md:group-hover:opacity-100"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 opacity-100 hover:bg-zinc-200/70 hover:text-zinc-800 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100"
                         aria-label="Rename"
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </button>
                       <button
                         onClick={() => setConfirmDelete(c)}
-                        className="shrink-0 text-zinc-500 opacity-100 hover:text-red-500 md:opacity-0 md:group-hover:opacity-100"
+                        className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-zinc-500 opacity-100 hover:bg-zinc-200/70 hover:text-red-500 md:h-6 md:w-6 md:opacity-0 md:group-hover:opacity-100"
                         aria-label="Delete"
                       >
                         <Trash2 className="h-3.5 w-3.5" />
@@ -256,12 +247,12 @@ export default function ByokPage() {
             </nav>
 
             <div className="border-t border-zinc-200 p-2">
-              <AccountMenu onSettings={() => setShowSettings(true)} />
+              <AccountMenu onSettings={() => router.push("/settings/models?from=byok")} />
             </div>
           </aside>
 
           {/* Main */}
-          <main className="flex min-h-0 w-full flex-1 flex-col overflow-hidden">
+          <main className="flex min-h-0 w-full flex-1 flex-col overflow-clip">
             <DriveChat
               conversationId={activeId}
               onOpenSidebar={() => setSidebarOpen(true)}
@@ -269,19 +260,13 @@ export default function ByokPage() {
               prompts={prompts}
               onActivate={activateConversation}
               onActivity={() => void loadConversations()}
+              onOpenSettings={(target) => router.push(settingsHref(target))}
+              onKeyUpdated={(updated) => setKeys((ks) => ks.map((k) => (k.id === updated.id ? updated : k)))}
+              onDiscard={(id) => setConversations((cs) => cs.filter((c) => c.id !== id))}
             />
           </main>
         </div>
       </Glow>
-
-      {showSettings ? (
-        <SettingsModal
-          keys={keys}
-          prompts={prompts}
-          onClose={() => setShowSettings(false)}
-          onChanged={() => void loadVault()}
-        />
-      ) : null}
 
       {confirmDelete ? (
         <ConfirmModal

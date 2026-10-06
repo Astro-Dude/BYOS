@@ -4,7 +4,7 @@ import { ApiError, type PlatformStats } from "@byos/api-client";
 import { ArrowLeft, ShieldCheck } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
 import { AdminsPanel } from "@/components/admin/admins-panel";
 import {
@@ -23,6 +23,7 @@ import { Reveal } from "@/components/reveal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
+import { StorageIcon, providerName } from "@/components/storage-icon";
 import { formatBytes } from "@/lib/utils";
 
 /** Platform analytics.
@@ -33,10 +34,12 @@ import { formatBytes } from "@/lib/utils";
  */
 const SECTIONS = [
   { id: "pulse", label: "Pulse" },
+  { id: "adoption", label: "Adoption" },
   { id: "growth", label: "Growth" },
   { id: "content", label: "What's stored" },
   { id: "sharing", label: "Sharing" },
   { id: "activity", label: "Activity" },
+  { id: "assistant", label: "Bao" },
   { id: "accounts", label: "Accounts" },
   { id: "health", label: "Housekeeping" },
   { id: "surface", label: "Platform surface" },
@@ -54,11 +57,18 @@ const SECTIONS = [
  */
 function SectionNav() {
   const [active, setActive] = useState(SECTIONS[0]!.id);
+  // A clicked link wins until the jump settles: near the end of the page a short
+  // section can't scroll to the top, so position alone would mark its neighbour.
+  const clicked = useRef<{ id: string; until: number } | null>(null);
 
   useEffect(() => {
     let frame = 0;
     const pick = () => {
       frame = 0;
+      if (clicked.current && Date.now() < clicked.current.until) {
+        setActive(clicked.current.id);
+        return;
+      }
       // A fixed reading line rather than a fraction of the viewport: at 25% of a
       // tall window the line sat below the *next* heading whenever a panel was
       // short, so clicking "Accounts" lit "Housekeeping". 96px clears an anchor
@@ -73,8 +83,7 @@ function SectionNav() {
       // The last section sits too close to the end of the page for its heading
       // ever to reach the reading line, so bottoming out counts as reaching it —
       // otherwise clicking "Admins" marks the section above it.
-      const bottomed =
-        window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
+      const bottomed = window.scrollY + window.innerHeight >= document.documentElement.scrollHeight - 4;
       setActive(bottomed ? SECTIONS.at(-1)!.id : current);
     };
     const onScroll = () => {
@@ -98,6 +107,10 @@ function SectionNav() {
           <a
             key={s.id}
             href={`#${s.id}`}
+            onClick={() => {
+              clicked.current = { id: s.id, until: Date.now() + 900 };
+              setActive(s.id);
+            }}
             className={active === s.id ? "nav-item-active" : "nav-item"}
           >
             {s.label}
@@ -222,6 +235,11 @@ export default function AdminPage() {
   const activeToday = stats.active.at(-1)?.value ?? 0;
   const cov = stats.index_coverage;
   const v = stats.versions;
+  const eng = stats.engagement;
+  const funnel = stats.funnel ?? [];
+  const signedUp = funnel[0]?.count ?? 0;
+  const bao = stats.assistant;
+  const pct = (n: number, of: number) => (of ? `${Math.round((n / of) * 100)}%` : "0%");
 
   return (
     <main className="px-4 pb-28 pt-8 sm:px-6 md:pb-16 lg:px-8">
@@ -282,11 +300,40 @@ export default function AdminPage() {
               <Punchcard points={stats.active} unit="people" />
             </Panel>
 
+            {eng ? (
+              <Panel
+                id="adoption"
+                className="lg:col-span-2 2xl:col-span-3"
+                title="Who keeps coming back"
+                hint="People active in the last day, week and month: an audited action or a question to Bao. Stickiness is the share of the month's people who show up on a given day."
+                delay={100}
+              >
+                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+                  <Stat label="Today" value={eng.dau.toLocaleString()} sub="active in the last 24 hours" />
+                  <Stat label="This week" value={eng.wau.toLocaleString()} sub="last 7 days" />
+                  <Stat label="This month" value={eng.mau.toLocaleString()} sub="last 30 days" />
+                  <Stat label="Stickiness" value={pct(eng.dau, eng.mau)} sub="today out of this month" />
+                </div>
+                {funnel.length ? (
+                  <div className="mt-8">
+                    <p className="type-label mb-4">How far accounts get</p>
+                    <Lollipop
+                      rows={funnel.map((f) => ({
+                        label: f.label,
+                        value: f.count,
+                        sub: `${pct(f.count, signedUp)} of signups`,
+                      }))}
+                    />
+                  </div>
+                ) : null}
+              </Panel>
+            ) : null}
+
             <Panel
               id="growth"
               className="lg:col-span-2 2xl:col-span-3"
               title="Storage under management"
-              hint="Cumulative bytes across every account. Stepped, because storage grows when files land — not continuously."
+              hint="Total storage across all accounts. It steps up as files are added."
               delay={140}
             >
               <StepArea points={stats.growth} format={formatBytes} />
@@ -300,17 +347,43 @@ export default function AdminPage() {
               <Bands rows={stats.sizes} />
             </Panel>
 
-            <Panel
-              title="Where the bytes live"
-              hint="Files by storage provider."
-              delay={200}
-            >
+            <Panel title="Where the bytes live" hint="Files and storage by provider." delay={200}>
               {stats.providers.length ? (
-                <StackedPill rows={stats.providers.map((p) => ({ label: p.label, count: p.count }))} />
+                <>
+                  <StackedPill
+                    rows={stats.providers.map((p) => ({ label: providerName(p.label), count: p.count }))}
+                  />
+                  <div className="mt-5 divide-y divide-zinc-200 border-t border-zinc-200">
+                    {stats.providers.map((p) => {
+                      const accounts = stats.storage_accounts?.find((a) => a.label === p.label)?.count ?? 0;
+                      return (
+                        <div key={p.label} className="flex items-center gap-3 py-2.5 text-[0.875rem]">
+                          <StorageIcon provider={p.label} className="h-4 w-4 shrink-0 text-zinc-500" />
+                          <span className="flex-1 text-zinc-900">{providerName(p.label)}</span>
+                          <span className="text-zinc-500">{p.count.toLocaleString()} files</span>
+                          <span className="w-20 text-right text-zinc-500">{formatBytes(p.bytes)}</span>
+                          <span className="w-28 text-right text-zinc-500">
+                            {accounts.toLocaleString()} connected
+                          </span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </>
               ) : (
                 <p className="type-label">No files yet.</p>
               )}
             </Panel>
+
+            {stats.storage_status?.length ? (
+              <Panel
+                title="Storage connections"
+                hint="Every connected storage by state. Anything not connected needs its owner to reconnect it in Settings."
+                delay={230}
+              >
+                <StackedPill rows={stats.storage_status.map((r) => ({ label: r.label, count: r.count }))} />
+              </Panel>
+            ) : null}
 
             <Panel title="Tags in use" hint="Sized by how many files carry them." delay={260}>
               {stats.tags.length ? (
@@ -345,7 +418,11 @@ export default function AdminPage() {
               <RadialClock points={stats.hours} />
             </Panel>
 
-            <Panel title="What's being done" hint={`Audited actions, last ${stats.window_days} days.`} delay={140}>
+            <Panel
+              title="What's being done"
+              hint={`Audited actions, last ${stats.window_days} days.`}
+              delay={140}
+            >
               {stats.actions.length ? (
                 <Lollipop rows={stats.actions.map((a) => ({ label: a.action, value: a.count }))} />
               ) : (
@@ -353,9 +430,95 @@ export default function AdminPage() {
               )}
             </Panel>
 
-            <Panel id="accounts" className="lg:col-span-2 2xl:col-span-1" title="Busiest accounts" hint="By bytes stored." delay={80}>
+            {bao ? (
+              <>
+                <Panel
+                  id="assistant"
+                  className="lg:col-span-2 2xl:col-span-3"
+                  title="Bao at work"
+                  hint={`Questions asked and plans applied each day, last ${stats.window_days} days.`}
+                  delay={80}
+                >
+                  <Ridgeline
+                    series={[
+                      { label: "Questions", points: bao.questions },
+                      { label: "Plans applied", points: bao.plans_applied, accent: true },
+                    ]}
+                  />
+                </Panel>
+
+                <Panel
+                  title="What became of the plans"
+                  hint="Every plan Bao proposed, by where it ended up, and how the changes in applied plans went."
+                  delay={120}
+                >
+                  {bao.plans_by_status.length ? (
+                    <>
+                      <StackedPill rows={bao.plans_by_status} />
+                      <div className="mt-6 grid items-center gap-6 sm:grid-cols-2">
+                        <ArcGauge
+                          value={bao.changes.ok}
+                          of={bao.changes.ok + bao.changes.failed}
+                          label="Changes that worked"
+                        />
+                        <div className="grid gap-4">
+                          <Stat
+                            label="Failed"
+                            value={bao.changes.failed.toLocaleString()}
+                            sub="changes that didn't go through"
+                          />
+                          <Stat
+                            label="Undone"
+                            value={bao.changes.undone.toLocaleString()}
+                            sub="put back with /undo"
+                          />
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="type-label">Bao hasn&apos;t proposed anything yet.</p>
+                  )}
+                </Panel>
+
+                <Panel
+                  title="What Bao changes"
+                  hint="Kinds of change in every plan, applied or not."
+                  delay={160}
+                >
+                  {bao.change_kinds.length ? (
+                    <Lollipop rows={bao.change_kinds.map((k) => ({ label: k.label, value: k.count }))} />
+                  ) : (
+                    <p className="type-label">No changes proposed yet.</p>
+                  )}
+                </Panel>
+
+                <Panel
+                  title="Keys people bring"
+                  hint="BYOK keys by provider, named from each key's API address, and the models they're set to."
+                  delay={200}
+                >
+                  {bao.providers.length ? (
+                    <>
+                      <StackedPill rows={bao.providers} />
+                      <div className="mt-6">
+                        <Lollipop rows={bao.models.map((m) => ({ label: m.label, value: m.count, sub: m.provider }))} />
+                      </div>
+                    </>
+                  ) : (
+                    <p className="type-label">Nobody has added a key yet.</p>
+                  )}
+                </Panel>
+              </>
+            ) : null}
+
+            <Panel
+              id="accounts"
+              title="Busiest accounts"
+              hint="Top three by bytes stored."
+              delay={80}
+            >
               <Lollipop
-                rows={stats.top_users.map((u) => ({
+                rows={stats.top_users.slice(0, 3).map((u) => ({
                   label: u.label,
                   value: u.bytes,
                   sub: `${u.files} file${u.files === 1 ? "" : "s"}`,
@@ -418,15 +581,7 @@ export default function AdminPage() {
             </Panel>
           </div>
 
-          <p className="type-label mt-8">
-            Generated {new Date(stats.generated_at).toLocaleString()}
-          </p>
-
-          {/* Trailing space so the last sections can actually scroll to the top.
-              Without it the page bottoms out early, every one of the short final
-              panels shares the same clamped scroll position, and clicking them
-              in the rail marks the wrong one. Only needed where the rail is. */}
-          <div aria-hidden className="hidden xl:block xl:h-[45vh]" />
+          <p className="type-label mt-8">Generated {new Date(stats.generated_at).toLocaleString()}</p>
         </div>
       </div>
     </main>

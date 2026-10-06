@@ -25,9 +25,9 @@ const ui = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "BYOS — Bring Your Own Storage",
+  title: "BYOS: Bring Your Own Storage",
   description:
-    "A unified layer on top of the storage you already own: organize, search, preview, version, and share — with permanent dynamic aliases.",
+    "One place to organize, search, preview and share the storage you already own, with links that never break.",
 };
 
 export default function RootLayout({ children }: { children: ReactNode }) {

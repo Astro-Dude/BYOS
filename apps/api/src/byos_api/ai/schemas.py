@@ -2,13 +2,23 @@ from __future__ import annotations
 
 import uuid
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 from byos_api.ai.modes import Mode
 
-
 # ── Keys ─────────────────────────────────────────────────────────────────────
+Effort = Literal["none", "minimal", "low", "medium", "high", "xhigh"]
+
+
+class ModelCheckOut(BaseModel):
+    #: Sampling parameters this model refuses ("temperature", "top_p").
+    unsupported: list[str]
+    #: Reasoning effort levels the model takes, lowest first; empty if none.
+    efforts: list[str] = []
+
+
 class AiKeyOut(BaseModel):
     """A saved key as returned to the client — never includes the API key."""
 
@@ -22,6 +32,10 @@ class AiKeyOut(BaseModel):
     temperature: float
     max_tokens: int
     top_p: float | None = None
+    reasoning_effort: Effort | None = None
+    #: What the model takes, when saving just tested it (a new key, or a new
+    #: model), so the client needn't test it again.
+    check: ModelCheckOut | None = None
 
 
 class AiKeyRevealed(BaseModel):
@@ -45,6 +59,25 @@ class AiKeyIn(BaseModel):
     temperature: float = Field(default=0.2, ge=0, le=2)
     max_tokens: int = Field(default=1024, ge=1, le=32000)
     top_p: float | None = Field(default=None, ge=0, le=1)
+    # None: the lowest the model takes (most of what BYOS asks is simple).
+    reasoning_effort: Effort | None = None
+
+
+class ModelListIn(BaseModel):
+    """Which endpoint to ask for its models. The key comes from the form while
+    adding one (`api_key`), or from the vault when editing (`key_id`)."""
+
+    base_url: str = Field(min_length=1, max_length=500)
+    api_key: str | None = Field(default=None, max_length=500)
+    key_id: uuid.UUID | None = None
+
+
+class ModelListOut(BaseModel):
+    models: list[str]
+
+
+class ModelCheckIn(ModelListIn):
+    model: str = Field(min_length=1, max_length=200)
 
 
 # ── Prompts ──────────────────────────────────────────────────────────────────
@@ -127,6 +160,8 @@ class RagStrategies(BaseModel):
     hyde: bool = False
     rerank: bool = False
     crag: bool = False
+    # Not retrieval: the agent shows its working (steps, calculations) too.
+    reasoning: bool = False
 
 
 class DriveChatRequest(BaseModel):
@@ -159,6 +194,19 @@ class ActionResultOut(BaseModel):
     detail: str
 
 
+class OrganizeOptions(BaseModel):
+    """Settings for /organize. The defaults are the cautious ones: names are
+    left alone, existing folders kept, no tags."""
+
+    rename: bool = False
+    group_by: Literal["auto", "topic", "type", "year"] = "topic"
+    # The most levels of folders. None leaves it to the agent, up to 3.
+    depth: int | None = Field(default=None, ge=1, le=3)
+    keep_existing: bool = True
+    read_contents: bool = True
+    tags: bool = False
+
+
 class AgentChatRequest(BaseModel):
     conversation_id: uuid.UUID
     key_id: uuid.UUID
@@ -169,6 +217,14 @@ class AgentChatRequest(BaseModel):
     mode: Mode = Mode.ASK
     # Retrieval add-ons, applied when the model searches file contents.
     strategies: RagStrategies = Field(default_factory=RagStrategies)
+    # Set by /organize: tidy the whole drive with these settings.
+    organize: OrganizeOptions | None = None
+    # "Want it different?": the pending plan this turn replaces. It's discarded,
+    # `message` is the user's note, and the reply rewrites that plan's message
+    # in place rather than adding a new exchange.
+    revises: uuid.UUID | None = None
+    # "Fix with Bao": an applied plan whose failed changes this turn redoes.
+    fixes: uuid.UUID | None = None
 
 
 class ActionOut(BaseModel):

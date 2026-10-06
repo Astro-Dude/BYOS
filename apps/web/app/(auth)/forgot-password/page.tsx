@@ -1,20 +1,27 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
-import { Send } from "lucide-react";
-import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
-import { Logo } from "@/components/logo";
+import {
+  AuthShell,
+  AuthSkeleton,
+  CodeInput,
+  Field,
+  FormError,
+  PasswordChecks,
+  TelegramNote,
+  TextLink,
+} from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { COUNTRY_CODES } from "@/lib/country-codes";
+import { CountryCodePicker } from "@/components/ui/country-code-picker";
 
 // "details" collects the phone + the new password; the password is applied only
 // once Telegram confirms the code, so nothing changes if the flow is abandoned.
@@ -91,150 +98,126 @@ export default function ForgotPasswordPage() {
     }
   };
 
-  if (authLoading || user) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="mt-10 h-11 w-full max-w-64" />
-        <Skeleton className="mt-5 h-5 w-full" />
-        <Skeleton className="mt-8 h-12 w-full rounded-lg" />
-        <Skeleton className="mt-3 h-12 w-full rounded-full" />
-      </main>
-    );
-  }
+  if (authLoading || user) return <AuthSkeleton />;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col px-6">
-      <header className="flex items-center justify-between py-8">
-        <Logo wordClassName="text-xl" />
-      </header>
-
-      <div className="flex flex-1 flex-col justify-center pb-20">
-        <h1 className="type-heading">Reset your password</h1>
-        <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
-          {step === "details" &&
-            "Choose a new password. We'll send a code to your Telegram app to confirm it's you — BYOS has no email on file, so Telegram is the only way."}
-          {step === "code" && "Enter the code Telegram just sent to your app to apply the new password."}
-          {step === "password" &&
-            "Your Telegram account has two-factor auth — enter its password to finish."}
+    <AuthShell
+      bao="read_only"
+      greeting="Happens to everyone. Let's find your account."
+      title={
+        step === "details" ? "Reset your password" : step === "code" ? "Check Telegram" : "One more step"
+      }
+      lead={
+        step === "details"
+          ? "Choose a new password, then confirm it's you with a code in Telegram. Nothing changes until the code checks out."
+          : step === "code"
+            ? `Enter the code Telegram just sent to ${dial} ${national}. Your password changes once it's checked.`
+            : "Your Telegram account has two-step verification. Enter its password to finish."
+      }
+      steps={{
+        labels: ["New password", "Code", "Verify"],
+        current: ["details", "code", "password"].indexOf(step),
+      }}
+      footer={
+        <p className="text-zinc-500">
+          Remembered it? <TextLink href="/login">Sign in</TextLink>
         </p>
-        {step === "details" ? (
-          <div className="mt-6 flex items-start gap-3 text-[0.9375rem] leading-[1.45] text-zinc-600">
-            <Send className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-            <span>
-              Use the phone number on your BYOS account. The code arrives in{" "}
-              <strong className="text-zinc-900">Telegram</strong>, from the official “Telegram”
-              chat — never by SMS.
-            </span>
-          </div>
-        ) : null}
-        {step === "code" ? (
-          <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
-            <Send className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Check your <strong>Telegram app</strong> — the code is sent there (in the official
-              “Telegram” chat), not by SMS. Your password only changes once it verifies.
-            </span>
-          </div>
-        ) : null}
-
-        <form onSubmit={onSubmit} className="mt-8 space-y-3">
-          {step === "details" && (
+      }
+    >
+      {step !== "password" ? (
+        <TelegramNote sent={step === "code"}>
+          {step === "details" ? (
             <>
+              Use the phone number on your BYOS account. The code arrives in{" "}
+              <strong className="font-medium text-zinc-900">Telegram</strong>, not by SMS.
+            </>
+          ) : undefined}
+        </TelegramNote>
+      ) : null}
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {step === "details" && (
+          <>
+            <Field label="Phone number" htmlFor="phone">
               <div className="flex gap-2">
-                <select
-                  value={dial}
-                  onChange={(e) => setDial(e.target.value)}
-                  aria-label="Country code"
-                  className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-[0.9375rem] text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
-                >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={`${c.iso}${c.dial}`} value={c.dial}>
-                      {c.iso} {c.dial}
-                    </option>
-                  ))}
-                </select>
+                <CountryCodePicker dial={dial} onChange={setDial} />
                 <Input
+                  id="phone"
                   type="tel"
                   required
                   autoFocus
                   inputMode="numeric"
+                  autoComplete="tel-national"
                   value={national}
                   onChange={(e) => setNational(e.target.value)}
                   placeholder="98765 43210"
                 />
               </div>
+            </Field>
+            <Field label="New password" htmlFor="password">
               <PasswordInput
+                id="password"
                 required
                 autoComplete="new-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="New password (min 8 characters)"
+                placeholder="At least 8 characters"
               />
+            </Field>
+            <Field label="Confirm new password" htmlFor="confirm">
               <PasswordInput
+                id="confirm"
                 required
                 autoComplete="new-password"
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Confirm new password"
+                placeholder="Type it again"
               />
-            </>
-          )}
-          {step === "code" && (
-            <Input
-              required
-              autoFocus
-              inputMode="numeric"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Code from Telegram (e.g. 12345)"
-            />
-          )}
-          {step === "password" && (
+            </Field>
+            <PasswordChecks password={password} confirm={confirm} />
+          </>
+        )}
+        {step === "code" && (
+          <Field label="Login code" htmlFor="code">
+            <CodeInput id="code" value={code} onChange={setCode} />
+          </Field>
+        )}
+        {step === "password" && (
+          <Field label="Two-step verification password" htmlFor="twofa">
             <PasswordInput
+              id="twofa"
               required
               autoFocus
               value={twofa}
               onChange={(e) => setTwofa(e.target.value)}
-              placeholder="Two-factor password"
+              placeholder="Your Telegram password"
             />
-          )}
+          </Field>
+        )}
 
-          {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
+        {error ? <FormError>{error}</FormError> : null}
 
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy
-              ? "Please wait…"
-              : step === "details"
-                ? "Send code to Telegram"
-                : "Set new password"}
-          </Button>
-        </form>
+        <Button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {busy ? "Please wait…" : step === "details" ? "Send code to Telegram" : "Set new password"}
+        </Button>
+        {step !== "details" ? (
+          <button
+            type="button"
+            onClick={() => {
+              setStep("details");
+              setError(null);
+            }}
+            className="block w-full text-center text-[0.875rem] text-zinc-500 hover:text-zinc-900"
+          >
+            ← Start over
+          </button>
+        ) : null}
+      </form>
 
-        <div className="mt-4 space-y-2 text-[0.9375rem]">
-          <p className="text-[0.8125rem] leading-[1.5] text-zinc-500">
-            Resetting signs out every other device — anyone still using the old password loses
-            access.
-          </p>
-          {step !== "details" && (
-            <button
-              onClick={() => {
-                setStep("details");
-                setError(null);
-              }}
-              className="block text-zinc-500 hover:text-zinc-800"
-            >
-              ← Start over
-            </button>
-          )}
-          <p className="text-zinc-500">
-            Remembered it?{" "}
-            <Link href="/login" className="text-zinc-900 hover:text-zinc-900">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+      <p className="mt-5 text-[0.8125rem] leading-[1.5] text-zinc-500">
+        Resetting signs you out on every other device.
+      </p>
+    </AuthShell>
   );
 }

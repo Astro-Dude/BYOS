@@ -72,7 +72,7 @@ class Settings(BaseSettings):
 
     # Admins get the platform analytics dashboard. Identifiers are matched against
     # a user's Telegram id *or* their phone number, digits only, by suffix — the
-    # phone is stored E.164 (+917992214793) but is far more likely to be typed
+    # phone is stored E.164 (+919876543210) but is far more likely to be typed
     # here without the country code.
     admin_ids: str = "7992214793"
 
@@ -93,9 +93,7 @@ class Settings(BaseSettings):
     @property
     def blocked_extensions_set(self) -> set[str]:
         return {
-            e.strip().lower().lstrip(".")
-            for e in self.blocked_extensions.split(",")
-            if e.strip()
+            e.strip().lower().lstrip(".") for e in self.blocked_extensions.split(",") if e.strip()
         }
 
     @field_validator("telegram_api_id", "telegram_api_hash", mode="before")

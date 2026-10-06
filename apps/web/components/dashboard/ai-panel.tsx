@@ -5,6 +5,7 @@ import { KeyRound, Loader2, Send, Sparkles, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { Dropdown } from "@/components/byok/dropdown";
 import { KeyForm } from "@/components/byok/key-form";
 import { AssistantBubble } from "@/components/dashboard/chat-format";
 import { api } from "@/lib/api";
@@ -214,23 +215,25 @@ export function AiPanel({ file }: { file: FileItem }) {
       </div>
 
       <div className="flex flex-wrap items-center gap-2 border-b border-zinc-100 px-4 py-2">
-        <select value={keyId} onChange={(e) => onKey(e.target.value)} className={selectCls}>
-          {keys.map((k) => (
-            <option key={k.id} value={k.id}>
-              {k.name}
-            </option>
-          ))}
-        </select>
-        <select value={promptId} onChange={(e) => onPrompt(e.target.value)} className={selectCls}>
-          <option value="">Default prompt</option>
-          {prompts.map((p) => (
-            <option key={p.id} value={p.id}>
-              {p.name}
-            </option>
-          ))}
-        </select>
+        <Dropdown
+          value={keyId}
+          onChange={onKey}
+          ariaLabel="Model"
+          options={keys.map((k) => ({ value: k.id, label: k.name }))}
+          className={selectCls}
+        />
+        <Dropdown
+          value={promptId}
+          onChange={onPrompt}
+          ariaLabel="System prompt"
+          options={[
+            { value: "", label: "Default prompt" },
+            ...prompts.map((p) => ({ value: p.id, label: p.name })),
+          ]}
+          className={selectCls}
+        />
         <label
-          title="Long-document mode — for books/large files, retrieves the relevant sections"
+          title="Long document mode. For books and big files, it finds the relevant parts."
           className="ml-auto flex cursor-pointer items-center gap-1.5 text-[0.8125rem] text-zinc-500"
         >
           <input

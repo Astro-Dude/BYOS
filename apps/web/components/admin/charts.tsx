@@ -781,21 +781,108 @@ export function ArcGauge({
 
 /** Type-scaled tags. In a system this typographic, size *is* the chart — and it
  *  handles a long tail of one-off tags without a legend. */
+/** A word cloud: the most-used tag in the middle, the rest scattered around it.
+ *
+ *  Each tag is measured, then placed biggest first along a spiral out from the
+ *  centre, starting at an angle seeded by its name, at the first spot where it
+ *  overlaps nothing. Seeded rather than random, so the layout is the same on
+ *  every load. If they don't all fit, the box grows taller and it tries again. */
 export function TagCloud({ rows }: { rows: { label: string; count: number }[] }) {
   const max = Math.max(1, ...rows.map((r) => r.count));
   const min = Math.min(...rows.map((r) => r.count), 0);
+  const box = useRef<HTMLDivElement>(null);
+  const words = useRef<Record<string, HTMLSpanElement | null>>({});
+  const [width, setWidth] = useState(0);
+  const [layout, setLayout] = useState<{
+    height: number;
+    at: Record<string, { x: number; y: number }>;
+  } | null>(null);
+
+  useEffect(() => {
+    const el = box.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => setWidth(el.clientWidth));
+    ro.observe(el);
+    setWidth(el.clientWidth);
+    return () => ro.disconnect();
+  }, []);
+
+  useEffect(() => {
+    if (!width) return;
+    const sized = [...rows]
+      .sort((a, b) => b.count - a.count)
+      .map((r) => {
+        const el = words.current[r.label];
+        return { label: r.label, w: el?.offsetWidth ?? 40, h: el?.offsetHeight ?? 20 };
+      });
+    const pad = 8;
+    for (let height = 200; height <= 900; height += 60) {
+      const placed: { x: number; y: number; w: number; h: number }[] = [];
+      const at: Record<string, { x: number; y: number }> = {};
+      let fits = true;
+      for (const word of sized) {
+        let seed = 0;
+        for (const ch of word.label) seed = (seed * 31 + ch.charCodeAt(0)) % 997;
+        const start = (seed / 997) * Math.PI * 2;
+        let spot: { x: number; y: number } | null = null;
+        for (let k = 0; k < 1400 && !spot; k++) {
+          const angle = start + k * 0.32;
+          const r = k * 1.15;
+          // Wider than tall, like the panel: stretch the spiral sideways.
+          const x = width / 2 + Math.cos(angle) * r * 1.9 - word.w / 2;
+          const y = height / 2 + Math.sin(angle) * r - word.h / 2;
+          if (x < 0 || y < 0 || x + word.w > width || y + word.h > height) continue;
+          const clear = placed.every(
+            (o) =>
+              x + word.w + pad < o.x ||
+              o.x + o.w + pad < x ||
+              y + word.h + pad / 2 < o.y ||
+              o.y + o.h + pad / 2 < y,
+          );
+          if (clear) spot = { x, y };
+        }
+        if (!spot) {
+          fits = false;
+          break;
+        }
+        placed.push({ ...spot, w: word.w, h: word.h });
+        at[word.label] = spot;
+      }
+      if (fits) {
+        // Trim the empty band top and bottom so the panel isn't padded with air.
+        const top = Math.min(...placed.map((o) => o.y));
+        const bottom = Math.max(...placed.map((o) => o.y + o.h));
+        for (const k of Object.keys(at)) at[k] = { x: at[k]!.x, y: at[k]!.y - top };
+        setLayout({ height: bottom - top, at });
+        return;
+      }
+    }
+    setLayout(null); // couldn't place: fall back to the simple wrapped list
+  }, [rows, width]);
+
   return (
-    <div className="flex flex-wrap items-baseline gap-x-4 gap-y-2">
+    <div
+      ref={box}
+      className={layout ? "relative" : "flex flex-wrap items-baseline gap-x-4 gap-y-2"}
+      style={layout ? { height: layout.height } : undefined}
+    >
       {rows.map((r, i) => {
         const t = max === min ? 1 : (r.count - min) / (max - min);
+        const spot = layout?.at[r.label];
         return (
           <span
             key={r.label}
-            className="steep-rise"
+            ref={(el) => {
+              words.current[r.label] = el;
+            }}
+            className={`steep-rise whitespace-nowrap ${layout ? "absolute" : ""}`}
             style={{
               fontSize: `${0.9375 + t * 1.1}rem`,
               color: `rgb(var(--c-900) / ${0.45 + t * 0.55})`,
               animationDelay: `${i * 40}ms`,
+              // left/top, not transform: the rise animation owns transform.
+              left: spot?.x,
+              top: spot?.y,
             }}
             title={`${r.count} file${r.count === 1 ? "" : "s"}`}
           >

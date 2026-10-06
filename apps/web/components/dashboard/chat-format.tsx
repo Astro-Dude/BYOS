@@ -13,18 +13,23 @@ export function splitThought(content: string): {
   thought: string;
   answer: string;
   thinking: boolean;
+  /** "reasoning" is working the user asked to see (Show reasoning); "think" is
+   *  the model's own scratch thinking. */
+  kind: "think" | "reasoning";
 } {
-  const closed = content.match(/<(think|thought)\b[^>]*>([\s\S]*?)<\/\1>/i);
+  const closed = content.match(/<(think|thought|reasoning)\b[^>]*>([\s\S]*?)<\/\1>/i);
   if (closed) {
-    const answer = content
-      .slice((closed.index ?? 0) + (closed[0]?.length ?? 0))
-      .replace(/^\s+/, "");
-    return { thought: (closed[2] ?? "").trim(), answer, thinking: false };
+    const answer = (
+      content.slice(0, closed.index ?? 0) + content.slice((closed.index ?? 0) + (closed[0]?.length ?? 0))
+    ).replace(/^\s+/, "");
+    return { thought: (closed[2] ?? "").trim(), answer, thinking: false, kind: kindOf(closed[1]) };
   }
-  const open = content.match(/<(think|thought)\b[^>]*>([\s\S]*)$/i);
-  if (open) return { thought: (open[2] ?? "").trim(), answer: "", thinking: true };
-  return { thought: "", answer: content, thinking: false };
+  const open = content.match(/<(think|thought|reasoning)\b[^>]*>([\s\S]*)$/i);
+  if (open) return { thought: (open[2] ?? "").trim(), answer: "", thinking: true, kind: kindOf(open[1]) };
+  return { thought: "", answer: content, thinking: false, kind: "think" };
 }
+
+const kindOf = (tag: string | undefined) => (tag?.toLowerCase() === "reasoning" ? "reasoning" : "think");
 
 /* ── Highlighting the direct answer ────────────────────────────────────────
  * Models are asked to wrap the one value the question was actually about in

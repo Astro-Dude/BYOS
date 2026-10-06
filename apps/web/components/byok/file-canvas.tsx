@@ -1,13 +1,13 @@
 "use client";
 
-import { type FileItem } from "@byos/api-client";
-import { Loader2, X } from "lucide-react";
-import { useEffect, useState } from "react";
+import { ApiError, type FileItem } from "@byos/api-client";
+import { FileX, Loader2, X } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
 
 import { type Source } from "@/components/byok/drive-message";
+import { PdfView } from "@/components/byok/pdf-view";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
-import { docPreviewUrl } from "@/lib/utils";
 
 type Kind = "image" | "pdf" | "audio" | "video" | "text" | "unsupported";
 
@@ -30,6 +30,34 @@ function kindOf(file: FileItem): Kind {
   return TEXT_EXT.has((file.ext ?? "").toLowerCase()) ? "text" : "unsupported";
 }
 
+/** Plain text with the quoted passages marked, scrolled to the first one.
+ *  Case and spacing are ignored when matching. */
+function MarkedText({ text, quotes }: { text: string; quotes: string[] }) {
+  const first = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    first.current?.scrollIntoView({ block: "center", behavior: "smooth" });
+  }, [text, quotes]);
+  const terms = quotes.map((q) => q.trim()).filter(Boolean);
+  if (!terms.length) return <>{text}</>;
+  const escaped = terms.map((t) => t.replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/\s+/g, "\\s+"));
+  const parts = text.split(new RegExp(`(${escaped.join("|")})`, "gi"));
+  let seen = false;
+  return (
+    <>
+      {parts.map((part, i) => {
+        if (i % 2 === 0) return part;
+        const isFirst = !seen;
+        seen = true;
+        return (
+          <mark key={i} ref={isFirst ? first : undefined} className="source-mark-text rounded px-0.5">
+            {part}
+          </mark>
+        );
+      })}
+    </>
+  );
+}
+
 /** Right-side "canvas" preview of a chat source — the chat shifts left and the
  *  file opens here (image / pdf / text / media). */
 export function FileCanvas({ source, onClose }: { source: Source; onClose: () => void }) {
@@ -37,16 +65,21 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
   const [file, setFile] = useState<FileItem | null>(null);
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
+  const [pdf, setPdf] = useState<Blob | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [deleted, setDeleted] = useState(false);
+  const quotes = source.quotes ?? [];
 
   useEffect(() => {
     let objectUrl: string | null = null;
     let cancelled = false;
     setLoading(true);
     setError(null);
+    setDeleted(false);
     setUrl(null);
     setText(null);
+    setPdf(null);
     (async () => {
       try {
         const meta = await authed((t) => api.getFile(t, source.id));
@@ -58,12 +91,19 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
         if (cancelled) return;
         if (kind === "text") {
           setText(await blob.text());
+        } else if (kind === "pdf") {
+          setPdf(blob); // drawn here, so the quoted passage can be marked
+          objectUrl = URL.createObjectURL(blob);
+          setUrl(objectUrl);
         } else {
           objectUrl = URL.createObjectURL(blob);
           setUrl(objectUrl);
         }
-      } catch {
-        if (!cancelled) setError("Couldn't load this file.");
+      } catch (err) {
+        if (cancelled) return;
+        // The answer still refers to it; say plainly that the file is gone.
+        if (err instanceof ApiError && err.status === 404) setDeleted(true);
+        else setError("Couldn't load this file.");
       } finally {
         if (!cancelled) setLoading(false);
       }
@@ -94,24 +134,38 @@ export function FileCanvas({ source, onClose }: { source: Source; onClose: () =>
           <div className="flex h-full items-center justify-center text-zinc-500">
             <Loader2 className="h-5 w-5 animate-spin" />
           </div>
+        ) : deleted ? (
+          <div className="flex h-full flex-col items-center justify-center gap-2 px-6 text-center">
+            <span className="flex h-11 w-11 items-center justify-center rounded-full bg-zinc-100 text-zinc-500">
+              <FileX className="h-5 w-5" />
+            </span>
+            <p className="text-[0.9375rem] text-zinc-900">This file was deleted</p>
+            <p className="max-w-xs text-[0.8125rem] text-zinc-500">
+              The answer was based on {source.name}, which isn&apos;t in your drive any more.
+            </p>
+            {quotes.length ? (
+              <div className="mt-3 w-full max-w-sm rounded-xl bg-zinc-100 p-3 text-left">
+                <p className="mb-1 text-[0.75rem] text-zinc-500">What it quoted</p>
+                {quotes.map((q) => (
+                  <p key={q} className="text-[0.8125rem] text-zinc-800">“{q}”</p>
+                ))}
+              </div>
+            ) : null}
+          </div>
         ) : error ? (
           <p className="text-[0.9375rem] text-red-400">{error}</p>
         ) : kind === "image" && url ? (
           // eslint-disable-next-line @next/next/no-img-element
           <img src={url} alt={source.name} className="mx-auto max-w-full rounded-lg" />
-        ) : kind === "pdf" && url ? (
-          <iframe
-            src={docPreviewUrl(url, true)}
-            title={source.name}
-            className="h-full w-full rounded-lg bg-white"
-          />
+        ) : kind === "pdf" && pdf ? (
+          <PdfView blob={pdf} quotes={quotes} />
         ) : kind === "audio" && url ? (
           <audio src={url} controls className="w-full" />
         ) : kind === "video" && url ? (
           <video src={url} controls className="max-h-full w-full rounded-lg" />
         ) : kind === "text" && text != null ? (
           <pre className="whitespace-pre-wrap break-words text-[0.8125rem] leading-relaxed text-zinc-700">
-            {text}
+            <MarkedText text={text} quotes={quotes} />
           </pre>
         ) : (
           <p className="text-[0.9375rem] text-zinc-500">

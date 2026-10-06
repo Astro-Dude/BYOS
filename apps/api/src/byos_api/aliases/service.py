@@ -141,9 +141,7 @@ async def list_aliases(
     aliases = (
         (
             await db.execute(
-                select(Alias)
-                .where(Alias.owner_id == user.id)
-                .order_by(Alias.created_at.desc())
+                select(Alias).where(Alias.owner_id == user.id).order_by(Alias.created_at.desc())
             )
         )
         .scalars()
@@ -158,9 +156,7 @@ async def list_aliases(
         for f in (await db.execute(select(File).where(File.id.in_(file_ids)))).scalars():
             files[f.id] = f
     if folder_ids:
-        for fo in (
-            await db.execute(select(Folder).where(Folder.id.in_(folder_ids)))
-        ).scalars():
+        for fo in (await db.execute(select(Folder).where(Folder.id.in_(folder_ids)))).scalars():
             folders[fo.id] = fo
 
     out: list[tuple[Alias, str, uuid.UUID | None, str | None]] = []
@@ -189,9 +185,7 @@ async def update_alias(
         if not SLUG_RE.match(slug):
             raise InvalidSlug
         clash = (
-            await db.execute(
-                select(Alias).where(Alias.owner_id == user.id, Alias.slug == slug)
-            )
+            await db.execute(select(Alias).where(Alias.owner_id == user.id, Alias.slug == slug))
         ).scalar_one_or_none()
         if clash is not None and clash.id != alias.id:
             raise SlugTaken
@@ -221,9 +215,7 @@ async def _resolve_alias(db: AsyncSession, username: str, slug: str) -> tuple[Al
     if owner is None:
         raise AliasNotFound
     alias = (
-        await db.execute(
-            select(Alias).where(Alias.owner_id == owner.id, Alias.slug == slug)
-        )
+        await db.execute(select(Alias).where(Alias.owner_id == owner.id, Alias.slug == slug))
     ).scalar_one_or_none()
     if alias is None:
         raise AliasNotFound
@@ -258,9 +250,7 @@ async def _subtree_folder_ids(
     """All folder ids in the subtree rooted at root_id (inclusive). Folder counts
     per user are small, so we load the owner's folders once and walk in memory."""
     rows = (
-        await db.execute(
-            select(Folder.id, Folder.parent_id).where(Folder.owner_id == owner_id)
-        )
+        await db.execute(select(Folder.id, Folder.parent_id).where(Folder.owner_id == owner_id))
     ).all()
     children: dict[uuid.UUID | None, list[uuid.UUID]] = {}
     for fid, pid in rows:

@@ -68,7 +68,7 @@ export function AccountMenu({ onSettings }: { onSettings: () => void }) {
           <div className="my-1 border-t border-zinc-200" />
           <button
             onClick={() => void logout()}
-            className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-red-400 transition hover:bg-red-500/10"
+            className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-zinc-800 transition hover:bg-red-50 hover:text-red-700"
           >
             <LogOut className="h-4 w-4" /> Log out
           </button>

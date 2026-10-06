@@ -5,6 +5,7 @@ import { Sparkles, X } from "lucide-react";
 import { useEffect, useState } from "react";
 
 import { AiPanel } from "@/components/dashboard/ai-panel";
+import { StorageIcon, providerName } from "@/components/storage-icon";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
 import { docPreviewUrl } from "@/lib/utils";
@@ -36,7 +37,16 @@ function kindOf(file: FileItem): Kind {
   return "unsupported";
 }
 
-export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () => void }) {
+export function PreviewModal({
+  file,
+  storedOn,
+  onClose,
+}: {
+  file: FileItem;
+  /** Where the file lives, e.g. "GitHub · ada/byos-storage". */
+  storedOn?: string;
+  onClose: () => void;
+}) {
   const authed = useAuthed();
   const [url, setUrl] = useState<string | null>(null);
   const [text, setText] = useState<string | null>(null);
@@ -89,7 +99,13 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between border-b border-zinc-100 px-4 py-3">
-          <p className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</p>
+          <div className="min-w-0">
+            <p className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</p>
+            <p className="flex items-center gap-1.5 text-[0.8125rem] text-zinc-500">
+              <StorageIcon provider={file.provider} className="h-3.5 w-3.5 shrink-0" />
+              <span className="truncate">Stored on {storedOn ?? providerName(file.provider)}</span>
+            </p>
+          </div>
           <div className="flex shrink-0 items-center gap-2">
             {aiEligible ? (
               <button
@@ -136,7 +152,7 @@ export function PreviewModal({ file, onClose }: { file: FileItem; onClose: () =>
               {text}
             </pre>
           ) : (
-            <p className="text-[0.9375rem] text-zinc-500">No inline preview for this file type — download it.</p>
+            <p className="text-[0.9375rem] text-zinc-500">Can&apos;t preview this file type. Download it to open.</p>
           )}
           </div>
           {aiOpen && aiEligible ? <AiPanel file={file} /> : null}

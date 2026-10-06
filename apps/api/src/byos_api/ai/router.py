@@ -17,14 +17,26 @@ import re
 import uuid
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
-from typing import Annotated
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from fastapi.responses import StreamingResponse
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from byos_api.ai import agent, extract, llm, rag, retrieval, semantic, service, vision
+from byos_api.ai import (
+    agent,
+    citations,
+    extract,
+    llm,
+    organize,
+    rag,
+    retrieval,
+    semantic,
+    service,
+    vision,
+)
+from byos_api.ai.modes import Mode
 from byos_api.ai.schemas import (
     ActionOut,
     ActionResultOut,
@@ -41,8 +53,13 @@ from byos_api.ai.schemas import (
     ConversationOut,
     ConversationRename,
     DriveChatRequest,
+    Effort,
     IndexRequest,
     IndexStatusOut,
+    ModelCheckIn,
+    ModelCheckOut,
+    ModelListIn,
+    ModelListOut,
     PlanOut,
     SummarizeRequest,
     UnindexRequest,
@@ -83,7 +100,7 @@ _DEFAULT_SYSTEM = (
 _HIGHLIGHT_NOTE = (
     "Formatting: wrap the single most direct answer — the figure, name, date or "
     "short phrase the user actually asked for — in ==double equals==, e.g. "
-    "“your total net pay was ==₹2,65,000.00==”. Use it exactly once, on the key "
+    "“your total net pay was ==₹84,500.00==”. Use it exactly once, on the key "
     "value only, never on a whole sentence or a heading. Omit it entirely if the "
     "answer isn't a specific value."
 )
@@ -107,6 +124,7 @@ def _evt(obj: dict) -> str:
     answer. `\\x1e` never appears in model output, so it's a safe delimiter."""
     return f"\x1e{json.dumps(obj)}\n"
 
+
 _THOUGHT_RE = re.compile(r"<(think|thought)\b[^>]*>.*?</\1>", re.IGNORECASE | re.DOTALL)
 
 
@@ -114,10 +132,14 @@ def _strip_thoughts(text: str) -> str:
     return _THOUGHT_RE.sub("", text).strip()
 
 
+_WORKING_RE = re.compile(r"<(think|thought|reasoning)\b[^>]*>.*?</\1>", re.I | re.DOTALL)
+
+
 def _answer_only(text: str) -> str:
-    """Drop any trailing control events (e.g. the persisted sources) from a
-    stored assistant message, so past turns fed back to the model are clean."""
-    return text.split("\x1e", 1)[0].rstrip()
+    """Drop any trailing control events (e.g. the persisted sources) and shown
+    working from a stored assistant message, so past turns fed back to the model
+    are clean."""
+    return _WORKING_RE.sub("", text.split("\x1e", 1)[0]).strip()
 
 
 # ── Vault: keys ──────────────────────────────────────────────────────────────
@@ -142,44 +164,125 @@ async def reveal_key(
     return AiKeyRevealed(api_key=crypto.decrypt(key.encrypted_api_key))
 
 
-async def _validate_key(payload: AiKeyIn, existing: AiKey | None) -> None:
+async def _validate_key(payload: AiKeyIn, existing: AiKey | None) -> llm.ModelCheck:
     api_key = payload.api_key or (crypto.decrypt(existing.encrypted_api_key) if existing else None)
     if not api_key:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "An API key is required.")
     try:
-        await llm.validate(payload.base_url, api_key, payload.model)
+        return await llm.validate(payload.base_url, api_key, payload.model)
     except llm.LLMError as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
 
 
+def _fit(payload: AiKeyIn, check: llm.ModelCheck | None) -> AiKeyIn:
+    """The settings, made to suit the model just tested. A level it doesn't have
+    moves to the nearest one it does, and goes when it has none; top-p goes if
+    the model refuses it. Temperature is kept: it's skipped when sending, and
+    comes back into use if the key moves to a model that takes it."""
+    if check is None:
+        return payload
+    effort = payload.reasoning_effort
+    if effort and not check.efforts:
+        effort = None
+    elif effort and effort not in check.efforts:
+        effort = cast(Effort, llm.nearest_effort(effort, check.efforts))
+    top_p = None if "top_p" in check.unsupported else payload.top_p
+    return payload.model_copy(update={"reasoning_effort": effort, "top_p": top_p})
+
+
+def _key_out(key: AiKey, check: llm.ModelCheck | None) -> AiKeyOut:
+    out = AiKeyOut.model_validate(key)
+    if check is not None:
+        out.check = ModelCheckOut(unsupported=check.unsupported, efforts=check.efforts)
+    return out
+
+
 @router.post("/keys", response_model=AiKeyOut)
 async def create_key(payload: AiKeyIn, user: SessionUser, db: DbDep) -> AiKeyOut:
-    await _validate_key(payload, None)
+    check = await _validate_key(payload, None)
+    payload = _fit(payload, check)
     key = await service.create_key(
-        db, user,
-        name=payload.name, base_url=payload.base_url, model=payload.model,
-        api_key=payload.api_key or "", embedding_model=payload.embedding_model,
-        temperature=payload.temperature, max_tokens=payload.max_tokens, top_p=payload.top_p,
+        db,
+        user,
+        name=payload.name,
+        base_url=payload.base_url,
+        model=payload.model,
+        api_key=payload.api_key or "",
+        embedding_model=payload.embedding_model,
+        temperature=payload.temperature,
+        max_tokens=payload.max_tokens,
+        top_p=payload.top_p,
+        reasoning_effort=payload.reasoning_effort,
     )
-    return AiKeyOut.model_validate(key)
+    return _key_out(key, check)
 
 
 @router.put("/keys/{key_id}", response_model=AiKeyOut)
-async def update_key(
-    key_id: uuid.UUID, payload: AiKeyIn, user: SessionUser, db: DbDep
-) -> AiKeyOut:
+async def update_key(key_id: uuid.UUID, payload: AiKeyIn, user: SessionUser, db: DbDep) -> AiKeyOut:
     existing = await service.get_key(db, user, key_id)
     if existing is None:
         raise HTTPException(status.HTTP_404_NOT_FOUND, "Key not found")
-    await _validate_key(payload, existing)
+    # Only re-test the connection when something it depends on changed; renaming
+    # a key or adjusting its settings shouldn't cost a request to the provider.
+    check = None
+    if (
+        payload.api_key
+        or payload.base_url.strip() != existing.base_url
+        or payload.model.strip() != existing.model
+    ):
+        check = await _validate_key(payload, existing)
+        payload = _fit(payload, check)
     key = await service.update_key(
-        db, user, key_id,
-        name=payload.name, base_url=payload.base_url, model=payload.model,
-        api_key=payload.api_key, embedding_model=payload.embedding_model,
-        temperature=payload.temperature, max_tokens=payload.max_tokens, top_p=payload.top_p,
+        db,
+        user,
+        key_id,
+        name=payload.name,
+        base_url=payload.base_url,
+        model=payload.model,
+        api_key=payload.api_key,
+        embedding_model=payload.embedding_model,
+        temperature=payload.temperature,
+        max_tokens=payload.max_tokens,
+        top_p=payload.top_p,
+        reasoning_effort=payload.reasoning_effort,
     )
     assert key is not None
-    return AiKeyOut.model_validate(key)
+    return _key_out(key, check)
+
+
+async def _form_api_key(payload: ModelListIn, user: User, db: AsyncSession) -> str:
+    """The key the form is working with: the one typed in, or the saved one."""
+    if payload.api_key:
+        return payload.api_key
+    if payload.key_id:
+        existing = await service.get_key(db, user, payload.key_id)
+        if existing is None:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Key not found")
+        return crypto.decrypt(existing.encrypted_api_key)
+    raise HTTPException(status.HTTP_400_BAD_REQUEST, "Enter an API key first.")
+
+
+@router.post("/models", response_model=ModelListOut)
+async def list_models(payload: ModelListIn, user: SessionUser, db: DbDep) -> ModelListOut:
+    """The models a key can use, for the key form's model picker."""
+    api_key = await _form_api_key(payload, user, db)
+    try:
+        models = await llm.list_models(payload.base_url, api_key)
+    except llm.LLMError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return ModelListOut(models=models)
+
+
+@router.post("/models/check", response_model=ModelCheckOut)
+async def check_model(payload: ModelCheckIn, user: SessionUser, db: DbDep) -> ModelCheckOut:
+    """Test a model with one tiny request, so the key form can switch off the
+    settings it doesn't support before the user saves."""
+    api_key = await _form_api_key(payload, user, db)
+    try:
+        check = await llm.validate(payload.base_url, api_key, payload.model)
+    except llm.LLMError as exc:
+        raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from exc
+    return ModelCheckOut(unsupported=check.unsupported, efforts=check.efforts)
 
 
 @router.delete("/keys/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -239,6 +342,7 @@ def _stream_params(key: AiKey) -> dict:
         "temperature": key.temperature,
         "max_tokens": key.max_tokens,
         "top_p": key.top_p,
+        "reasoning_effort": key.reasoning_effort,
     }
 
 
@@ -314,9 +418,7 @@ async def _extract_owned(
 def _no_text_reason(record: File, key: AiKey | None) -> str:
     """Explain an empty extraction. This is the common one — a scan or a photo
     has no text layer at all, so whether vision could run decides everything."""
-    is_visual = extract.is_image(record.mime, record.ext) or extract.is_pdf(
-        record.mime, record.ext
-    )
+    is_visual = extract.is_image(record.mime, record.ext) or extract.is_pdf(record.mime, record.ext)
     if not is_visual:
         return "no readable text was found in it"
     if not vision.enabled():
@@ -350,7 +452,7 @@ async def _load_text(
         version_id, text = await _extract_owned(db, user, record, limit=limit, key=key)
     except ExtractFailed as exc:
         raise HTTPException(
-            status.HTTP_422_UNPROCESSABLE_ENTITY, f"Couldn't read this file — {exc}."
+            status.HTTP_422_UNPROCESSABLE_ENTITY, f"Couldn't read this file: {exc}."
         ) from None
     return record.name, text, version_id
 
@@ -505,9 +607,7 @@ async def _index_one(
             version_id, text = await _extract_owned(
                 db, user, record, limit=_RETRIEVAL_LIMIT, key=key
             )
-            await semantic.ensure_embedded(
-                db, user, file_id, version_id, text, key, force=force
-            )
+            await semantic.ensure_embedded(db, user, file_id, version_id, text, key, force=force)
             return
         except _TRANSIENT as exc:
             if attempt >= _RATE_LIMIT_RETRIES:
@@ -557,13 +657,13 @@ async def index_drive(payload: IndexRequest, user: SessionUser, db: DbDep) -> St
                 # that's how a 40-file index used to die at file 11.
                 await recover()
                 skipped += 1
-                yield f"warn: {name} — {exc}\n"
+                yield f"warn: {name}: {exc}\n"
             except ExtractFailed as exc:
                 # Nothing to embed — say exactly why, since the file will keep
                 # showing as un-indexed until the cause is fixed.
                 await recover()
                 skipped += 1
-                yield f"warn: {name} — {exc}\n"
+                yield f"warn: {name}: {exc}\n"
             except Exception as exc:
                 # Shouldn't happen — every known cause has its own reason above.
                 # Name the exception anyway: "couldn't be read" alone sent us
@@ -571,7 +671,7 @@ async def index_drive(payload: IndexRequest, user: SessionUser, db: DbDep) -> St
                 logger.warning("indexing skipped %s", name, exc_info=True)
                 await recover()
                 skipped += 1
-                yield f"warn: {name} — couldn't be read ({type(exc).__name__})\n"
+                yield f"warn: {name}: couldn't be read ({type(exc).__name__})\n"
             done += 1
             yield f"{done}/{total} {name}\n"
         if skipped:
@@ -586,10 +686,14 @@ async def index_status(key_id: uuid.UUID, user: SessionUser, db: DbDep) -> Index
     embedding model at their current version (so the UI can mark them done)."""
     key = await _require_key(db, user, key_id)
     files = (
-        await db.execute(
-            select(File).where(File.owner_id == user.id, File.current_version_id.is_not(None))
+        (
+            await db.execute(
+                select(File).where(File.owner_id == user.id, File.current_version_id.is_not(None))
+            )
         )
-    ).scalars().all()
+        .scalars()
+        .all()
+    )
     extractable = [f for f in files if extract.is_extractable(f.mime, f.ext)]
     if not key.embedding_model:
         return IndexStatusOut(indexed_file_ids=[], total=len(extractable))
@@ -602,9 +706,7 @@ async def index_status(key_id: uuid.UUID, user: SessionUser, db: DbDep) -> Index
 @router.post("/unindex")
 async def unindex(payload: UnindexRequest, user: SessionUser, db: DbDep) -> dict[str, int]:
     """Delete embedded chunks to free space — all files, or specific ones."""
-    removed = await service.unindex(
-        db, user, all_files=payload.all, file_ids=payload.file_ids
-    )
+    removed = await service.unindex(db, user, all_files=payload.all, file_ids=payload.file_ids)
     return {"removed": removed}
 
 
@@ -655,12 +757,79 @@ async def conversation_messages(
 
 
 # ── Drive-wide: RAG chat ─────────────────────────────────────────────────────
+def _superseded(content: str) -> str:
+    """A rewritten message's earlier plans, kept as hidden "superseded" records
+    (the chat only follows "plan_id", so it never shows them). They hold what an
+    applied plan's undo needs: where each moved file came from."""
+    out = []
+    for chunk in content.split("\x1e")[1:]:
+        try:
+            evt = json.loads(chunk.split("\n", 1)[0])
+        except ValueError:
+            continue
+        if evt.get("kind") == "plan" and evt.get("plan_id"):
+            out.append(
+                _evt({"kind": "superseded", "plan": evt["plan_id"], "preview": evt.get("preview")})
+            )
+        elif evt.get("kind") == "superseded":
+            out.append(_evt(evt))
+    return "".join(out)
+
+
+async def _retire_plan(plan_id: uuid.UUID) -> None:
+    """Mark a revised plan discarded, if it's still waiting: its replacement
+    has arrived. One that was applied meanwhile is left as it is."""
+    async with SessionLocal() as store:
+        plan = await store.get(AiActionPlan, plan_id)
+        if plan is not None and plan.status == "pending":
+            plan.status = "discarded"
+            await store.commit()
+
+
+def _revision_events(content: str) -> str:
+    """The "revised" notes already at the head of a message, kept when it's
+    rewritten again so the whole trail of changes stays visible."""
+    return "".join(
+        line + "\n"
+        for line in content.split("\n")
+        if line.startswith("\x1e") and '"kind": "revised"' in line
+    )
+
+
 async def _persist_drive_turn(
-    conversation_id: uuid.UUID, user_id: uuid.UUID, question: str, answer: str, *, retitle: bool
+    conversation_id: uuid.UUID,
+    user_id: uuid.UUID,
+    question: str,
+    answer: str,
+    *,
+    retitle: bool,
+    replaces: uuid.UUID | None = None,
 ) -> None:
     from byos_api.db.models import AiConversation
 
     async with SessionLocal() as store:
+        if replaces is not None:
+            # A revision: rewrite the message that held the replaced plan, with
+            # the user's note on top, instead of adding a new exchange.
+            old = (
+                await store.execute(
+                    select(AiChatMessage)
+                    .where(
+                        AiChatMessage.conversation_id == conversation_id,
+                        AiChatMessage.user_id == user_id,
+                        AiChatMessage.role == "assistant",
+                        AiChatMessage.content.contains(f'"plan_id": "{replaces}"'),
+                    )
+                    .limit(1)
+                )
+            ).scalar_one_or_none()
+            if old is not None:
+                note = _evt({"kind": "revised", "note": question})
+                old.content = (
+                    _revision_events(old.content) + note + answer + _superseded(old.content)
+                )
+                await store.commit()
+                return
         store.add(
             AiChatMessage(
                 user_id=user_id, conversation_id=conversation_id, role="user", content=question
@@ -745,7 +914,18 @@ async def drive_chat(payload: DriveChatRequest, user: CurrentUser, db: DbDep) ->
 
         # Attribute which files the answer actually used, then emit them.
         used = await rag.cited_files(key, question, answer, hits)
-        sources_evt = _evt({"kind": "sources", "sources": [{"id": f, "name": n} for f, n in used]})
+        excerpts: dict[str, str] = {}
+        for fid, _name, chunk in hits:
+            excerpts[fid] = excerpts.get(fid, "") + "\n" + chunk
+        sources_evt = _evt(
+            {
+                "kind": "sources",
+                "sources": [
+                    {"id": f, "name": n, "quotes": citations.quotes_for(answer, excerpts.get(f))}
+                    for f, n in used
+                ],
+            }
+        )
         yield sources_evt
 
         if answer:
@@ -814,23 +994,105 @@ async def agent_chat(payload: AgentChatRequest, user: CurrentUser, db: DbDep) ->
     ]
     conversation_id, question = payload.conversation_id, payload.message
     strategies = payload.strategies
+    replaces: uuid.UUID | None = None
+    previous = ""
+    seed: list[dict[str, Any]] | None = None
+    if payload.revises is not None:
+        # Ask again with the note; the reply takes that plan's place. The old
+        # plan is only retired once the new reply is saved, so a run that fails
+        # leaves it exactly as it was, still ready to apply.
+        old_plan = await db.get(AiActionPlan, payload.revises)
+        if old_plan is None or old_plan.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Plan not found")
+        replaces = old_plan.id
+        seed = list(old_plan.actions or [])
+        previous = organize.previous_plan(seed)
+    note = question
+    if replaces is not None:
+        question = f"Change the plan you just proposed: {note}"
+    # Organizing, whether by /organize or asked in plain words ("tidy up my
+    # downloads"): the user's message is stored as typed; the agent also gets
+    # the run's settings, and the tools those settings rule out are withheld.
+    # It only ever proposes in a read-only chat, so nothing moves unconfirmed.
+    task, mode, exclude, max_steps = question, payload.mode, frozenset[str](), agent.MAX_STEPS
+    fix_brief = ""
+    failed: list[tuple[dict[str, Any], str]] = []
+    if payload.fixes is not None:
+        failed_plan = await db.get(AiActionPlan, payload.fixes)
+        if failed_plan is None or failed_plan.user_id != user.id:
+            raise HTTPException(status.HTTP_404_NOT_FOUND, "Plan not found")
+        actions = list(failed_plan.actions or [])
+        outcomes = list(failed_plan.result or [])
+        outcomes += [None] * (len(actions) - len(outcomes))
+        # Point $new refs at the real folders that plan made, so the agent
+        # redoes the changes against what exists instead of renumbering.
+        made: dict[int, uuid.UUID] = {}
+        await agent.recall_folders(db, user, actions, outcomes, made)
+        for a, r in zip(actions, outcomes, strict=True):
+            if r and not r.get("ok"):
+                args = organize.with_real_folders(a.get("args") or {}, actions, made)
+                failed.append(({**a, "args": args}, str(r.get("detail", ""))))
+        if not failed:
+            raise HTTPException(status.HTTP_409_CONFLICT, "Nothing in that plan failed.")
+        fix_brief = organize.fix_brief(failed)
+        # The fix lands in the failed plan's own message, like a revision, rather
+        # than as a new exchange underneath it.
+        replaces = failed_plan.id
+    settings = (
+        payload.organize
+        or (organize.fix_settings([a for a, _ in failed]) if payload.fixes is not None else None)
+        or organize.looks_like_organizing(question)
+    )
+    # Read only means read only: an organizing request there gets a short reply
+    # and a one-tap switch to Ask first, instead of a plan drafted on the quiet.
+    read_only_refusal = settings is not None and payload.mode is Mode.READ_ONLY
+    if settings is not None and not read_only_refusal:
+        # A fix redoes a handful of changes: it gets the folders to aim at, not
+        # the whole-drive brief, which would send it reorganizing everything.
+        context = (
+            await organize.folders_listing(db, user)
+            if payload.fixes is not None
+            else organize.brief(settings, await organize.inventory(db, user))
+        )
+        task = f"{question}\n\n{context}"
+        exclude = organize.excluded_tools(settings)
+        max_steps = organize.MAX_STEPS
+    if previous:
+        task = f"{task}\n\n{previous}"
+    if fix_brief:
+        task = f"{task}\n\n{fix_brief}"
     # Decrypt up front: the stream body can't return a clean HTTP error.
     api_key = crypto.decrypt(key.encrypted_api_key)
 
     async def body() -> AsyncIterator[str]:
+        if read_only_refusal:
+            reply = organize.READ_ONLY_REPLY
+            switch = _evt({"kind": "switch_mode", "mode": Mode.ASK.value, "retry": question})
+            yield reply + switch
+            await _persist_drive_turn(
+                conversation_id, user.id, question, reply + switch, retitle=retitle
+            )
+            return
         # Own session: the request session may be closing by the time this
         # stream is consumed (same reason as drive chat).
-        answer, plan_evt = "", ""
+        answer, plan_evt, sources_evt, question_evt = "", "", "", ""
         async with SessionLocal() as adb:
             fresh = await adb.get(User, user.id)
             if fresh is None:
                 return
             async for evt in agent.run(
-                adb, fresh, key, question, prior,
+                adb,
+                fresh,
+                key,
+                task,
+                prior,
                 api_key=api_key,
                 system_prompt=base_system,
-                mode=payload.mode,
+                mode=mode,
                 strategies=strategies,
+                exclude=exclude,
+                max_steps=max_steps,
+                seed=seed,
             ):
                 if evt["kind"] == "answer":
                     answer = str(evt["text"])
@@ -853,26 +1115,45 @@ async def agent_chat(payload: AgentChatRequest, user: CurrentUser, db: DbDep) ->
                                 a.model_dump(mode="json")
                                 for a in _actions_out(list(plan.actions), plan.result)
                             ],
+                            # The drive's shape once applied, drawn as a tree;
+                            # only for plans that create or move things.
+                            "preview": await organize.preview(adb, fresh, list(plan.actions)),
+                            # An organizing run's settings, so "change something"
+                            # revises under the same limits.
+                            "organize": settings.model_dump() if settings else None,
                         }
                     )
                     yield plan_evt
+                elif evt["kind"] == "sources":
+                    sources_evt = _evt(evt)
+                    yield sources_evt
+                elif evt["kind"] == "question":
+                    question_evt = _evt(evt)
+                    yield question_evt
                 else:
                     yield _evt(evt)
 
+        if (answer or plan_evt) and replaces is not None:
+            await _retire_plan(replaces)
         if answer or plan_evt:
-            # Store the plan event with the answer so a reloaded conversation can
-            # still render the proposal (its live status comes from /agent/plans).
+            # Store the plan and sources events with the answer so a reloaded
+            # conversation still shows them (a plan's live status comes from
+            # /agent/plans). Sources are references only: file id, name and the
+            # quoted words, never the file's contents.
             await _persist_drive_turn(
-                conversation_id, user.id, question, answer + plan_evt, retitle=retitle
+                conversation_id,
+                user.id,
+                note if replaces is not None else question,
+                answer + sources_evt + plan_evt + question_evt,
+                retitle=retitle and replaces is None,
+                replaces=replaces,
             )
 
     return StreamingResponse(body(), media_type=_STREAM_MEDIA, headers=_STREAM_HEADERS)
 
 
 @router.get("/agent/plans", response_model=list[PlanOut])
-async def list_plans(
-    conversation_id: uuid.UUID, user: CurrentUser, db: DbDep
-) -> list[PlanOut]:
+async def list_plans(conversation_id: uuid.UUID, user: CurrentUser, db: DbDep) -> list[PlanOut]:
     """Every plan in a conversation, with its current status — fetched once when
     a conversation opens so each message can show whether its plan was applied."""
     rows = (
@@ -903,9 +1184,7 @@ async def apply_plan(plan_id: uuid.UUID, user: CurrentUser, db: DbDep) -> ApplyR
     repeated."""
     plan = await _owned_plan(db, user, plan_id)
     if plan.status != "pending":
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, f"This plan was already {plan.status}."
-        )
+        raise HTTPException(status.HTTP_409_CONFLICT, f"This plan was already {plan.status}.")
     results = await agent.apply(db, user, plan)
     return ApplyResultOut(
         plan_id=plan.id,
@@ -914,6 +1193,57 @@ async def apply_plan(plan_id: uuid.UUID, user: CurrentUser, db: DbDep) -> ApplyR
         failed=sum(1 for r in results if r and not r.get("ok")),
         actions=_actions_out(list(plan.actions or []), results),
     )
+
+
+# TEMPORARY: a one-time way to revert Bao's applied plans (/undo in the chat).
+# To be removed with ai/undo.py once the user has reverted their drive.
+@router.post("/agent/plans/{plan_id}/undo")
+async def undo_plan(plan_id: uuid.UUID, user: CurrentUser, db: DbDep) -> dict[str, Any]:
+    """Reverse an applied plan's changes. Each change's outcome gets an "undone"
+    note saying whether it went back and, if not, why."""
+    from byos_api.ai import undo
+
+    plan = await _owned_plan(db, user, plan_id)
+    if plan.status != "applied":
+        raise HTTPException(status.HTTP_409_CONFLICT, f"This plan is {plan.status}, not applied.")
+    # Plans applied before "before" values were recorded: where moved files came
+    # from is in the preview stored with the chat message.
+    stored = (
+        (
+            await db.execute(
+                select(AiChatMessage.content).where(
+                    AiChatMessage.user_id == user.id,
+                    or_(
+                        AiChatMessage.content.contains(f'"plan_id": "{plan.id}"'),
+                        AiChatMessage.content.contains(f'"plan": "{plan.id}"'),
+                    ),
+                )
+            )
+        )
+        .scalars()
+        .first()
+    )
+    preview = None
+    for chunk in (stored or "").split("\x1e")[1:]:
+        try:
+            evt = json.loads(chunk.split("\n", 1)[0])
+        except ValueError:
+            continue
+        if (evt.get("kind") == "plan" and evt.get("plan_id") == str(plan.id)) or (
+            evt.get("kind") == "superseded" and evt.get("plan") == str(plan.id)
+        ):
+            preview = evt.get("preview")
+    results = await agent.undo_plan(db, user, plan, undo.origins_from_preview(preview))
+    pairs = zip(plan.actions or [], results, strict=False)
+    notes = [(a, (r or {}).get("undone")) for a, r in pairs]
+    return {
+        "undone": sum(1 for _, u in notes if u and u.get("ok")),
+        "not_undone": [
+            {"label": a.get("label", ""), "detail": u.get("detail", "")}
+            for a, u in notes
+            if u and not u.get("ok")
+        ],
+    }
 
 
 @router.post("/agent/plans/{plan_id}/discard", response_model=PlanOut)

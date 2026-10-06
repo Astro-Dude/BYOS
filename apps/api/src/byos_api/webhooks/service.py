@@ -6,7 +6,7 @@ import secrets
 import uuid
 from urllib.parse import urlparse
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.core.config import get_settings
@@ -14,6 +14,14 @@ from byos_api.db.models import User, Webhook
 
 # Event types a webhook may subscribe to (plus "*" for all).
 EVENT_TYPES = ("file.created", "file.replaced", "file.deleted")
+
+
+# Webhooks a user may have. Mirrored in the web app (lib/limits.ts).
+MAX_WEBHOOKS = 5
+
+
+class TooManyWebhooks(Exception):
+    pass
 
 
 class InvalidEvents(Exception):
@@ -64,9 +72,12 @@ def _validate_events(events: list[str]) -> list[str]:
     return cleaned
 
 
-async def create_webhook(
-    db: AsyncSession, user: User, *, url: str, events: list[str]
-) -> Webhook:
+async def create_webhook(db: AsyncSession, user: User, *, url: str, events: list[str]) -> Webhook:
+    count = (
+        await db.execute(select(func.count(Webhook.id)).where(Webhook.owner_id == user.id))
+    ).scalar_one()
+    if count >= MAX_WEBHOOKS:
+        raise TooManyWebhooks
     await _validate_url(url)
     hook = Webhook(
         owner_id=user.id,

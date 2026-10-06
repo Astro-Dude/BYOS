@@ -96,9 +96,7 @@ async def start_signup(db: AsyncSession, phone: str, username: str, password: st
     password) inside the encrypted ticket. NOTHING is written to the DB here —
     the account is created atomically only when the OTP verifies."""
     clean = await service.ensure_username_available(db, username)
-    return await _send_code(
-        phone, {"username": clean, "password_hash": hash_password(password)}
-    )
+    return await _send_code(phone, {"username": clean, "password_hash": hash_password(password)})
 
 
 async def verify_code(

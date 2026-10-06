@@ -10,10 +10,12 @@ from __future__ import annotations
 import re
 from datetime import UTC, datetime
 from typing import Any
+from urllib.parse import urlparse
 
 from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
+from byos_api.ai import llm
 from byos_api.core.config import get_settings
 from byos_api.db.models import (
     AiConversation,
@@ -24,6 +26,7 @@ from byos_api.db.models import (
     File,
     Folder,
     Share,
+    StorageAccount,
     User,
     Webhook,
 )
@@ -40,8 +43,8 @@ def is_bootstrap_admin(user: User) -> bool:
     This is the break-glass path, not the admin list. It exists so the first
     admin can always get in — including on a fresh database where nobody has the
     flag yet, and after an accidental self-revoke. Matches the Telegram id or the
-    phone number, compared digits-only and by suffix, so "7992214793" matches a
-    stored "+917992214793" without anyone needing to know the storage format.
+    phone number, compared digits-only and by suffix, so "9876543210" matches a
+    stored "+919876543210" without anyone needing to know the storage format.
     """
     ids = get_settings().admin_id_set
     if not ids:
@@ -155,6 +158,192 @@ async def _daily(db: AsyncSession, table: str, column: str = "created_at") -> li
     return [{"day": r.day, "value": int(r.n)} for r in rows]
 
 
+# Someone "turned up" if they took an audited action or asked Bao something:
+# chatting writes no audit row, so audit_logs alone undercounts AI users.
+_ACTIVITY = """
+    SELECT user_id, created_at FROM audit_logs
+    UNION ALL
+    SELECT user_id, created_at FROM ai_chat_messages WHERE role = 'user'
+"""
+
+
+async def _daily_where(db: AsyncSession, source: str) -> list[dict[str, Any]]:
+    """Rows per day for the window from a (constant) subquery with created_at."""
+    rows = (
+        await db.execute(
+            text(
+                f"""
+                WITH days AS (
+                    SELECT generate_series(
+                        (now() AT TIME ZONE 'utc')::date - INTERVAL '{WINDOW_DAYS - 1} days',
+                        (now() AT TIME ZONE 'utc')::date, INTERVAL '1 day')::date AS day
+                )
+                SELECT days.day::text AS day, COUNT(t.created_at) AS n
+                FROM days LEFT JOIN ({source}) t
+                  ON (t.created_at AT TIME ZONE 'utc')::date = days.day
+                GROUP BY days.day ORDER BY days.day
+                """  # noqa: S608 — source and WINDOW_DAYS are module constants
+            )
+        )
+    ).all()
+    return [{"day": r.day, "value": int(r.n)} for r in rows]
+
+
+async def _adoption(db: AsyncSession) -> dict[str, Any]:
+    """Active people over a day/week/month, and how far accounts get: storage,
+    a first upload, a BYOK key, a question to Bao, a plan applied."""
+    eng = (
+        await db.execute(
+            text(
+                f"""
+                SELECT
+                  COUNT(DISTINCT user_id) FILTER (WHERE age < INTERVAL '1 day') AS d,
+                  COUNT(DISTINCT user_id) FILTER (WHERE age < INTERVAL '7 days') AS w,
+                  COUNT(DISTINCT user_id) FILTER (WHERE age < INTERVAL '30 days') AS m
+                FROM (SELECT user_id, now() - created_at AS age FROM ({_ACTIVITY}) x) a
+                """  # noqa: S608 — _ACTIVITY is a module constant
+            )
+        )
+    ).one()
+    steps = [
+        ("Signed up", "SELECT id AS user_id FROM users"),
+        ("Connected storage", "SELECT user_id FROM storage_accounts WHERE status = 'connected'"),
+        ("Uploaded a file", "SELECT owner_id AS user_id FROM files"),
+        ("Added an AI key", "SELECT user_id FROM ai_keys"),
+        ("Asked Bao", "SELECT user_id FROM ai_chat_messages WHERE role = 'user'"),
+        (
+            "Applied a plan",
+            "SELECT user_id FROM ai_action_plans WHERE status IN ('applied', 'undone')",
+        ),
+    ]
+    funnel = []
+    for label, source in steps:
+        n = await _scalar(
+            db,
+            text(f"SELECT COUNT(DISTINCT user_id) FROM ({source}) s"),  # noqa: S608 — constants
+        )
+        funnel.append({"label": label, "count": n})
+    return {
+        "engagement": {"dau": int(eng.d), "wau": int(eng.w), "mau": int(eng.m)},
+        "funnel": funnel,
+    }
+
+
+_PROVIDER_NAMES = {
+    "openai": "OpenAI",
+    "openrouter": "OpenRouter",
+    "gemini": "Gemini",
+    "groq": "Groq",
+    "together": "Together",
+}
+
+
+def provider_label(base_url: str) -> str:
+    """The provider behind a key's API address: a known one by name, any other by
+    its host (api.mistral.ai), a local one as "Self-hosted"."""
+    known = llm.provider(base_url)
+    if known in _PROVIDER_NAMES:
+        return _PROVIDER_NAMES[known]
+    host = (urlparse(base_url.strip()).hostname or "").lower()
+    if host in {"localhost", "127.0.0.1", "0.0.0.0"} or host.endswith(".local"):
+        return "Self-hosted"
+    return host or "Unknown"
+
+
+async def _assistant(db: AsyncSession) -> dict[str, Any]:
+    """How Bao is used: questions, plans and what became of them, the kinds of
+    change he makes, and which providers and models people bring."""
+    by_status = [
+        {"label": r.status, "count": int(r.n)}
+        for r in (
+            await db.execute(
+                text(
+                    "SELECT status, COUNT(*) AS n FROM ai_action_plans "
+                    "GROUP BY status ORDER BY n DESC"
+                )
+            )
+        ).all()
+    ]
+    # Each applied change's outcome lives in the plan's `result` array.
+    outcomes = (
+        await db.execute(
+            text(
+                """
+                SELECT
+                  COUNT(*) FILTER (WHERE r->>'ok' = 'true') AS ok,
+                  COUNT(*) FILTER (WHERE r->>'ok' = 'false') AS failed,
+                  COUNT(*) FILTER (WHERE r->'undone'->>'ok' = 'true') AS undone
+                -- A pending plan can hold JSON null rather than SQL NULL, so only
+                -- list-valued results are expanded (filtered before the expansion).
+                FROM (
+                    SELECT result FROM ai_action_plans WHERE jsonb_typeof(result) = 'array'
+                ) p,
+                     LATERAL jsonb_array_elements(p.result) r
+                WHERE jsonb_typeof(r) = 'object'
+                """
+            )
+        )
+    ).one()
+    kinds = [
+        {"label": r.op.replace("_", " "), "count": int(r.n)}
+        for r in (
+            await db.execute(
+                text(
+                    """
+                    SELECT a->>'op' AS op, COUNT(*) AS n
+                    FROM (
+                        SELECT actions FROM ai_action_plans
+                        WHERE jsonb_typeof(actions) = 'array'
+                    ) p, LATERAL jsonb_array_elements(p.actions) a
+                    WHERE a->>'op' IS NOT NULL
+                    GROUP BY op ORDER BY n DESC LIMIT 10
+                    """
+                )
+            )
+        ).all()
+    ]
+    # Named by the key's API address, with the app's own provider detection;
+    # never by the name a user gave their key. Unknown endpoints show their host.
+    key_rows = (
+        await db.execute(
+            select(AiKey.base_url, AiKey.model, func.count().label("n")).group_by(
+                AiKey.base_url, AiKey.model
+            )
+        )
+    ).all()
+    by_provider: dict[str, int] = {}
+    by_model: dict[tuple[str, str], int] = {}
+    for r in key_rows:
+        name = provider_label(r.base_url)
+        by_provider[name] = by_provider.get(name, 0) + int(r.n)
+        by_model[(r.model, name)] = by_model.get((r.model, name), 0) + int(r.n)
+    providers = [
+        {"label": k, "count": n} for k, n in sorted(by_provider.items(), key=lambda x: -x[1])
+    ]
+    models = [
+        {"label": m, "count": n, "provider": p}
+        for (m, p), n in sorted(by_model.items(), key=lambda x: -x[1])[:8]
+    ]
+    return {
+        "questions": await _daily_where(
+            db, "SELECT created_at FROM ai_chat_messages WHERE role = 'user'"
+        ),
+        "plans_applied": await _daily_where(
+            db,
+            "SELECT applied_at AS created_at FROM ai_action_plans WHERE applied_at IS NOT NULL",
+        ),
+        "plans_by_status": by_status,
+        "changes": {
+            "ok": int(outcomes.ok),
+            "failed": int(outcomes.failed),
+            "undone": int(outcomes.undone),
+        },
+        "change_kinds": kinds,
+        "providers": providers,
+        "models": models,
+    }
+
+
 async def platform_stats(db: AsyncSession) -> dict[str, Any]:
     totals = {
         "users": await _scalar(db, select(func.count()).select_from(User)),
@@ -243,10 +432,9 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
         ).all()
     ]
 
-    # Per-account storage, biggest first — the shape of the tail matters more than
-    # the names, so only the username goes out.
+    # Per-account storage, the top three — only the username goes out.
     top_users = [
-        {"label": r.label or "—", "bytes": int(r.bytes), "files": int(r.files)}
+        {"label": r.label or "Unknown", "bytes": int(r.bytes), "files": int(r.files)}
         for r in (
             await db.execute(
                 select(
@@ -257,7 +445,7 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
                 .join(File, File.owner_id == User.id, isouter=True)
                 .group_by(User.id, User.username)
                 .order_by(text("bytes DESC"))
-                .limit(10)
+                .limit(3)
             )
         ).all()
     ]
@@ -300,7 +488,7 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
                             (now() AT TIME ZONE 'utc')::date, INTERVAL '1 day')::date AS day
                     )
                     SELECT days.day::text AS day, COUNT(DISTINCT a.user_id) AS n
-                    FROM days LEFT JOIN audit_logs a
+                    FROM days LEFT JOIN ({_ACTIVITY}) a
                       ON (a.created_at AT TIME ZONE 'utc')::date = days.day
                     GROUP BY days.day ORDER BY days.day
                     """  # noqa: S608
@@ -319,6 +507,18 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
                     func.coalesce(func.sum(File.size), 0).label("bytes"),
                 )
                 .group_by(File.provider)
+                .order_by(text("n DESC"))
+            )
+        ).all()
+    ]
+
+    storage_accounts = [
+        {"label": r.provider, "count": int(r.n)}
+        for r in (
+            await db.execute(
+                select(StorageAccount.provider.label("provider"), func.count().label("n"))
+                .where(StorageAccount.status == "connected")
+                .group_by(StorageAccount.provider)
                 .order_by(text("n DESC"))
             )
         ).all()
@@ -346,10 +546,7 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
                     """
                     SELECT kind, COUNT(*) AS n FROM (
                         SELECT CASE
-                            WHEN password_hash IS NOT NULL THEN 'password'
                             WHEN expires_at IS NOT NULL THEN 'expiring'
-                            WHEN view_only THEN 'view only'
-                            WHEN max_downloads IS NOT NULL THEN 'capped'
                             ELSE 'open' END AS kind
                         FROM shares
                     ) s GROUP BY kind ORDER BY n DESC
@@ -392,9 +589,7 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
     ).one()
 
     # Index coverage — of the files that *could* be indexed, how many are.
-    indexed_files = await _scalar(
-        db, select(func.count(func.distinct(AiFileChunk.file_id)))
-    )
+    indexed_files = await _scalar(db, select(func.count(func.distinct(AiFileChunk.file_id))))
 
     tags = [
         {"label": r.name, "count": int(r.n)}
@@ -412,6 +607,18 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
     ]
 
     return {
+        **await _adoption(db),
+        "assistant": await _assistant(db),
+        "storage_status": [
+            {"label": r.status, "count": int(r.n)}
+            for r in (
+                await db.execute(
+                    select(StorageAccount.status.label("status"), func.count().label("n"))
+                    .group_by(StorageAccount.status)
+                    .order_by(text("n DESC"))
+                )
+            ).all()
+        ],
         "generated_at": datetime.now(UTC),
         "window_days": WINDOW_DAYS,
         "totals": totals,
@@ -425,6 +632,7 @@ async def platform_stats(db: AsyncSession) -> dict[str, Any]:
         "growth": growth,
         "active": active,
         "providers": providers,
+        "storage_accounts": storage_accounts,
         "versions": {
             "total": int(version_rows.versions),
             "versioned_files": int(version_rows.versioned),

@@ -161,19 +161,18 @@ version; restoring is an instant pointer flip (no re-upload).
 
 ---
 
-## 8. Sharing (links with access controls)
+## 8. Sharing (expiring links)
 
-Create shareable links with per-link controls:
+Besides a file's permanent link, a file can get links that run out:
 
-- **Password** (hashed), **expiry** (in days), **max downloads** (one-time or N),
-  **view-only** (inline, no download).
-- Public endpoint enforces every control and counts downloads.
+- **Expiry** in days (1 to 365). After that the link answers 410 Gone.
+- Downloads are counted and shown next to each link; revoke any link at any time.
 
 | Endpoint | Purpose |
 |---|---|
-| `POST /shares` `{file_id, password?, expires_in_days?, max_downloads?, view_only?}` | Create a share |
+| `POST /shares` `{file_id, expires_in_days?}` | Create a share |
 | `GET /shares` · `DELETE /shares/{id}` | List / revoke |
-| `GET /s/{token}?pw=` | **Public** — open a share (rate-limited) |
+| `GET /s/{token}` | **Public** — open a share (rate-limited) |
 
 ---
 

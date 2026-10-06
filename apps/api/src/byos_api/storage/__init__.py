@@ -58,3 +58,11 @@ def register_default_providers() -> None:
 
         pool = TelegramClientPool(settings.telegram_api_id, settings.telegram_api_hash)
         register_provider(TelegramStorageProvider(pool))
+
+    # GitHub and S3 need nothing deployment-wide: each user brings their own
+    # token or keys when they connect one.
+    from byos_api.storage.github import GitHubStorageProvider
+    from byos_api.storage.s3 import S3StorageProvider
+
+    register_provider(GitHubStorageProvider())
+    register_provider(S3StorageProvider())

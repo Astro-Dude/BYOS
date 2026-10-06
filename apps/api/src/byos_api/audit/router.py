@@ -11,9 +11,7 @@ from byos_api.auth.dependencies import CurrentUser, get_session_user
 from byos_api.core.db import get_db
 from byos_api.db.models import AuditLog
 
-router = APIRouter(
-    prefix="/audit", tags=["audit"], dependencies=[Depends(get_session_user)]
-)
+router = APIRouter(prefix="/audit", tags=["audit"], dependencies=[Depends(get_session_user)])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 

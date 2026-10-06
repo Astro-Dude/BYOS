@@ -25,9 +25,7 @@ class User(UUIDPrimaryKey, TimestampMixin, Base):
     # Grants the platform analytics dashboard and the ability to grant it to
     # others. Managed in-app; `ADMIN_IDS` remains a break-glass bootstrap so the
     # first admin can always get in. See admin.service.is_admin.
-    is_admin: Mapped[bool] = mapped_column(
-        Boolean, server_default=text("false"), nullable=False
-    )
+    is_admin: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
 
     @property
     def has_password(self) -> bool:

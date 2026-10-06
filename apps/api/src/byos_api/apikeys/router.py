@@ -15,9 +15,7 @@ from byos_api.core.db import get_db
 # Account administration — issuing and revoking credentials — requires an
 # interactive login, never an API key. That stops a leaked key from minting
 # more keys or escalating its own access.
-router = APIRouter(
-    prefix="/api-keys", tags=["api-keys"], dependencies=[Depends(get_session_user)]
-)
+router = APIRouter(prefix="/api-keys", tags=["api-keys"], dependencies=[Depends(get_session_user)])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -34,6 +32,11 @@ async def create_api_key(
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid scope") from None
     except service.InvalidExpiry:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, "Invalid expiry") from None
+    except service.TooManyKeys:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"You can have {service.MAX_ACTIVE_KEYS} active keys. Revoke one to make another.",
+        ) from None
     await audit.record(
         user.id, "api_key.create", request=request, target_type="api_key", target_id=str(key.id)
     )
@@ -52,9 +55,7 @@ async def list_api_keys(user: SessionUser, db: DbDep) -> list[ApiKeyOut]:
 
 
 @router.delete("/{key_id}", status_code=status.HTTP_204_NO_CONTENT)
-async def revoke_api_key(
-    key_id: uuid.UUID, request: Request, user: SessionUser, db: DbDep
-) -> None:
+async def revoke_api_key(key_id: uuid.UUID, request: Request, user: SessionUser, db: DbDep) -> None:
     await service.revoke_key(db, user, key_id)
     await audit.record(
         user.id, "api_key.revoke", request=request, target_type="api_key", target_id=str(key_id)

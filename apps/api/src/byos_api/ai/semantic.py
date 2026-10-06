@@ -28,9 +28,7 @@ async def _touch(db: AsyncSession, file_ids: set[uuid.UUID]) -> None:
     if not file_ids:
         return
     await db.execute(
-        update(AiFileChunk)
-        .where(AiFileChunk.file_id.in_(file_ids))
-        .values(last_used_at=func.now())
+        update(AiFileChunk).where(AiFileChunk.file_id.in_(file_ids)).values(last_used_at=func.now())
     )
     await db.commit()
 
@@ -89,9 +87,7 @@ async def ensure_embedded(
         return True
     # Clear any stale chunks (old version / this model) before re-embedding.
     await db.execute(
-        delete(AiFileChunk).where(
-            AiFileChunk.file_id == file_id, AiFileChunk.embed_model == model
-        )
+        delete(AiFileChunk).where(AiFileChunk.file_id == file_id, AiFileChunk.embed_model == model)
     )
     chunks = retrieval.chunk_text(full_text[:_MAX_EMBED_CHARS], size=1800, overlap=200)
     if not chunks:

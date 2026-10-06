@@ -1,20 +1,27 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
-import { Send } from "lucide-react";
-import Link from "next/link";
+import { KeyRound, Loader2, Send } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
-import { Logo } from "@/components/logo";
+import {
+  AuthShell,
+  AuthSkeleton,
+  CodeInput,
+  Field,
+  FormError,
+  TelegramNote,
+  TextLink,
+} from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { RECONNECT_NOTICE_KEY, useAuth } from "@/lib/auth-context";
-import { COUNTRY_CODES } from "@/lib/country-codes";
+import { CountryCodePicker } from "@/components/ui/country-code-picker";
+import { homeAfterSignIn } from "@/lib/pending-question";
 
 // "telegram" = OTP flow (phone → code → optional 2FA); "password" = username-or-
 // phone + password, skipping OTP entirely.
@@ -52,7 +59,7 @@ export default function LoginPage() {
 
   // Already signed in (persisted session) — go straight to the dashboard.
   useEffect(() => {
-    if (!authLoading && user) router.replace("/dashboard");
+    if (!authLoading && user) router.replace(homeAfterSignIn());
   }, [authLoading, user, router]);
 
   // Bounced here because the Telegram storage session was revoked mid-use?
@@ -71,7 +78,7 @@ export default function LoginPage() {
 
   const goToDashboard = async (accessToken: string) => {
     await establishSession(accessToken);
-    router.push("/dashboard");
+    router.push(homeAfterSignIn());
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -85,9 +92,7 @@ export default function LoginPage() {
           setTicket(r.ticket ?? "");
           setMode("telegram");
           setStep("code");
-          setNotice(
-            "Your Telegram access was logged out. Enter the code we just sent to reconnect.",
-          );
+          setNotice("Your Telegram access was logged out. Enter the code we just sent to reconnect.");
         } else if (r.access_token) {
           await goToDashboard(r.access_token);
         }
@@ -127,185 +132,174 @@ export default function LoginPage() {
     setPassword("");
   };
 
-  if (authLoading || user) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="mt-10 h-11 w-full max-w-64" />
-        <Skeleton className="mt-5 h-5 w-full" />
-        <Skeleton className="mt-8 h-12 w-full rounded-lg" />
-        <Skeleton className="mt-3 h-12 w-full rounded-full" />
-      </main>
-    );
-  }
+  if (authLoading || user) return <AuthSkeleton />;
 
   const passwordMode = mode === "password";
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col px-6">
-      <header className="flex items-center justify-between py-8">
-        <Logo wordClassName="text-xl" />
-      </header>
-
-      <div className="flex flex-1 flex-col justify-center pb-20">
-        <h1 className="type-heading">
-          {passwordMode ? "Sign in" : "Sign in with Telegram"}
-        </h1>
-        <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
-          {passwordMode
-            ? "Your username or phone, and your BYOS password. This doesn't contact Telegram, so no new device is added to your account."
-            : step === "phone"
-              ? "Your Telegram account is your BYOS account and your storage. We'll send a login code to your Telegram app — not by SMS."
-              : step === "code"
-                ? "Enter the login code Telegram just sent to your app."
-                : "Your account has two-factor auth — enter your Telegram password."}
+    <AuthShell
+      bao="ask"
+      greeting={notice ? "Let's get you reconnected." : "Welcome back. Everything's where you left it."}
+      title={passwordMode ? "Welcome back" : step === "password" ? "One more step" : "Sign in with Telegram"}
+      lead={
+        passwordMode
+          ? "Sign in with your username or phone and your BYOS password."
+          : step === "phone"
+            ? "Your Telegram account is your BYOS account and your storage. We'll send a code to your Telegram app."
+            : step === "code"
+              ? `Enter the code Telegram just sent to ${dial} ${national}.`
+              : "Your account has two-step verification. Enter your Telegram password."
+      }
+      steps={
+        passwordMode
+          ? undefined
+          : { labels: ["Phone", "Code", "Verify"], current: ["phone", "code", "password"].indexOf(step) }
+      }
+      footer={
+        <p className="text-zinc-500">
+          New to BYOS? <TextLink href="/register">Create an account</TextLink>
         </p>
-        {notice ? (
-          <p className="surface-card mt-6 px-5 py-4 text-[0.9375rem] text-zinc-900">
-            {notice}
-          </p>
-        ) : null}
-        {!passwordMode && step === "phone" ? (
-          <div className="mt-6 flex items-start gap-3 text-[0.9375rem] leading-[1.45] text-zinc-600">
-            <Send className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-            <span>
-              The code arrives as a message in <strong className="text-zinc-900">Telegram</strong>,
-              from the official “Telegram” chat. Nothing is sent by SMS, so keep the app to hand.
-            </span>
-          </div>
-        ) : null}
-        {!passwordMode && step === "code" ? (
-          <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
-            <Send className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Check your <strong>Telegram app</strong> — the code is sent there (in the
-              official “Telegram” chat), not by SMS.
-            </span>
-          </div>
-        ) : null}
+      }
+    >
+      {/* Two ways in, as a switch: filled is the one you're on. */}
+      {step === "phone" || passwordMode ? (
+        <div
+          role="tablist"
+          aria-label="Sign in with"
+          className="mt-8 grid grid-cols-2 gap-1 rounded-full bg-zinc-100 p-1"
+        >
+          {(
+            [
+              ["password", "Password", KeyRound],
+              ["telegram", "Telegram code", Send],
+            ] as const
+          ).map(([m, label, Icon]) => (
+            <button
+              key={m}
+              type="button"
+              role="tab"
+              aria-selected={mode === m}
+              onClick={() => mode !== m && switchMode(m)}
+              className={`flex items-center justify-center gap-2 rounded-full py-2 text-[0.875rem] transition ${
+                mode === m
+                  ? "bg-zinc-900 font-medium text-white shadow-sm"
+                  : "text-zinc-600 hover:text-zinc-900"
+              }`}
+            >
+              <Icon className="h-3.5 w-3.5" /> {label}
+            </button>
+          ))}
+        </div>
+      ) : null}
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-3">
-          {passwordMode && (
-            <>
+      {notice ? (
+        <p className="mt-6 rounded-2xl bg-[rgb(var(--c-caution-50))] px-4 py-3 text-[0.875rem] leading-[1.5] text-zinc-900 ring-1 ring-[rgb(var(--c-caution-300))]">
+          {notice}
+        </p>
+      ) : null}
+      {!passwordMode && step !== "password" ? <TelegramNote sent={step === "code"} /> : null}
+
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {passwordMode && (
+          <>
+            <Field label="Username or phone" htmlFor="identifier">
               <Input
+                id="identifier"
                 required
                 autoFocus
                 autoComplete="username"
                 value={identifier}
                 onChange={(e) => setIdentifier(e.target.value)}
-                placeholder="Username or phone (e.g. +91…)"
+                placeholder="you, or +91 98765 43210"
               />
+            </Field>
+            <Field
+              label="Password"
+              htmlFor="password"
+              hint={<TextLink href="/forgot-password">Forgot?</TextLink>}
+            >
               <PasswordInput
+                id="password"
                 required
                 autoComplete="current-password"
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password"
+                placeholder="Your BYOS password"
               />
-            </>
-          )}
+            </Field>
+          </>
+        )}
 
-          {!passwordMode && step === "phone" && (
+        {!passwordMode && step === "phone" && (
+          <Field label="Phone number" htmlFor="phone">
             <div className="flex gap-2">
-              <select
-                value={dial}
-                onChange={(e) => setDial(e.target.value)}
-                aria-label="Country code"
-                className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-[0.9375rem] text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
-              >
-                {COUNTRY_CODES.map((c) => (
-                  <option key={`${c.iso}${c.dial}`} value={c.dial}>
-                    {c.iso} {c.dial}
-                  </option>
-                ))}
-              </select>
+              <CountryCodePicker dial={dial} onChange={setDial} />
               <Input
+                id="phone"
                 type="tel"
                 required
                 autoFocus
                 inputMode="numeric"
+                autoComplete="tel-national"
                 value={national}
                 onChange={(e) => setNational(e.target.value)}
                 placeholder="98765 43210"
               />
             </div>
-          )}
-          {!passwordMode && step === "code" && (
-            <Input
-              required
-              autoFocus
-              inputMode="numeric"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Code from Telegram (e.g. 12345)"
-            />
-          )}
-          {!passwordMode && step === "password" && (
+          </Field>
+        )}
+        {!passwordMode && step === "code" && (
+          <Field label="Login code" htmlFor="code">
+            <CodeInput id="code" value={code} onChange={setCode} />
+          </Field>
+        )}
+        {!passwordMode && step === "password" && (
+          <Field label="Two-step verification password" htmlFor="twofa">
             <PasswordInput
+              id="twofa"
               required
               autoFocus
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Two-factor password"
+              placeholder="Your Telegram password"
             />
-          )}
+          </Field>
+        )}
 
-          {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
+        {error ? <FormError>{error}</FormError> : null}
 
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy
-              ? "Please wait…"
-              : passwordMode
-                ? "Sign in"
-                : step === "phone"
-                  ? "Send code to Telegram"
-                  : step === "code"
-                    ? "Verify"
-                    : "Sign in"}
-          </Button>
-        </form>
+        <Button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {busy
+            ? "Signing in…"
+            : passwordMode
+              ? "Sign in"
+              : step === "phone"
+                ? "Send code to Telegram"
+                : step === "code"
+                  ? "Verify code"
+                  : "Sign in"}
+        </Button>
 
-        <div className="mt-4 space-y-2 text-[0.9375rem]">
-          {passwordMode ? (
-            <p>
-              <Link
-                href="/forgot-password"
-                className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition-colors hover:decoration-zinc-900"
-              >
-                Forgot your password?
-              </Link>
-            </p>
-          ) : null}
+        {!passwordMode && step !== "phone" ? (
           <button
-            onClick={() => switchMode(passwordMode ? "telegram" : "password")}
-            className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 transition-colors hover:decoration-zinc-900"
+            type="button"
+            onClick={() => {
+              setStep("phone");
+              setError(null);
+            }}
+            className="block w-full text-center text-[0.875rem] text-zinc-500 hover:text-zinc-900"
           >
-            {passwordMode ? "Sign in with a Telegram code instead" : "Sign in with a password instead"}
+            ← Use a different number
           </button>
-          <p className="mt-3 text-[0.8125rem] leading-[1.5] text-zinc-500">
-            {passwordMode
-              ? "A Telegram code authorises a new device on your Telegram account — you'll see it listed under Devices there. Use it if you've logged BYOS out of Telegram."
-              : "Signing in with a password reuses the Telegram session BYOS already holds, so nothing new is added to your Telegram Devices list."}
-          </p>
-          {!passwordMode && step !== "phone" && (
-            <button
-              onClick={() => {
-                setStep("phone");
-                setError(null);
-              }}
-              className="block text-zinc-500 hover:text-zinc-800"
-            >
-              ← Start over
-            </button>
-          )}
-          <p className="text-zinc-500">
-            New to BYOS?{" "}
-            <Link href="/register" className="text-zinc-900 hover:text-zinc-900">
-              Create an account
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+        ) : null}
+      </form>
+
+      <p className="mt-5 text-[0.8125rem] leading-[1.5] text-zinc-500">
+        {passwordMode
+          ? "A password uses the Telegram session BYOS already has, so it doesn't add a device. Pick a Telegram code if you logged BYOS out of Telegram."
+          : "A Telegram code adds a new device to your Telegram account. A password doesn't."}
+      </p>
+    </AuthShell>
   );
 }

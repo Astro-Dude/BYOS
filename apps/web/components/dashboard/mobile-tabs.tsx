@@ -11,6 +11,7 @@ import {
   Sparkles,
   Star,
   Upload,
+  UploadCloud,
   X,
 } from "lucide-react";
 import Link from "next/link";
@@ -45,11 +46,14 @@ export function MobileTabs({
   onView,
   onNewFolder,
   onUpload,
+  onUploadTo,
 }: {
   view: DriveView;
   onView: (v: DriveView) => void;
   onNewFolder: () => void;
   onUpload: () => void;
+  /** Upload, choosing the storage first. Offered with more than one connected. */
+  onUploadTo?: () => void;
 }) {
   // Only one sheet is ever up: "more" hangs off the last tab, "new" off the
   // centre button. Both are the same glass card in the same slot.
@@ -84,6 +88,18 @@ export function MobileTabs({
             <Upload className="h-[18px] w-[18px] shrink-0" />
             Upload files
           </button>
+          {onUploadTo ? (
+            <button
+              onClick={() => {
+                setSheet(null);
+                onUploadTo();
+              }}
+              className={sheetItem}
+            >
+              <UploadCloud className="h-[18px] w-[18px] shrink-0" />
+              Upload to…
+            </button>
+          ) : null}
           <button
             onClick={() => {
               setSheet(null);

@@ -78,7 +78,7 @@ export function VersionsModal({
     act(async () => {
       await authed((t) => api.replaceFile(t, file.id, f));
       if (inputRef.current) inputRef.current.value = "";
-    }, "File replaced — link now serves the new version");
+    }, "File replaced. The link now opens the new version.");
   };
 
   const download = (v: VersionItem) => {
@@ -158,7 +158,7 @@ export function VersionsModal({
                     </button>
                     {!v.is_current && (
                       <button
-                        onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined), "Version restored — link now serves this version")}
+                        onClick={() => act(() => authed((t) => api.restoreVersion(t, file.id, v.id)).then(() => undefined), "Version restored. The link now opens this version.")}
                         className="text-zinc-700 hover:underline"
                       >
                         Restore

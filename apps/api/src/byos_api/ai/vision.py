@@ -121,7 +121,9 @@ async def transcribe_pdf(key: AiKey, data: bytes, pages: list[str]) -> list[str]
         logger.warning(
             "vision cap reached: transcribing %d of %d text-less pages, skipping %d "
             "(raise AI_VISION_MAX_PAGES to cover the rest)",
-            len(targets), len(sparse), len(skipped),
+            len(targets),
+            len(sparse),
+            len(skipped),
         )
     if not targets:
         return pages

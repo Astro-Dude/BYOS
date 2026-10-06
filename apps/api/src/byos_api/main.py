@@ -26,6 +26,7 @@ from byos_api.core.config import get_settings
 from byos_api.core.errors import CatchUnhandledErrorsMiddleware
 from byos_api.files.router import router as files_router
 from byos_api.folders.router import router as folders_router
+from byos_api.providers import accounts as storage_accounts
 from byos_api.providers.router import router as providers_router
 from byos_api.shares.router import public_router as share_public_router
 from byos_api.shares.router import router as shares_router
@@ -34,7 +35,7 @@ from byos_api.storage import (
     register_default_providers,
     shutdown_providers,
 )
-from byos_api.storage.base import ProviderAuthError
+from byos_api.storage.base import ProviderAuthError, ProviderError
 from byos_api.webhooks.router import router as webhooks_router
 
 settings = get_settings()
@@ -82,14 +83,12 @@ def create_app() -> FastAPI:
     # disabled so the full API surface isn't advertised publicly; the in-app,
     # auth-gated Developer tab is the developer-facing documentation there.
     _docs_kwargs: dict[str, str | None] = (
-        {"docs_url": None, "redoc_url": None, "openapi_url": None}
-        if settings.is_production
-        else {}
+        {"docs_url": None, "redoc_url": None, "openapi_url": None} if settings.is_production else {}
     )
     app = FastAPI(
         title="BYOS API",
         version="0.0.0",
-        summary="Bring Your Own Storage — unified layer over your own storage providers.",
+        summary="Bring Your Own Storage: one layer over the storage you already own.",
         lifespan=lifespan,
         **_docs_kwargs,  # type: ignore[arg-type]
     )
@@ -105,8 +104,31 @@ def create_app() -> FastAPI:
         allow_headers=["*"],
     )
 
+    _PROVIDER_NAMES = {"github": "GitHub", "s3": "S3", "telegram": "Telegram"}
+
+    @app.exception_handler(ProviderError)
+    async def _provider_failed(_: Request, exc: ProviderError) -> JSONResponse:
+        return JSONResponse(status_code=exc.status, content={"detail": str(exc)})
+
     @app.exception_handler(ProviderAuthError)
-    async def _provider_auth_expired(_: Request, __: ProviderAuthError) -> JSONResponse:
+    async def _provider_auth_expired(_: Request, exc: ProviderAuthError) -> JSONResponse:
+        # GitHub or S3 credentials going bad only affects that storage: say so,
+        # and point at Settings. Telegram is different (it's also how users
+        # sign in), so it gets the re-login signal below.
+        if exc.provider != "telegram":
+            name = _PROVIDER_NAMES.get(exc.provider, exc.provider)
+            if exc.revoked:
+                # Its own session: the request's may be mid-transaction or closed.
+                await storage_accounts.flag_rejected(exc.account_id)
+            return JSONResponse(
+                status_code=status.HTTP_409_CONFLICT,
+                content={
+                    "detail": f"{exc} Reconnect {name} in Settings, Storage.",
+                    "code": "storage_credentials_rejected",
+                    "provider": exc.provider,
+                    "account_id": exc.account_id,
+                },
+            )
         # The user's storage credentials were revoked (e.g. they terminated all
         # Telegram sessions). Surface a clear, machine-readable signal so the
         # web app can prompt a re-login instead of showing a generic failure.

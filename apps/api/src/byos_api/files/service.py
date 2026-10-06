@@ -12,9 +12,8 @@ from sqlalchemy import false, func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.ai.nl_search import ParsedQuery
-from byos_api.core import crypto
 from byos_api.db.models import File, FileVersion, Folder, StorageAccount, Tag, User
-from byos_api.providers import service as providers_service
+from byos_api.providers import accounts as storage_accounts
 from byos_api.storage import ProviderAccount, StoredObjectRef, get_provider
 from byos_api.storage.base import ProviderAuthError
 
@@ -34,9 +33,21 @@ class CannotDeleteCurrentVersion(Exception):
 
 
 class NoStorageConnected(Exception):
-    """Raised when a user tries to upload without connected Telegram storage."""
+    """Raised when a user tries to upload with no working storage. `expired`
+    names the provider when they have one that only needs reconnecting."""
 
-    pass
+    def __init__(self, expired: str | None = None) -> None:
+        super().__init__(expired or "")
+        self.expired = expired
+
+
+class StorageUnavailable(Exception):
+    """The storage asked for isn't the user's, or isn't connected. `expired`
+    names the provider when it only needs reconnecting."""
+
+    def __init__(self, expired: str | None = None) -> None:
+        super().__init__(expired or "")
+        self.expired = expired
 
 
 class TargetFolderNotFound(Exception):
@@ -116,22 +127,36 @@ def _account_to_provider_account(account: StorageAccount) -> ProviderAccount:
     return ProviderAccount(
         provider=account.provider,
         id=str(account.id),
-        credentials={"session": crypto.decrypt(account.encrypted_credentials or "")},
+        credentials=storage_accounts.credentials(account),
         config=account.config,
     )
 
 
 async def resolve_upload_target(
-    db: AsyncSession, user: User
+    db: AsyncSession, user: User, account_id: uuid.UUID | None = None
 ) -> tuple[str, ProviderAccount, uuid.UUID | None]:
-    """Uploads always go to the user's connected Telegram storage — never local.
+    """Where an upload goes: the storage the user picked, or their default.
+    Never the app's own disk.
 
-    Raises NoStorageConnected if Telegram isn't linked, so we never silently fall
-    back to storing bytes on the app's own disk."""
-    account = await providers_service.get_telegram_account(db, user)
-    if account and account.status == "connected" and account.encrypted_credentials:
-        return "telegram", _account_to_provider_account(account), account.id
-    raise NoStorageConnected
+    Raises StorageUnavailable if the picked storage isn't theirs or isn't
+    connected, and NoStorageConnected if they have no storage at all."""
+    if account_id is not None:
+        account = await db.get(StorageAccount, account_id)
+        if account is None or account.user_id != user.id:
+            raise StorageUnavailable
+        if not storage_accounts.usable(account):
+            expired = storage_accounts.status(account) == "expired"
+            raise StorageUnavailable(account.provider if expired else None)
+    else:
+        account = await storage_accounts.default_account(db, user)
+        if account is None:
+            stale = [
+                a
+                for a in await storage_accounts.list_accounts(db, user)
+                if storage_accounts.status(a) == "expired"
+            ]
+            raise NoStorageConnected(stale[0].provider if stale else None)
+    return account.provider, _account_to_provider_account(account), account.id
 
 
 async def search_files(
@@ -145,6 +170,7 @@ async def search_files(
     tag: str | None = None,
     favorite: bool | None = None,
     limit: int = 50,
+    offset: int = 0,
 ) -> list[File]:
     """Full-text (search_vector) OR substring (pg_trgm-backed ILIKE) match on a
     user's files, ranked by ts_rank then recency, with optional filters.
@@ -176,10 +202,11 @@ async def search_files(
                 "ts_rank(search_vector, websearch_to_tsquery('english', :rank_q)) DESC"
             ).bindparams(rank_q=terms),
             File.created_at.desc(),
+            File.id,
         )
     else:
-        stmt = stmt.order_by(File.created_at.desc())
-    result = await db.execute(stmt.limit(limit))
+        stmt = stmt.order_by(File.created_at.desc(), File.id)  # id: stable pages
+    result = await db.execute(stmt.limit(limit).offset(max(0, offset)))
     return list(result.scalars())
 
 
@@ -204,13 +231,17 @@ async def nl_search(db: AsyncSession, user: User, parsed: ParsedQuery, limit: in
         stmt = stmt.where(File.is_favorite.is_(True))
     if parsed.folder_name is not None:
         folder_ids = (
-            await db.execute(
-                select(Folder.id).where(
-                    Folder.owner_id == user.id,
-                    func.lower(Folder.name) == parsed.folder_name.lower(),
+            (
+                await db.execute(
+                    select(Folder.id).where(
+                        Folder.owner_id == user.id,
+                        func.lower(Folder.name) == parsed.folder_name.lower(),
+                    )
                 )
             )
-        ).scalars().all()
+            .scalars()
+            .all()
+        )
         stmt = stmt.where(File.folder_id.in_(folder_ids)) if folder_ids else stmt.where(false())
     if parsed.min_size is not None:
         stmt = stmt.where(File.size >= parsed.min_size)
@@ -300,9 +331,7 @@ async def verify_missing(db: AsyncSession, user: User) -> dict[str, int]:
     files = list(
         (
             await db.execute(
-                select(File).where(
-                    File.owner_id == user.id, File.current_version_id.is_not(None)
-                )
+                select(File).where(File.owner_id == user.id, File.current_version_id.is_not(None))
             )
         ).scalars()
     )
@@ -382,8 +411,10 @@ async def delete_file_bytes(db: AsyncSession, user: User, record: File) -> None:
         return
     provider = get_provider(record.provider)
     versions = (
-        await db.execute(select(FileVersion).where(FileVersion.file_id == record.id))
-    ).scalars().all()
+        (await db.execute(select(FileVersion).where(FileVersion.file_id == record.id)))
+        .scalars()
+        .all()
+    )
     for version in versions:
         await provider.delete(
             account,
@@ -442,44 +473,40 @@ async def remove_tag(db: AsyncSession, user: User, file_id: uuid.UUID, name: str
 
 
 async def list_tags(db: AsyncSession, user: User) -> list[str]:
-    result = await db.execute(
-        select(Tag.name).where(Tag.owner_id == user.id).order_by(Tag.name)
-    )
+    result = await db.execute(select(Tag.name).where(Tag.owner_id == user.id).order_by(Tag.name))
     return list(result.scalars())
 
 
-async def account_for_file(db: AsyncSession, user: User, record: File) -> ProviderAccount | None:
-    """Build the ProviderAccount needed to read/delete a stored file, or None if
-    its provider account is no longer available."""
-    if record.provider != "telegram":
+async def _account_for(
+    db: AsyncSession, owner_id: uuid.UUID, record: File
+) -> ProviderAccount | None:
+    """The storage account a file's bytes live in, ready to use, or None if it's
+    gone or disconnected. Files from before multi-storage may have no account id;
+    those are on the owner's Telegram."""
+    if record.provider == "local":
         return ProviderAccount(provider="local")
-
     account: StorageAccount | None = None
     if record.storage_account_id is not None:
         account = await db.get(StorageAccount, record.storage_account_id)
-    if account is None:
-        account = await providers_service.get_telegram_account(db, user)
-    if account is None or not account.encrypted_credentials:
-        return None
-    return _account_to_provider_account(account)
-
-
-async def account_for_file_public(db: AsyncSession, record: File) -> ProviderAccount | None:
-    """Resolve the storage account for a file by its OWNER (no request user) —
-    used by public alias resolution."""
-    if record.provider != "telegram":
-        return ProviderAccount(provider="local")
-
-    account: StorageAccount | None = None
-    if record.storage_account_id is not None:
-        account = await db.get(StorageAccount, record.storage_account_id)
-    if account is None:
+    if account is None and record.provider == "telegram":
         result = await db.execute(
             select(StorageAccount).where(
-                StorageAccount.user_id == record.owner_id, StorageAccount.provider == "telegram"
+                StorageAccount.user_id == owner_id, StorageAccount.provider == "telegram"
             )
         )
         account = result.scalar_one_or_none()
     if account is None or not account.encrypted_credentials:
         return None
     return _account_to_provider_account(account)
+
+
+async def account_for_file(db: AsyncSession, user: User, record: File) -> ProviderAccount | None:
+    """Build the ProviderAccount needed to read/delete a stored file, or None if
+    its provider account is no longer available."""
+    return await _account_for(db, user.id, record)
+
+
+async def account_for_file_public(db: AsyncSession, record: File) -> ProviderAccount | None:
+    """Resolve the storage account for a file by its OWNER (no request user) —
+    used by public alias resolution."""
+    return await _account_for(db, record.owner_id, record)

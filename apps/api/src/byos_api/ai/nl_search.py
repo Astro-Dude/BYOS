@@ -76,9 +76,28 @@ _TOKEN_RE = re.compile(r'(\w+):"([^"]*)"|(\w+):(\S+)|"([^"]*)"|(\S+)')
 _KNOWN_OPS = {"type", "ext", "tag", "in", "folder", "size", "before", "after", "during", "is"}
 
 _STOP = {
-    "from", "in", "the", "my", "files", "file", "show", "me", "all", "find",
-    "with", "of", "and", "larger", "bigger", "smaller", "greater", "less",
-    "than", "over", "under", "size",
+    "from",
+    "in",
+    "the",
+    "my",
+    "files",
+    "file",
+    "show",
+    "me",
+    "all",
+    "find",
+    "with",
+    "of",
+    "and",
+    "larger",
+    "bigger",
+    "smaller",
+    "greater",
+    "less",
+    "than",
+    "over",
+    "under",
+    "size",
 }
 
 

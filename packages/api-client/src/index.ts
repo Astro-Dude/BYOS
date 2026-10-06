@@ -37,6 +37,35 @@ export interface HealthResponse {
   providers: string[];
 }
 
+/** A connected storage (Telegram, GitHub, S3) and what's on it. */
+export interface StorageAccount {
+  id: string;
+  provider: "telegram" | "github" | "s3" | string;
+  label: string | null;
+  /** "connected", "expired" (Telegram logged out), or "disconnected". */
+  status: string;
+  is_default: boolean;
+  files: number;
+  bytes: number;
+  repo_url: string | null;
+  /** When a GitHub token stops working (ISO); null if it never expires. */
+  token_expires_at: string | null;
+  private: boolean | null;
+  bucket: string | null;
+  endpoint: string | null;
+  region: string | null;
+  prefix: string | null;
+}
+
+export interface S3ConnectInput {
+  endpoint?: string | null;
+  region?: string | null;
+  bucket: string;
+  prefix?: string | null;
+  access_key_id: string;
+  secret_access_key: string;
+}
+
 export interface ProviderStatus {
   provider: string;
   status: string;
@@ -54,6 +83,9 @@ export interface FileItem {
   mime: string | null;
   size: number;
   provider: string;
+  /** Which of the user's storages holds it; null on files from before
+   *  multi-storage (those are on Telegram). */
+  storage_account_id: string | null;
   folder_id: string | null;
   is_favorite: boolean;
   tags: string[];
@@ -134,21 +166,14 @@ export interface ShareItem {
   id: string;
   file_id: string;
   token: string;
-  visibility: string;
-  has_password: boolean;
   expires_at: string | null;
-  max_downloads: number | null;
   download_count: number;
-  view_only: boolean;
   created_at: string;
 }
 
 export interface ShareInput {
   file_id: string;
-  password?: string;
   expires_in_days?: number;
-  max_downloads?: number;
-  view_only?: boolean;
 }
 
 /** Platform-wide analytics. Admin only — the endpoint 404s for everyone else. */
@@ -178,12 +203,30 @@ export interface PlatformStats {
   growth: { day: string; value: number }[];
   active: { day: string; value: number }[];
   providers: { label: string; count: number; bytes: number }[];
+  /** Connected storage accounts per provider, across all users. */
+  storage_accounts?: { label: string; count: number }[];
   versions: { total: number; versioned_files: number; revisions: number };
   shares_by_kind: { label: string; count: number; bytes: number }[];
   aliases_by_kind: { label: string; count: number; bytes: number }[];
   duplicates: { groups: number; reclaimable_bytes: number };
   index_coverage: { indexed: number; files: number };
   tags: { label: string; count: number; bytes: number }[];
+  /** Distinct people active (an audited action or a question to Bao). */
+  engagement?: { dau: number; wau: number; mau: number };
+  /** How far accounts get, from signing up to applying one of Bao's plans. */
+  funnel?: { label: string; count: number }[];
+  assistant?: {
+    questions: { day: string; value: number }[];
+    plans_applied: { day: string; value: number }[];
+    plans_by_status: { label: string; count: number }[];
+    changes: { ok: number; failed: number; undone: number };
+    change_kinds: { label: string; count: number }[];
+    providers: { label: string; count: number }[];
+    /** Models set on keys, each with its provider (from the key's API address). */
+    models: { label: string; count: number; provider: string }[];
+  };
+  /** Storage connections by state ("connected", "expired", …). */
+  storage_status?: { label: string; count: number }[];
 }
 
 /** One row of the managed admin list. */
@@ -250,6 +293,10 @@ export interface AiKey {
   temperature: number;
   max_tokens: number;
   top_p: number | null;
+  /** How hard a reasoning model thinks; null is automatic (its lowest). */
+  reasoning_effort: ReasoningEffort | null;
+  /** What the model takes, when saving just tested it (a new key or model). */
+  check?: ModelCheck | null;
 }
 
 export interface AiKeyInput {
@@ -261,6 +308,22 @@ export interface AiKeyInput {
   temperature: number;
   max_tokens: number;
   top_p?: number | null;
+  reasoning_effort?: ReasoningEffort | null;
+}
+
+/** The models a key can use. */
+export interface ProviderModels {
+  models: string[];
+}
+
+/** What one test request found out about a model. `unsupported` lists the
+ *  sampling settings it refuses ("temperature", "top_p"). */
+export type ReasoningEffort = "none" | "minimal" | "low" | "medium" | "high" | "xhigh";
+
+export interface ModelCheck {
+  unsupported: string[];
+  /** Reasoning effort levels the model takes, lowest first; empty if none. */
+  efforts: ReasoningEffort[];
 }
 
 export interface AiPrompt {
@@ -269,12 +332,25 @@ export interface AiPrompt {
   content: string;
 }
 
-/** RAG strategy toggles for drive-wide chat. */
+/** Settings for /organize. Defaults: no renaming, existing folders kept, no tags. */
+export interface OrganizeOptions {
+  rename: boolean;
+  group_by: "auto" | "topic" | "type" | "year";
+  /** The most levels of folders; null leaves it to the agent (up to 3). */
+  depth: 1 | 2 | 3 | null;
+  keep_existing: boolean;
+  read_contents: boolean;
+  tags: boolean;
+}
+
+/** Chat add-ons: retrieval strategies, plus showing the answer's working. */
 export interface RagStrategies {
   rewrite: boolean;
   hyde: boolean;
   rerank: boolean;
   crag: boolean;
+  /** The answer comes with its steps and calculations. Optional for older callers. */
+  reasoning?: boolean;
 }
 
 export interface IndexStatus {
@@ -302,9 +378,46 @@ export interface AgentAction {
   result: { ok: boolean; detail: string } | null;
 }
 
+/** A file in a plan preview: its name once the plan runs, its old name if it
+ *  is renamed, the folder it comes from if it moves, and tag and star changes. */
+export interface PreviewFile {
+  name: string;
+  was: string | null;
+  from: string | null;
+  tags_added: string[];
+  tags_removed: string[];
+  /** true starred, false unstarred, null untouched. */
+  star: boolean | null;
+}
+
+/** A folder in a plan preview. `new` folders are created by the plan; `was` is
+ *  a folder's old name; `more` counts files beyond those listed. */
+export interface PreviewFolder {
+  name: string;
+  new: boolean;
+  was: string | null;
+  moved: boolean;
+  files: PreviewFile[];
+  more: number;
+  children: PreviewFolder[];
+}
+
+/** The drive's shape once a plan is applied, for plans that create or move. */
+export interface PlanPreview {
+  /** Loose files at the top of the drive the plan leaves there (often missed). */
+  untouched: string[];
+  untouched_more: number;
+  new_folders: number;
+  moved: number;
+  renamed: number;
+  tagged: number;
+  starred: number;
+  root: PreviewFolder;
+}
+
 export interface AgentPlan {
   id: string;
-  status: "pending" | "applied" | "discarded";
+  status: "pending" | "applied" | "discarded" | "undone";
   actions: AgentAction[];
   created_at: string;
 }
@@ -505,6 +618,51 @@ export class ByosClient {
     return this.request<ProviderStatus[]>("/providers", { token });
   }
 
+  // ── Storage accounts ──────────────────────────────────────────────────────
+  listStorage(token: string): Promise<StorageAccount[]> {
+    return this.request<StorageAccount[]>("/providers/accounts", { token });
+  }
+
+  /** Connect a GitHub repo as storage. The repo is created if it doesn't exist
+   *  (private unless `isPrivate` is false). Returns every storage. */
+  connectGitHub(
+    token: string,
+    githubToken: string,
+    repo: string,
+    isPrivate: boolean,
+  ): Promise<StorageAccount[]> {
+    return this.request<StorageAccount[]>("/providers/github", {
+      method: "POST",
+      token,
+      body: JSON.stringify({ token: githubToken, repo, private: isPrivate }),
+    });
+  }
+
+  connectS3(token: string, input: S3ConnectInput): Promise<StorageAccount[]> {
+    return this.request<StorageAccount[]>("/providers/s3", {
+      method: "POST",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Make a storage the default for uploads, or change a GitHub repo's visibility. */
+  updateStorage(
+    token: string,
+    id: string,
+    input: { is_default?: boolean; private?: boolean },
+  ): Promise<StorageAccount[]> {
+    return this.request<StorageAccount[]>(`/providers/accounts/${id}`, {
+      method: "PATCH",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  disconnectStorage(token: string, id: string): Promise<StorageAccount[]> {
+    return this.request<StorageAccount[]>(`/providers/accounts/${id}`, { method: "DELETE", token });
+  }
+
   disconnectTelegram(token: string): Promise<void> {
     return this.request<void>("/providers/telegram", { method: "DELETE", token });
   }
@@ -512,10 +670,9 @@ export class ByosClient {
   /** Liveness probe for the Telegram storage session. `needs_reauth` is true
    *  when a previously-connected session was revoked (user terminated it). */
   telegramSessionStatus(token: string): Promise<{ connected: boolean; needs_reauth: boolean }> {
-    return this.request<{ connected: boolean; needs_reauth: boolean }>(
-      "/providers/telegram/session",
-      { token },
-    );
+    return this.request<{ connected: boolean; needs_reauth: boolean }>("/providers/telegram/session", {
+      token,
+    });
   }
 
   // ── Folders ───────────────────────────────────────────────────────────────
@@ -524,12 +681,7 @@ export class ByosClient {
     return this.request<FolderItem[]>(`/folders${qs}`, { token });
   }
 
-  createFolder(
-    token: string,
-    name: string,
-    parentId?: string,
-    color?: string | null,
-  ): Promise<FolderItem> {
+  createFolder(token: string, name: string, parentId?: string, color?: string | null): Promise<FolderItem> {
     return this.request<FolderItem>("/folders", {
       method: "POST",
       token,
@@ -645,11 +797,14 @@ export class ByosClient {
     file: File,
     folderId?: string,
     onProgress?: (pct: number) => void,
+    /** Which storage to upload to; the user's default when omitted. */
+    storageAccountId?: string,
   ): Promise<FileItem> {
     return new Promise<FileItem>((resolve, reject) => {
       const form = new FormData();
       form.append("file", file);
       if (folderId) form.append("folder_id", folderId);
+      if (storageAccountId) form.append("storage_account_id", storageAccountId);
       const xhr = new XMLHttpRequest();
       xhr.open("POST", `${this.baseUrl}/files`);
       xhr.withCredentials = true;
@@ -706,11 +861,7 @@ export class ByosClient {
     return this.request<FileItem[]>(`/files?${params.toString()}`, { token });
   }
 
-  listByTag(
-    token: string,
-    tag: string,
-    opts?: { limit?: number; offset?: number },
-  ): Promise<FileItem[]> {
+  listByTag(token: string, tag: string, opts?: { limit?: number; offset?: number }): Promise<FileItem[]> {
     const params = new URLSearchParams({ tag });
     if (opts?.limit != null) params.set("limit", String(opts.limit));
     if (opts?.offset != null) params.set("offset", String(opts.offset));
@@ -809,12 +960,7 @@ export class ByosClient {
     return this.request<AliasItem[]>("/aliases", { token });
   }
 
-  createAlias(
-    token: string,
-    slug: string,
-    fileId: string,
-    description?: string,
-  ): Promise<AliasItem> {
+  createAlias(token: string, slug: string, fileId: string, description?: string): Promise<AliasItem> {
     return this.request<AliasItem>("/aliases", {
       method: "POST",
       token,
@@ -854,16 +1000,10 @@ export class ByosClient {
 
   // ── Public folder browsing (unauthenticated) ──────────────────────────────
   publicMeta(username: string, slug: string): Promise<PublicMeta> {
-    return this.request<PublicMeta>(
-      `/public/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`,
-    );
+    return this.request<PublicMeta>(`/public/${encodeURIComponent(username)}/${encodeURIComponent(slug)}`);
   }
 
-  publicFolderList(
-    username: string,
-    slug: string,
-    folderId?: string,
-  ): Promise<PublicFolderView> {
+  publicFolderList(username: string, slug: string, folderId?: string): Promise<PublicFolderView> {
     const q = folderId ? `?folder_id=${encodeURIComponent(folderId)}` : "";
     return this.request<PublicFolderView>(
       `/public/${encodeURIComponent(username)}/${encodeURIComponent(slug)}/list${q}`,
@@ -871,19 +1011,14 @@ export class ByosClient {
   }
 
   /** Direct URL to stream/download a file inside a shared folder. */
-  publicFolderFileUrl(
-    username: string,
-    slug: string,
-    fileId: string,
-    download = false,
-  ): string {
+  publicFolderFileUrl(username: string, slug: string, fileId: string, download = false): string {
     const dl = download ? "?dl=1" : "";
     return `${this.baseUrl}/public/${encodeURIComponent(username)}/${encodeURIComponent(
       slug,
     )}/file/${fileId}${dl}`;
   }
 
-  // ── Shares (links with access controls) ───────────────────────────────────
+  // ── Shares (links that expire after some days) ───────────────────────────
   createShare(token: string, input: ShareInput): Promise<ShareItem> {
     return this.request<ShareItem>("/shares", {
       method: "POST",
@@ -975,6 +1110,32 @@ export class ByosClient {
   updateAiKey(token: string, id: string, input: AiKeyInput): Promise<AiKey> {
     return this.request<AiKey>(`/ai/keys/${id}`, {
       method: "PUT",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Ask a provider which models a key can use. Pass the key typed in the form,
+   *  or `keyId` to use a saved one. */
+  listProviderModels(
+    token: string,
+    input: { base_url: string; api_key?: string; key_id?: string },
+  ): Promise<ProviderModels> {
+    return this.request<ProviderModels>("/ai/models", {
+      method: "POST",
+      token,
+      body: JSON.stringify(input),
+    });
+  }
+
+  /** Send one tiny test request to a model, to learn which settings it
+   *  refuses. Fails with the provider's reason if the model doesn't work. */
+  checkModel(
+    token: string,
+    input: { base_url: string; model: string; api_key?: string; key_id?: string },
+  ): Promise<ModelCheck> {
+    return this.request<ModelCheck>("/ai/models/check", {
+      method: "POST",
       token,
       body: JSON.stringify(input),
     });
@@ -1151,17 +1312,11 @@ export class ByosClient {
 
   /** Which extractable files are already embedded for a key's embedding model. */
   indexStatus(token: string, keyId: string): Promise<IndexStatus> {
-    return this.request<IndexStatus>(
-      `/ai/index/status?key_id=${encodeURIComponent(keyId)}`,
-      { token },
-    );
+    return this.request<IndexStatus>(`/ai/index/status?key_id=${encodeURIComponent(keyId)}`, { token });
   }
 
   /** Delete embedded chunks to free space — all files, or specific ones. */
-  unindex(
-    token: string,
-    args: { all?: boolean; fileIds?: string[] },
-  ): Promise<{ removed: number }> {
+  unindex(token: string, args: { all?: boolean; fileIds?: string[] }): Promise<{ removed: number }> {
     return this.request<{ removed: number }>("/ai/unindex", {
       method: "POST",
       token,
@@ -1181,8 +1336,16 @@ export class ByosClient {
       message: string;
       mode: AgentMode;
       strategies?: RagStrategies;
+      /** Set by /organize: tidy the whole drive with these settings. */
+      organize?: OrganizeOptions | null;
+      /** A pending plan this turn replaces: `message` is the user's note, and the
+       *  reply rewrites that plan's message instead of adding a new one. */
+      revises?: string | null;
+      /** An applied plan whose failed changes this turn redoes ("Fix with Bao"). */
+      fixes?: string | null;
     },
     onToken: (chunk: string) => void,
+    signal?: AbortSignal,
   ): Promise<string> {
     return this.streamText(
       "/ai/agent/chat",
@@ -1199,9 +1362,21 @@ export class ByosClient {
           rerank: false,
           crag: false,
         },
+        organize: args.organize ?? null,
+        revises: args.revises ?? null,
+        fixes: args.fixes ?? null,
       },
       onToken,
+      signal,
     );
+  }
+
+  /** TEMPORARY (/undo): reverse an applied plan's changes. Removed once used. */
+  undoAgentPlan(
+    token: string,
+    planId: string,
+  ): Promise<{ undone: number; not_undone: { label: string; detail: string }[] }> {
+    return this.request(`/ai/agent/plans/${planId}/undo`, { method: "POST", token });
   }
 
   /** Every plan in a conversation, with its current status. */

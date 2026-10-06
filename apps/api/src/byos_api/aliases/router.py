@@ -76,9 +76,7 @@ async def create_alias(payload: AliasCreate, user: CurrentUser, db: DbDep) -> Al
     except service.FileAlreadyLinked:
         raise HTTPException(status.HTTP_409_CONFLICT, "This file already has a link") from None
     except service.FolderAlreadyLinked:
-        raise HTTPException(
-            status.HTTP_409_CONFLICT, "This folder already has a link"
-        ) from None
+        raise HTTPException(status.HTTP_409_CONFLICT, "This folder already has a link") from None
     return _alias_out(alias)
 
 
@@ -208,6 +206,7 @@ async def public_folder_file(
         disposition="attachment" if dl else "inline",
         etag=version.hash,
         request=request,
+        public=True,
         on_missing=_mark_missing,
     )
 
@@ -254,5 +253,6 @@ async def resolve_alias(username: str, slug: str, request: Request, db: DbDep) -
         disposition="inline",
         etag=version.hash,
         request=request,
+        public=True,
         on_missing=_mark_missing,
     )

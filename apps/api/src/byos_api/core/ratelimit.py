@@ -42,7 +42,7 @@ def limit(prefix: str, limit_count: int, window_seconds: int):
         if not await rate_limit(key, limit_count, window_seconds):
             raise HTTPException(
                 status.HTTP_429_TOO_MANY_REQUESTS,
-                "Too many requests — please slow down.",
+                "Too many requests. Please slow down.",
             )
 
     return dependency

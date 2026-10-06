@@ -64,9 +64,7 @@ async def get_principal(
         user, key = result
         # NULL scopes = legacy key issued before scopes existed → full access.
         scopes = set(key.scopes) if key.scopes else None
-        principal = Principal(
-            user=user, auth_type="api_key", scopes=scopes, key_prefix=key.prefix
-        )
+        principal = Principal(user=user, auth_type="api_key", scopes=scopes, key_prefix=key.prefix)
     else:
         try:
             payload = decode_access_token(creds.credentials)
@@ -145,5 +143,5 @@ async def api_key_rate_limit(
     if not await rate_limit(key, settings.api_rate_limit, settings.api_rate_window):
         raise HTTPException(
             status.HTTP_429_TOO_MANY_REQUESTS,
-            "Too many requests — please slow down.",
+            "Too many requests. Please slow down.",
         )

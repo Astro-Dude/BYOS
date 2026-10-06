@@ -160,7 +160,7 @@ export default function SharedFolderPage() {
       )}
 
       <footer className="mt-10 text-center text-[0.8125rem] text-zinc-400">
-        Powered by BYOS — bring your own storage.
+        Powered by BYOS. Bring your own storage.
       </footer>
     </main>
   );

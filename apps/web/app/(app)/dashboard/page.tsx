@@ -5,6 +5,7 @@ import {
   type Breadcrumb,
   type FileItem,
   type FolderItem,
+  type StorageAccount,
 } from "@byos/api-client";
 import {
   AlertCircle,
@@ -42,16 +43,18 @@ import { SearchPalette } from "@/components/dashboard/search-palette";
 import { FolderShareModal } from "@/components/dashboard/folder-share-modal";
 import { DuplicatesPanel } from "@/components/dashboard/duplicates-panel";
 import { MissingPanel } from "@/components/dashboard/missing-panel";
-import { ProfilePanel } from "@/components/dashboard/profile-panel";
 import { MoveModal } from "@/components/dashboard/move-modal";
 import { RenameModal } from "@/components/dashboard/rename-modal";
 import { UsernameSetup } from "@/components/dashboard/username-setup";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
+import { StorageAlerts } from "@/components/dashboard/storage-alert";
 import { MobileTabs } from "@/components/dashboard/mobile-tabs";
 import { LogoMark } from "@/components/logo";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { IntroSplash } from "@/components/intro-splash";
+import { StoragePicker } from "@/components/dashboard/storage-picker";
+import { StorageIcon, providerName, storageTitle } from "@/components/storage-icon";
 import { TagsModal } from "@/components/dashboard/tags-modal";
 import {
   type ConflictResolution,
@@ -60,7 +63,7 @@ import {
 import { VersionsModal } from "@/components/dashboard/versions-modal";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
-import { useAuth, useAuthed } from "@/lib/auth-context";
+import { STORAGE_REJECTED_EVENT, useAuth, useAuthed } from "@/lib/auth-context";
 import { FOLDER_COLORS } from "@/lib/folder-colors";
 import {
   addRecentFile,
@@ -68,6 +71,7 @@ import {
   removeRecentFile,
   removeRecentFolder,
 } from "@/lib/recents";
+import { type DriveSort, usePreferences } from "@/lib/preferences";
 import { useToast } from "@/lib/toast";
 import { truncateMiddle } from "@/lib/utils";
 
@@ -142,6 +146,33 @@ function matchesType(file: FileItem, cat: Category): boolean {
   }
 }
 
+/** What a file is, in a word, for the Kind column. */
+function kindOf(file: FileItem): string {
+  const m = (file.mime ?? "").toLowerCase();
+  const ext = (file.ext ?? "").toLowerCase();
+  if (m === "application/pdf" || ext === "pdf") return "PDF";
+  if (m.startsWith("image/")) return "Image";
+  if (m.startsWith("video/")) return "Video";
+  if (m.startsWith("audio/")) return "Audio";
+  if (m.includes("sheet") || m.includes("excel") || ["xls", "xlsx", "csv", "ods"].includes(ext)) return "Spreadsheet";
+  if (m.includes("presentation") || ["ppt", "pptx", "key", "odp"].includes(ext)) return "Slides";
+  if (m.includes("zip") || m.includes("compressed") || ["zip", "rar", "7z", "tar", "gz"].includes(ext)) return "Archive";
+  if (m.includes("word") || ["doc", "docx", "rtf", "odt"].includes(ext)) return "Document";
+  if (["md", "txt"].includes(ext) || m.startsWith("text/plain") || m === "text/markdown") return "Text";
+  if (["js", "ts", "tsx", "py", "go", "rs", "java", "json", "html", "css", "sh"].includes(ext)) return "Code";
+  return ext ? ext.toUpperCase() : "File";
+}
+
+// The list's columns. Name takes the most room but the rest share the width
+// too, so on a wide screen the details sit across the row instead of bunching
+// at the right edge; Kind joins from lg. Folders, files and the heading share it.
+const LIST_COLS =
+  "grid-cols-[minmax(0,1fr)_7.5rem_8.75rem_6.25rem_2.75rem] lg:grid-cols-[minmax(0,2.6fr)_minmax(6rem,0.8fr)_minmax(8rem,1.3fr)_minmax(7rem,0.9fr)_minmax(5.5rem,0.7fr)_2.75rem]";
+
+// Cards: as many columns as fit (two on a phone), so a wide screen gets more
+// of them rather than wider ones.
+const GRID_COLS = "grid grid-cols-2 gap-3 sm:grid-cols-[repeat(auto-fill,minmax(12.5rem,1fr))]";
+
 function shortDate(iso: string): string {
   return new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short" });
 }
@@ -149,11 +180,13 @@ function shortDate(iso: string): string {
 // One screenful. The rest streams in as the sentinel scrolls into view, so a
 // drive with thousands of files renders 20 rows rather than all of them.
 const PAGE_SIZE = 20;
-// Telegram's per-file ceiling for a standard account. Keep in sync with the
-// API's max_upload_bytes so oversized files are caught before uploading.
+// The largest file every storage takes (Telegram and GitHub stop at 2 GB). Keep
+// in sync with the API's max_upload_bytes so oversized files are caught before
+// uploading.
 const MAX_UPLOAD_BYTES = 2 * 1024 * 1024 * 1024; // 2 GB
 // Upload several files at once, but capped — unbounded parallelism risks
-// Telegram flood limits and exhausts the browser's per-host connection pool.
+// provider rate limits (Telegram's flood waits, GitHub's secondary limits) and
+// exhausts the browser's per-host connection pool.
 const UPLOAD_CONCURRENCY = 3;
 const FILE_DRAG_TYPE = "application/byos-file-id";
 const FOLDER_DRAG_TYPE = "application/byos-folder-id";
@@ -241,7 +274,11 @@ export default function DashboardPage() {
 
   const [view, setView] = useState<DriveView>("drive");
   const [showBoot, setShowBoot] = useState(() => !bootShown);
-  const [layout, setLayout] = useState<"list" | "grid">("list");
+  // Layout and sort are preferences: changing them here is remembered, and
+  // Settings sets where they start.
+  const { prefs, setPrefs } = usePreferences();
+  const layout = prefs.driveLayout;
+  const setLayout = (next: "list" | "grid") => setPrefs({ driveLayout: next });
   const [folderId, setFolderId] = useState<string | undefined>(undefined);
   const [crumbs, setCrumbs] = useState<Breadcrumb[]>([]);
   const [folders, setFolders] = useState<FolderItem[]>([]);
@@ -255,8 +292,16 @@ export default function DashboardPage() {
   const [results, setResults] = useState<FileItem[] | null>(null);
   const [folderResults, setFolderResults] = useState<FolderItem[]>([]);
   const [typeFilter, setTypeFilter] = useState<Category>("all");
-  const [sortField, setSortField] = useState<SortField | null>(null);
-  const [sortDir, setSortDir] = useState<SortDir>("asc");
+  // "all", or the id of the storage whose files to show.
+  const [storageFilter, setStorageFilter] = useState("all");
+  // Set by "Upload to…" so the next picked files ask where to go.
+  const askStorageNext = useRef(false);
+  const [sortField, sortDir]: [SortField | null, SortDir] =
+    prefs.driveSort === "none"
+      ? [null, "asc"]
+      : (prefs.driveSort.split(":") as [SortField, SortDir]);
+  const setSort = (field: SortField | null, dir: SortDir = "asc") =>
+    setPrefs({ driveSort: field ? (`${field}:${dir}` as DriveSort) : "none" });
 
   const [nfOpen, setNfOpen] = useState(false);
   const [aliasRefresh, setAliasRefresh] = useState(0);
@@ -291,8 +336,17 @@ export default function DashboardPage() {
   const [conflict, setConflict] = useState<{
     items: { file: File; existing: FileItem }[];
     targetFolderId: string | undefined;
+    storageId?: string;
     existingNames: Set<string>;
     folderLabel: string;
+  } | null>(null);
+  // The user's storages, for the upload picker and the per-file storage badge.
+  const [storages, setStorages] = useState<StorageAccount[]>([]);
+  const [storagesReady, setStoragesReady] = useState(false);
+  // Files waiting for the user to say which storage they go to.
+  const [pickStorage, setPickStorage] = useState<{
+    files: File[];
+    targetFolderId: string | undefined;
   } | null>(null);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
@@ -333,7 +387,7 @@ export default function DashboardPage() {
 
   const load = useCallback(async () => {
     // These views render their own panels — no file listing needed.
-    if (["links", "duplicates", "missing", "developer", "profile"].includes(view)) return;
+    if (["links", "duplicates", "missing", "developer"].includes(view)) return;
     listGenRef.current += 1;
     loadingMoreRef.current = false;
     setLoading(true);
@@ -384,6 +438,39 @@ export default function DashboardPage() {
   useEffect(() => {
     if (user) void load();
   }, [user, load]);
+
+  const reloadStorages = useCallback(() => {
+    authed((t) => api.listStorage(t))
+      .then(setStorages)
+      .catch(() => undefined) // keep what's shown; the next refresh retries
+      .finally(() => setStoragesReady(true));
+  }, [authed]);
+
+  useEffect(() => {
+    if (user) reloadStorages();
+  }, [user, reloadStorages]);
+
+  // Keep the usage card current: refresh shortly after the files change
+  // (uploads, deletes, restores all land here), when the tab comes back into
+  // view, and when a storage turns out to need reconnecting.
+  useEffect(() => {
+    if (!user || !storagesReady) return;
+    const timer = setTimeout(reloadStorages, 800);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [files]);
+  useEffect(() => {
+    if (!user) return;
+    const onFocus = () => {
+      if (document.visibilityState === "visible") reloadStorages();
+    };
+    document.addEventListener("visibilitychange", onFocus);
+    window.addEventListener(STORAGE_REJECTED_EVENT, reloadStorages);
+    return () => {
+      document.removeEventListener("visibilitychange", onFocus);
+      window.removeEventListener(STORAGE_REJECTED_EVENT, reloadStorages);
+    };
+  }, [user, reloadStorages]);
 
   // Remember the splash has played this page-load (skips it on SPA re-mounts).
   useEffect(() => {
@@ -476,6 +563,7 @@ export default function DashboardPage() {
         return done >= p.total ? null : { ...p, done }; // clears when everything settles
       });
     let failed = 0;
+    let reason: string | null = null; // the first failure's message, so the toast says why
     let idx = 0;
     const worker = async () => {
       while (idx < total) {
@@ -483,15 +571,17 @@ export default function DashboardPage() {
         if (!task) break;
         try {
           await task();
-        } catch {
+        } catch (err) {
           failed += 1;
+          reason ??= err instanceof ApiError ? err.detail : null;
         }
         bump();
       }
     };
     await Promise.all(Array.from({ length: Math.min(4, total) }, worker));
     if (failed > 0) {
-      toast(`${failed} item${failed === 1 ? "" : "s"} failed to delete`, "error");
+      const count = `${failed} item${failed === 1 ? "" : "s"} failed to delete`;
+      toast(reason ? `${count}. ${reason}` : count, "error");
       await load(); // resync so items that didn't actually delete reappear
     } else {
       toast(total > 1 ? `Deleted ${total} items` : "Deleted");
@@ -505,6 +595,7 @@ export default function DashboardPage() {
   const runJobs = (
     jobs: { id: number; name: string; file: File; replaceId?: string }[],
     targetFolderId: string | undefined,
+    storageId?: string,
   ) => {
     if (jobs.length === 0) return;
     setUploads((prev) => [
@@ -517,8 +608,12 @@ export default function DashboardPage() {
           const result = await authed((t) =>
             job.replaceId
               ? api.replaceFile(t, job.replaceId, job.file)
-              : api.uploadFile(t, job.file, targetFolderId, (pct) =>
-                  setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
+              : api.uploadFile(
+                  t,
+                  job.file,
+                  targetFolderId,
+                  (pct) => setUploads((p) => p.map((u) => (u.id === job.id ? { ...u, progress: pct } : u))),
+                  storageId,
                 ),
           );
           setUploads((p) =>
@@ -550,12 +645,22 @@ export default function DashboardPage() {
     })();
   };
 
-  const upload = async (
-    fileList: FileList | null,
-    targetFolderId: string | undefined = folderId,
-  ) => {
+  const upload = (fileList: FileList | null, targetFolderId: string | undefined = folderId) => {
+    const askThisTime = askStorageNext.current;
+    askStorageNext.current = false;
     if (!fileList || fileList.length === 0) return;
-    const all = Array.from(fileList);
+    const all = Array.from(fileList); // copied: the input is cleared below
+    if (inputRef.current) inputRef.current.value = "";
+    // "Ask every time" only means something with more than one storage.
+    const usable = storages.filter((s) => s.status === "connected");
+    if ((askThisTime || prefs.uploadTarget === "ask") && usable.length > 1) {
+      setPickStorage({ files: all, targetFolderId });
+      return;
+    }
+    void startUpload(all, targetFolderId);
+  };
+
+  const startUpload = async (all: File[], targetFolderId: string | undefined, storageId?: string) => {
     const ok = all.filter((f) => f.size <= MAX_UPLOAD_BYTES);
     const tooBig = all.filter((f) => f.size > MAX_UPLOAD_BYTES);
     if (tooBig.length) {
@@ -571,7 +676,6 @@ export default function DashboardPage() {
         })),
       ]);
     }
-    if (inputRef.current) inputRef.current.value = "";
     if (ok.length === 0) return;
 
     // Detect name collisions in the destination folder before uploading.
@@ -591,8 +695,15 @@ export default function DashboardPage() {
       else clean.push({ id: (uploadIdRef.current += 1), name: f.name, file: f });
     }
 
-    runJobs(clean, targetFolderId);
-    if (conflicts.length) {
+    runJobs(clean, targetFolderId, storageId);
+    if (conflicts.length && prefs.uploadConflict !== "ask") {
+      resolveConflictWith(prefs.uploadConflict, {
+        items: conflicts,
+        targetFolderId,
+        storageId,
+        existingNames: new Set(existing.map((e) => e.name)),
+      });
+    } else if (conflicts.length) {
       const label =
         targetFolderId === folderId
           ? "this folder"
@@ -600,6 +711,7 @@ export default function DashboardPage() {
       setConflict({
         items: conflicts,
         targetFolderId,
+        storageId,
         existingNames: new Set(existing.map((e) => e.name)),
         folderLabel: label,
       });
@@ -609,7 +721,19 @@ export default function DashboardPage() {
   const resolveConflict = (mode: ConflictResolution) => {
     const c = conflict;
     setConflict(null);
-    if (!c || mode === "skip") return;
+    if (c) resolveConflictWith(mode, c);
+  };
+
+  function resolveConflictWith(
+    mode: ConflictResolution,
+    c: {
+      items: { file: File; existing: FileItem }[];
+      targetFolderId: string | undefined;
+      storageId?: string;
+      existingNames: Set<string>;
+    },
+  ) {
+    if (mode === "skip") return;
     const used = new Set(c.existingNames);
     const jobs = c.items.map(({ file, existing }) => {
       if (mode === "replace") {
@@ -619,8 +743,8 @@ export default function DashboardPage() {
       used.add(name);
       return { id: (uploadIdRef.current += 1), name, file: new File([file], name, { type: file.type }) };
     });
-    runJobs(jobs, c.targetFolderId);
-  };
+    runJobs(jobs, c.targetFolderId, c.storageId);
+  }
 
   const createFolder = (name: string, color: string | null) =>
     run(async () => {
@@ -688,16 +812,36 @@ export default function DashboardPage() {
     setFolderId(id);
   };
 
+  // Where a file lives: its provider's mark and name, with the exact storage
+  // (repo, bucket) on hover.
+  const homeOf = (file: FileItem) =>
+    storages.find((s) => s.id === file.storage_account_id) ??
+    storages.find((s) => s.provider === file.provider);
+  const storedOn = (file: FileItem) => {
+    const home = homeOf(file);
+    return home ? storageTitle(home) : providerName(file.provider);
+  };
+  // The provider, plus which repo or bucket where there's room for it (the
+  // list on a wide screen; cards keep it to the hover title).
+  const storageSource = (file: FileItem, detail = true) => {
+    const label = homeOf(file)?.label;
+    return (
+      <span
+        title={`Stored on ${storedOn(file)}`}
+        className="inline-flex min-w-0 items-center gap-1.5 text-zinc-500"
+      >
+        <StorageIcon provider={file.provider} className="h-3.5 w-3.5 shrink-0" />
+        <span className="shrink-0">{providerName(file.provider)}</span>
+        {label && detail ? <span className="hidden min-w-0 truncate text-zinc-400 xl:inline">{label}</span> : null}
+      </span>
+    );
+  };
+
   // Column-header sorting: default → asc → desc → default.
   const cycleSort = (field: SortField) => {
-    if (sortField !== field) {
-      setSortField(field);
-      setSortDir("asc");
-    } else if (sortDir === "asc") {
-      setSortDir("desc");
-    } else {
-      setSortField(null);
-    }
+    if (sortField !== field) setSort(field, "asc");
+    else if (sortDir === "asc") setSort(field, "desc");
+    else setSort(null);
   };
   const sortArrow = (field: SortField) =>
     sortField !== field ? "" : sortDir === "asc" ? " ↑" : " ↓";
@@ -785,7 +929,7 @@ export default function DashboardPage() {
     toast(
       ok === targets.length
         ? `Downloading ${ok} file${ok === 1 ? "" : "s"}`
-        : `Downloaded ${ok} of ${targets.length} — some failed`,
+        : `Downloaded ${ok} of ${targets.length}. Some failed.`,
       ok === targets.length ? undefined : "error",
     );
   };
@@ -902,7 +1046,13 @@ export default function DashboardPage() {
 
   const plainDrive = view === "drive" && !tagFilter && !searchActive;
   const rawFiles = searchActive ? (results ?? []) : files;
-  const filteredFiles = typeFilter === "folder" ? [] : rawFiles.filter((f) => matchesType(f, typeFilter));
+  const filteredFiles =
+    typeFilter === "folder"
+      ? []
+      : rawFiles.filter(
+          (f) => matchesType(f, typeFilter) && (storageFilter === "all" || homeOf(f)?.id === storageFilter),
+        );
+  const storageFilterOn = storages.find((s) => s.id === storageFilter);
   const allowFolders = typeFilter === "all" || typeFilter === "folder";
   const rawFolders = searchActive
     ? allowFolders
@@ -940,7 +1090,7 @@ export default function DashboardPage() {
           <MenuItem icon={<History className="h-4 w-4" />} label="Versions" onClick={() => { close(); setVersionsFor(file); }} />
           <MenuItem icon={<Tag className="h-4 w-4" />} label="Tags" onClick={() => { close(); setTagsFor(file); }} />
           <MenuItem icon={<FolderInput className="h-4 w-4" />} label="Move to…" onClick={() => { close(); setMovingFile(file); }} />
-          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); setConfirming({ kind: "file", file }); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); if (prefs.confirmDelete) setConfirming({ kind: "file", file }); else removeFile(file); }} />
         </>
       )}
     </Menu>
@@ -972,7 +1122,7 @@ export default function DashboardPage() {
               />
             ))}
           </div>
-          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); setConfirming({ kind: "folder", folder }); }} />
+          <MenuItem icon={<Trash2 className="h-4 w-4" />} label="Delete" danger onClick={() => { close(); if (prefs.confirmDelete) setConfirming({ kind: "folder", folder }); else removeFolder(folder); }} />
         </>
       )}
     </Menu>
@@ -1011,7 +1161,7 @@ export default function DashboardPage() {
   );
 
   const gridSkeleton = (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className={GRID_COLS}>
       {Array.from({ length: 10 }).map((_, i) => (
         <div key={i} className="rounded-xl border border-zinc-200 bg-white p-4">
           <Skeleton className="h-7 w-7" />
@@ -1024,15 +1174,15 @@ export default function DashboardPage() {
 
   const listView = (
     // Horizontally scrollable rather than hiding columns: on a phone you can
-    // reach Modified and Size by swiping the rows instead of losing them. The
-    // `min-w` is the floor at which the four tracks stay legible — without it the
+    // reach Source, Modified and Size by swiping the rows instead of losing them.
+    // The `min-w` is the floor at which the five tracks stay legible — without it the
     // 1fr name column would collapse to nothing before the scroller engaged.
     // `thin-scroll` keeps the scrollbar from becoming furniture on desktop, where
     // there's room and it never appears.
     <div className="thin-scroll -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <div className="min-w-[34rem]">
+      <div className="min-w-[42rem]">
         {/* Column headings are museum-signage labels, not a table chrome bar. */}
-      <div className="grid grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 text-[0.8125rem] text-zinc-500">
+      <div className={`grid ${LIST_COLS} items-center gap-4 border-b border-zinc-200 px-4 py-[var(--row-py)] text-[0.8125rem] text-zinc-500`}>
         <div className="flex items-center gap-2">
           <input
             type="checkbox"
@@ -1052,6 +1202,8 @@ export default function DashboardPage() {
             Name{sortArrow("name")}
           </button>
         </div>
+        <span className="hidden lg:block">Kind</span>
+        <span>Stored on</span>
         <button
           onClick={() => cycleSort("modified")}
           className={`flex items-center text-left hover:text-zinc-800 ${sortField === "modified" ? "text-zinc-900" : ""}`}
@@ -1115,7 +1267,7 @@ export default function DashboardPage() {
             }
           }}
           onClick={() => { addRecentFolder(folder); openFolder(folder.id); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
+          className={`group grid cursor-pointer ${LIST_COLS} items-center gap-4 border-b border-zinc-200 px-4 py-[var(--row-py)] transition-colors ${
             dragFolder === folder.id
               ? "bg-zinc-100 ring-1 ring-inset ring-zinc-900"
               : selFolders.has(folder.id)
@@ -1140,11 +1292,13 @@ export default function DashboardPage() {
             />
             <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{folder.name}</span>
           </div>
+          <span className="hidden text-[0.9375rem] text-zinc-500 lg:block">Folder</span>
+          <span />
           <span className="text-[0.9375rem] text-zinc-500">
             {shortDate(folder.created_at)}
           </span>
           <span className="text-[0.9375rem] text-zinc-500">
-            {folder.size ? humanSize(folder.size) : "—"}
+            {folder.size ? humanSize(folder.size) : "Empty"}
           </span>
           {folderMenu(folder)}
         </div>
@@ -1164,7 +1318,7 @@ export default function DashboardPage() {
             if (count > 1) setMultiDragImage(e.dataTransfer, count);
           }}
           onClick={() => { addRecentFile(file); setPreview(file); }}
-          className={`group grid cursor-pointer grid-cols-[1fr_140px_100px_44px] items-center gap-4 border-b border-zinc-200 px-4 py-3 transition-colors ${
+          className={`group grid cursor-pointer ${LIST_COLS} items-center gap-4 border-b border-zinc-200 px-4 py-[var(--row-py)] transition-colors ${
             selFiles.has(file.id) ? "bg-zinc-100" : "hover:bg-zinc-50"
           }`}
         >
@@ -1197,6 +1351,8 @@ export default function DashboardPage() {
               </button>
             ))}
           </div>
+          <span className="hidden truncate text-[0.9375rem] text-zinc-500 lg:block">{kindOf(file)}</span>
+          <span className="flex min-w-0 text-[0.9375rem]">{storageSource(file)}</span>
           <span className="text-[0.9375rem] text-zinc-500">
             {shortDate(file.modified_at)}
           </span>
@@ -1211,7 +1367,7 @@ export default function DashboardPage() {
   );
 
   const gridView = (
-    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+    <div className={GRID_COLS}>
       {shownFolders.map((folder) => (
         <div
           key={folder.id}
@@ -1336,7 +1492,11 @@ export default function DashboardPage() {
             </div>
           </div>
           <p className="mt-2 truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</p>
-          <p className="text-[0.8125rem] text-zinc-500">{humanSize(file.size)}</p>
+          <p className="flex min-w-0 items-center gap-1.5 text-[0.8125rem] text-zinc-500">
+            <span className="shrink-0">{humanSize(file.size)}</span>
+            <span aria-hidden className="text-zinc-300">·</span>
+            {storageSource(file, false)}
+          </p>
         </div>
       ))}
     </div>
@@ -1353,8 +1513,15 @@ export default function DashboardPage() {
     setNfOpen(true);
   };
   const pickFiles = () => {
+    askStorageNext.current = false; // a cancelled "Upload to…" doesn't linger
     toDrive();
     inputRef.current?.click();
+  };
+  // "Upload to…": the same, but the storage is chosen once the files are.
+  const usableStorages = storages.filter((s) => s.status === "connected");
+  const pickFilesTo = () => {
+    pickFiles();
+    askStorageNext.current = true;
   };
 
   return (
@@ -1366,8 +1533,16 @@ export default function DashboardPage() {
         onView={setView}
         onNewFolder={newFolder}
         onUpload={pickFiles}
+        onUploadTo={usableStorages.length > 1 ? pickFilesTo : undefined}
       />
-      <Sidebar view={view} onView={setView} onNewFolder={newFolder} onUpload={pickFiles} />
+      <Sidebar
+        view={view}
+        onView={setView}
+        onNewFolder={newFolder}
+        onUpload={pickFiles}
+        onUploadTo={usableStorages.length > 1 ? pickFilesTo : undefined}
+        storages={storagesReady ? storages : null}
+      />
       <input ref={inputRef} type="file" multiple hidden onChange={(e) => upload(e.target.files)} />
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -1398,7 +1573,7 @@ export default function DashboardPage() {
                 <div className="border-b border-zinc-100 px-4 py-2 text-[0.8125rem] text-zinc-500">
                   {user.display_name ?? "Signed in"}
                 </div>
-                <MenuItem label="Profile" onClick={() => { close(); setView("profile"); }} />
+                <MenuItem label="Settings" onClick={() => { close(); router.push("/settings/profile?from=drive"); }} />
                 {/* Admins only. `is_admin` is computed server-side from config,
                     so hiding this is presentation — the endpoint itself 404s for
                     anyone else regardless of what the client renders. */}
@@ -1411,7 +1586,14 @@ export default function DashboardPage() {
                     }}
                   />
                 ) : null}
-                <MenuItem label="Log out" onClick={() => { close(); void onLogout(); }} />
+                <MenuItem
+                  exit
+                  label="Log out"
+                  onClick={() => {
+                    close();
+                    void onLogout();
+                  }}
+                />
               </>
             )}
           </Menu>
@@ -1457,16 +1639,10 @@ export default function DashboardPage() {
             <DuplicatesPanel scrolled={scrolled} />
           ) : view === "missing" ? (
             <MissingPanel />
-          ) : view === "profile" ? (
-            <ProfilePanel />
           ) : view === "developer" ? (
             <DeveloperPanel />
           ) : view === "links" ? (
             <div className="pt-2">
-              <div className="pb-4 pt-6 sm:pb-5 sm:pt-8">
-                <p className="type-label">Public</p>
-                <h1 className="type-heading mt-2">Links</h1>
-              </div>
               <AliasesPanel
                 refreshKey={aliasRefresh}
                 onOpenLocation={(fid) => {
@@ -1571,7 +1747,7 @@ export default function DashboardPage() {
                     </h1>
                   </div>
                 ) : (
-                  <nav className="type-heading flex flex-wrap items-baseline gap-2">
+                  <nav className="type-heading-sm flex flex-wrap items-baseline gap-1.5">
                     <button
                       onClick={() => setFolderId(undefined)}
                       className={folderId ? "text-zinc-500 hover:text-zinc-800" : ""}
@@ -1579,21 +1755,40 @@ export default function DashboardPage() {
                       My Drive
                     </button>
                     {(() => {
-                      // Collapse a deep path to: My Drive › … › last two crumbs.
-                      const collapse = crumbs.length > 3;
-                      const hidden = collapse ? crumbs.slice(0, -2) : [];
-                      const visible = collapse ? crumbs.slice(-2) : crumbs;
+                      // At most three shown: My Drive › first folder › … › current
+                      // folder. "…" opens the folders in between.
+                      const collapse = crumbs.length > 2;
+                      const head = collapse ? crumbs.slice(0, 1) : crumbs.slice(0, -1);
+                      const hidden = collapse ? crumbs.slice(1, -1) : [];
+                      const last = crumbs[crumbs.length - 1];
+                      const crumb = (c: { id: string; name: string }) => (
+                        <span key={c.id} className="flex min-w-0 items-center gap-1.5">
+                          <span className="text-zinc-300">›</span>
+                          <button
+                            onClick={() => setFolderId(c.id)}
+                            title={c.name}
+                            className={
+                              c.id === folderId
+                                ? "max-w-[10rem] truncate sm:max-w-[22rem]"
+                                : "max-w-[10rem] truncate text-zinc-500 hover:text-zinc-800 sm:max-w-[16rem]"
+                            }
+                          >
+                            {c.name}
+                          </button>
+                        </span>
+                      );
                       return (
                         <>
-                          {collapse ? (
-                            <span className="flex items-center gap-2">
+                          {head.map(crumb)}
+                          {hidden.length ? (
+                            <span className="flex items-center gap-1.5">
                               <span className="text-zinc-300">›</span>
                               <Menu
                                 align="left"
                                 trigger={() => (
                                   <span
                                     className="cursor-pointer px-1 text-zinc-500 hover:text-zinc-800"
-                                    title="Show hidden folders"
+                                    title={hidden.map((c) => c.name).join(" › ")}
                                   >
                                     …
                                   </span>
@@ -1614,21 +1809,7 @@ export default function DashboardPage() {
                               </Menu>
                             </span>
                           ) : null}
-                          {visible.map((c) => (
-                            <span key={c.id} className="flex items-center gap-2">
-                              <span className="text-zinc-300">›</span>
-                              <button
-                                onClick={() => setFolderId(c.id)}
-                                className={
-                                  c.id === folderId
-                                    ? "max-w-[8rem] truncate sm:max-w-[16rem]"
-                                    : "max-w-[8rem] truncate text-zinc-500 hover:text-zinc-800 sm:max-w-[16rem]"
-                                }
-                              >
-                                {c.name}
-                              </button>
-                            </span>
-                          ))}
+                          {last ? crumb(last) : null}
                         </>
                       );
                     })()}
@@ -1675,6 +1856,51 @@ export default function DashboardPage() {
                     ))
                   }
                 </Menu>
+                {storages.length > 1 ? (
+                  <Menu
+                    align="left"
+                    trigger={() => (
+                      <span
+                        className={`flex items-center gap-1.5 field-sm ${
+                          storageFilterOn ? "border-zinc-900 bg-zinc-900 text-white" : "text-zinc-700 hover:bg-zinc-50"
+                        }`}
+                      >
+                        {storageFilterOn ? (
+                          <>
+                            <StorageIcon provider={storageFilterOn.provider} className="h-3.5 w-3.5" />
+                            {storageFilterOn.label || providerName(storageFilterOn.provider)}
+                          </>
+                        ) : (
+                          "All storages"
+                        )}{" "}
+                        ▾
+                      </span>
+                    )}
+                  >
+                    {(close) => (
+                      <>
+                        <MenuItem
+                          label="All storages"
+                          onClick={() => {
+                            close();
+                            setStorageFilter("all");
+                          }}
+                        />
+                        {storages.map((s) => (
+                          <MenuItem
+                            key={s.id}
+                            icon={<StorageIcon provider={s.provider} className="h-4 w-4" />}
+                            label={storageTitle(s)}
+                            onClick={() => {
+                              close();
+                              setStorageFilter(s.id);
+                            }}
+                          />
+                        ))}
+                      </>
+                    )}
+                  </Menu>
+                ) : null}
                 {layout === "grid" ? (
                   <Menu
                     align="left"
@@ -1691,8 +1917,7 @@ export default function DashboardPage() {
                           label={o.label}
                           onClick={() => {
                             close();
-                            setSortField(o.field);
-                            setSortDir(o.dir);
+                            setSort(o.field, o.dir);
                           }}
                         />
                       ))
@@ -1701,6 +1926,7 @@ export default function DashboardPage() {
                 ) : null}
               </div>
 
+              <StorageAlerts storages={storages} />
               {error ? <p className="mb-3 text-[0.9375rem] text-red-600">{error}</p> : null}
 
               {loading && !searchActive ? (
@@ -1746,7 +1972,19 @@ export default function DashboardPage() {
           setSearch("");
         }}
       />
-      {preview ? <PreviewModal file={preview} onClose={() => setPreview(null)} /> : null}
+      {preview ? <PreviewModal file={preview} storedOn={storedOn(preview)} onClose={() => setPreview(null)} /> : null}
+      {pickStorage ? (
+        <StoragePicker
+          storages={storages}
+          count={pickStorage.files.length}
+          onCancel={() => setPickStorage(null)}
+          onPick={(storageId) => {
+            const { files: picked, targetFolderId } = pickStorage;
+            setPickStorage(null);
+            void startUpload(picked, targetFolderId, storageId);
+          }}
+        />
+      ) : null}
       {conflict ? (
         <UploadConflictModal
           names={conflict.items.map((c) => c.file.name)}
@@ -1778,7 +2016,7 @@ export default function DashboardPage() {
           message={
             confirming.kind === "file"
               ? `“${truncateMiddle(confirming.file.name)}” will be permanently removed from your drive.`
-              : `“${truncateMiddle(confirming.folder.name)}” and everything inside it — subfolders and files — will be permanently deleted.`
+              : `“${truncateMiddle(confirming.folder.name)}” and everything in it will be permanently deleted.`
           }
           onCancel={() => setConfirming(null)}
           onConfirm={() => {
@@ -1893,7 +2131,7 @@ export default function DashboardPage() {
                 {u.status === "uploading" ? (
                   <div className="mt-1.5 h-1 w-full overflow-hidden rounded-full bg-zinc-100">
                     {u.progress >= 100 ? (
-                      // Bytes are all sent; the server is still saving to Telegram.
+                      // Bytes are all sent; the server is still saving them to storage.
                       <div className="h-full w-full animate-pulse rounded-full bg-zinc-900" />
                     ) : (
                       <div

@@ -57,9 +57,7 @@ class File(UUIDPrimaryKey, TimestampMixin, Base):
     # FK added via ALTER in the migration (circular dependency with file_versions).
     current_version_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True))
 
-    is_favorite: Mapped[bool] = mapped_column(
-        Boolean, server_default=text("false"), nullable=False
-    )
+    is_favorite: Mapped[bool] = mapped_column(Boolean, server_default=text("false"), nullable=False)
 
     # Set when the underlying bytes are found gone from the provider (deleted in
     # Telegram directly); null = available. Surfaced in the "Missing" section.

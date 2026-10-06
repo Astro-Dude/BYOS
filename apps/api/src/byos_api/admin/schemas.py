@@ -74,6 +74,44 @@ class IndexCoverage(BaseModel):
     files: int
 
 
+class Engagement(BaseModel):
+    """Distinct people active (an audited action or a chat with Bao) in the last
+    day, week and month."""
+
+    dau: int
+    wau: int
+    mau: int
+
+
+class FunnelStep(BaseModel):
+    label: str
+    count: int
+
+
+class ChangeOutcomes(BaseModel):
+    """Every change in an applied plan: worked, failed, or later undone."""
+
+    ok: int
+    failed: int
+    undone: int
+
+
+class ModelRow(BaseModel):
+    label: str
+    count: int
+    provider: str
+
+
+class AssistantStats(BaseModel):
+    questions: list[DayPoint]
+    plans_applied: list[DayPoint]
+    plans_by_status: list[ValueRow]
+    changes: ChangeOutcomes
+    change_kinds: list[ValueRow]
+    providers: list[ValueRow]
+    models: list[ModelRow]
+
+
 class AdminRow(BaseModel):
     """One entry in the admin list."""
 
@@ -107,9 +145,16 @@ class PlatformStats(BaseModel):
     growth: list[DayPoint]
     active: list[DayPoint]
     providers: list[ValueRow]
+    # Connected storage accounts per provider (count), across all users.
+    storage_accounts: list[ValueRow] = []
     versions: VersionStats
     shares_by_kind: list[ValueRow]
     aliases_by_kind: list[ValueRow]
     duplicates: DuplicateStats
     index_coverage: IndexCoverage
     tags: list[ValueRow]
+    engagement: Engagement
+    funnel: list[FunnelStep]
+    assistant: AssistantStats
+    # Storage connections by state ("connected", "expired", …), every provider.
+    storage_status: list[ValueRow] = []

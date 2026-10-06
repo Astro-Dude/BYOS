@@ -16,6 +16,9 @@ class FileOut(BaseModel):
     mime: str | None = None
     size: int
     provider: str
+    # Which of the user's storages holds it (null for files from before
+    # multi-storage, which are on Telegram).
+    storage_account_id: uuid.UUID | None = None
     folder_id: uuid.UUID | None = None
     is_favorite: bool = False
     tags: list[str] = []

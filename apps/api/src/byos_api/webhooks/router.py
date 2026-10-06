@@ -11,9 +11,7 @@ from byos_api.core.db import get_db
 from byos_api.webhooks import service
 from byos_api.webhooks.schemas import WebhookCreate, WebhookOut
 
-router = APIRouter(
-    prefix="/webhooks", tags=["webhooks"], dependencies=[Depends(get_session_user)]
-)
+router = APIRouter(prefix="/webhooks", tags=["webhooks"], dependencies=[Depends(get_session_user)])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -21,9 +19,7 @@ DbDep = Annotated[AsyncSession, Depends(get_db)]
 @router.post("", response_model=WebhookOut, status_code=status.HTTP_201_CREATED)
 async def create_webhook(payload: WebhookCreate, user: CurrentUser, db: DbDep) -> WebhookOut:
     try:
-        hook = await service.create_webhook(
-            db, user, url=str(payload.url), events=payload.events
-        )
+        hook = await service.create_webhook(db, user, url=str(payload.url), events=payload.events)
     except service.InvalidEvents as exc:
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
@@ -31,6 +27,11 @@ async def create_webhook(payload: WebhookCreate, user: CurrentUser, db: DbDep) -
         ) from None
     except service.InvalidUrl as exc:
         raise HTTPException(status.HTTP_400_BAD_REQUEST, str(exc)) from None
+    except service.TooManyWebhooks:
+        raise HTTPException(
+            status.HTTP_409_CONFLICT,
+            f"You can have {service.MAX_WEBHOOKS} webhooks. Delete one to add another.",
+        ) from None
     return WebhookOut.model_validate(hook)
 
 

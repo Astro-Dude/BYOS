@@ -8,8 +8,10 @@ import {
 import { useCallback, useEffect, useState } from "react";
 
 import { Endpoint, Terminal } from "@/components/dashboard/terminal";
+import { Segmented } from "@/components/settings/controls";
 import { api } from "@/lib/api";
 import { useAuthed } from "@/lib/auth-context";
+import { MAX_ACTIVE_API_KEYS, MAX_WEBHOOKS } from "@/lib/limits";
 
 const EVENT_TYPES = ["file.created", "file.replaced", "file.deleted"];
 
@@ -23,12 +25,21 @@ const SCOPE_GROUPS = [
   { resource: "aliases", label: "Links" },
 ] as const;
 
-const EXPIRY_OPTIONS: { label: string; days: number | null }[] = [
-  { label: "Never", days: null },
-  { label: "30 days", days: 30 },
-  { label: "90 days", days: 90 },
-  { label: "1 year", days: 365 },
+const EXPIRY_OPTIONS: { value: string; label: string; days: number | null }[] = [
+  { value: "never", label: "Never", days: null },
+  { value: "30", label: "30 days", days: 30 },
+  { value: "90", label: "90 days", days: 90 },
+  { value: "365", label: "1 year", days: 365 },
 ];
+
+type Access = "none" | "read" | "write";
+
+// The pickers are the ones Settings uses; on this grey card their track is
+// white so the choice still stands out.
+const ON_CARD = "[&_[role=radiogroup]]:bg-white";
+
+// Long lists scroll in place rather than stretching the page.
+const LIST_SCROLL = "thin-scroll max-h-[min(32rem,60vh)] overflow-y-auto pr-2";
 
 function ApiKeysSection() {
   const authed = useAuthed();
@@ -44,11 +55,16 @@ function ApiKeysSection() {
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
 
-  const toggleScope = (scope: string) =>
+  const accessOf = (resource: string): Access =>
+    scopes.has(`${resource}:write`) ? "write" : scopes.has(`${resource}:read`) ? "read" : "none";
+  // Write includes read, so "Read and write" grants both scopes.
+  const setAccess = (resource: string, access: Access) =>
     setScopes((prev) => {
       const next = new Set(prev);
-      if (next.has(scope)) next.delete(scope);
-      else next.add(scope);
+      next.delete(`${resource}:read`);
+      next.delete(`${resource}:write`);
+      if (access !== "none") next.add(`${resource}:read`);
+      if (access === "write") next.add(`${resource}:write`);
       return next;
     });
 
@@ -99,18 +115,13 @@ function ApiKeysSection() {
     setCopied(true);
   };
 
-  const canCreate = !busy && name.trim().length > 0 && scopes.size > 0;
-  // Revoking is a soft delete server-side, and deliberately so: the hash stays,
-  // so the key string can never be resurrected, and `last_used_at` still answers
-  // "was this used after I killed it?" — the question that matters during an
-  // incident. But a dead key shouldn't clutter the live list, so it moves into a
-  // disclosure instead of being deleted.
-  const active = keys.filter((k) => !k.revoked_at);
-  // A predicate rather than a plain filter, so `revoked_at` narrows to string
-  // inside the list and the date needs no cast.
-  const revoked = keys.filter(
-    (k): k is ApiKeyItem & { revoked_at: string } => k.revoked_at !== null,
-  );
+  // Expired keys stay listed but don't count toward the limit (the API agrees).
+  const counted = keys.filter(
+    (k) => !k.expires_at || new Date(k.expires_at) > new Date(),
+  ).length;
+  const full = counted >= MAX_ACTIVE_API_KEYS;
+  const canCreate = !busy && !full && name.trim().length > 0 && scopes.size > 0;
+  const active = keys;
 
   return (
     <div className="grid items-start gap-10 xl:grid-cols-2">
@@ -124,7 +135,7 @@ function ApiKeysSection() {
         {/* Existing keys read as a hairline list, newest first — the same rhythm
             as the endpoint reference above. */}
         {active.length > 0 ? (
-          <ul className="mt-8">
+          <ul className={`mt-8 ${LIST_SCROLL}`}>
             {active.map((key) => (
               <li key={key.id} className="group border-b border-zinc-200 py-4">
                 <div className="flex items-baseline gap-3">
@@ -174,40 +185,9 @@ function ApiKeysSection() {
             ))}
           </ul>
         ) : (
-          <p className="type-label mt-8">No active keys — create one alongside.</p>
+          <p className="type-label mt-8">No active keys yet.</p>
         )}
 
-        {revoked.length > 0 ? (
-          <details className="mt-6 border-b border-zinc-200 pb-4">
-            <summary className="cursor-pointer list-none text-[0.9375rem] text-zinc-500 transition-colors hover:text-zinc-900">
-              {revoked.length} revoked key{revoked.length === 1 ? "" : "s"}
-            </summary>
-            <ul className="mt-4 space-y-3">
-              {revoked.map((key) => (
-                <li key={key.id} className="flex flex-wrap items-baseline gap-x-3 gap-y-1">
-                  <span className="text-[0.9375rem] text-zinc-500 line-through">{key.name}</span>
-                  <code className="font-mono text-[0.8125rem] text-zinc-400">
-                    byosk_{key.prefix}…
-                  </code>
-                  <span className="text-[0.8125rem] text-zinc-400">
-                    revoked {shortDate(key.revoked_at)}
-                  </span>
-                  {/* The reason the record is kept: whether it was used after. */}
-                  <span className="text-[0.8125rem] text-zinc-400">
-                    {key.last_used_at
-                      ? `last used ${shortDate(key.last_used_at)}`
-                      : "never used"}
-                  </span>
-                </li>
-              ))}
-            </ul>
-            <p className="mt-4 max-w-md text-[0.8125rem] leading-[1.5] text-zinc-400">
-              Revoked keys are kept, not deleted: the stored hash means the key string can never be
-              reused, and the dates let you check whether a leaked key was used after you killed
-              it.
-            </p>
-          </details>
-        ) : null}
       </div>
 
       {/* The form is one flat mist card. Scopes and expiry are chips rather than
@@ -219,50 +199,38 @@ function ApiKeysSection() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           onKeyDown={(e) => e.key === "Enter" && canCreate && create()}
-          placeholder="Name it — CI, laptop, backup script"
+          placeholder="Name, e.g. CI or laptop"
           className="field mt-3 bg-white"
         />
 
         <p className="type-label mt-7">Permissions</p>
-        <p className="mt-1 text-[0.9375rem] text-zinc-600">
-          Grant only what this key needs. Write implies read.
-        </p>
-        <div className="mt-4 space-y-4">
+        <p className="mt-1 text-[0.9375rem] text-zinc-600">Grant only what this key needs.</p>
+        <div className={`mt-4 space-y-3 ${ON_CARD}`}>
           {SCOPE_GROUPS.map((g) => (
-            <div key={g.resource} className="flex flex-wrap items-center gap-2">
-              <span className="w-16 shrink-0 text-[0.9375rem] text-zinc-900">{g.label}</span>
-              {(["read", "write"] as const).map((action) => {
-                const scope = `${g.resource}:${action}`;
-                const on = scopes.has(scope);
-                return (
-                  <button
-                    key={scope}
-                    type="button"
-                    onClick={() => toggleScope(scope)}
-                    aria-pressed={on}
-                    className={on ? "chip-active font-mono" : "chip font-mono"}
-                  >
-                    {action}
-                  </button>
-                );
-              })}
+            <div key={g.resource} className="flex flex-wrap items-center justify-between gap-2">
+              <span className="text-[0.9375rem] text-zinc-900">{g.label}</span>
+              <Segmented<Access>
+                label={`${g.label} access`}
+                value={accessOf(g.resource)}
+                onChange={(v) => setAccess(g.resource, v)}
+                options={[
+                  { value: "none", label: "None" },
+                  { value: "read", label: "Read" },
+                  { value: "write", label: "Read and write" },
+                ]}
+              />
             </div>
           ))}
         </div>
 
         <p className="type-label mt-7">Expires</p>
-        <div className="mt-3 flex flex-wrap gap-2">
-          {EXPIRY_OPTIONS.map((o) => (
-            <button
-              key={o.label}
-              type="button"
-              onClick={() => setExpiryDays(o.days)}
-              aria-pressed={expiryDays === o.days}
-              className={expiryDays === o.days ? "chip-active" : "chip"}
-            >
-              {o.label}
-            </button>
-          ))}
+        <div className={`mt-3 ${ON_CARD}`}>
+          <Segmented
+            label="Expires"
+            value={EXPIRY_OPTIONS.find((o) => o.days === expiryDays)?.value ?? "never"}
+            onChange={(v) => setExpiryDays(EXPIRY_OPTIONS.find((o) => o.value === v)?.days ?? null)}
+            options={EXPIRY_OPTIONS.map((o) => ({ value: o.value, label: o.label }))}
+          />
         </div>
 
         <button
@@ -272,13 +240,18 @@ function ApiKeysSection() {
         >
           {busy ? "Creating…" : "Create key"}
         </button>
+        <p className="mt-3 text-center text-[0.8125rem] text-zinc-500">
+          {full
+            ? `You have ${MAX_ACTIVE_API_KEYS} active keys. Revoke one to make another.`
+            : `${counted} of ${MAX_ACTIVE_API_KEYS} active keys`}
+        </p>
         {error ? <p className="mt-3 text-[0.9375rem] text-red-600">{error}</p> : null}
 
         {/* Shown once, so it gets the accent surface — this is the moment that
             matters on the page. */}
         {freshKey ? (
           <div className="surface-blush mt-5 p-5">
-            <p className="text-[0.8125rem]">Copy this now — it won&apos;t be shown again</p>
+            <p className="text-[0.8125rem]">Copy this now. It won&apos;t be shown again.</p>
             <code className="mt-3 block break-all font-mono text-[0.8125rem]">{freshKey}</code>
             <div className="mt-4 flex items-center gap-4">
               <button onClick={copyKey} className="text-[0.9375rem] underline underline-offset-2">
@@ -383,19 +356,19 @@ function WebhooksSection() {
     }
   };
 
-  const canAdd = !busy && url.trim().length > 0;
+  const fullHooks = hooks.length >= MAX_WEBHOOKS;
+  const canAdd = !busy && !fullHooks && url.trim().length > 0;
 
   return (
     <div className="grid items-start gap-10 xl:grid-cols-2">
       <div>
         <h2 className="type-heading-sm">Your webhooks</h2>
         <p className="mt-4 text-[1.0625rem] leading-[1.4] text-zinc-600">
-          Signed POSTs on file events. The signing secret sits beside each one — unlike an API key,
-          you can come back and read it.
+          We send a signed POST when files change. Each webhook&apos;s secret stays visible here.
         </p>
 
         {hooks.length > 0 ? (
-          <ul className="mt-8">
+          <ul className={`mt-8 ${LIST_SCROLL}`}>
             {hooks.map((hook) => (
               <li key={hook.id} className="group border-b border-zinc-200 py-4">
                 <div className="flex items-baseline gap-3">
@@ -410,7 +383,8 @@ function WebhooksSection() {
                   </button>
                 </div>
                 <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(hook.events.length ? hook.events : ["all events"]).map((event) => (
+                  {/* Made with nothing picked, a webhook is stored as ["*"]. */}
+                  {(hook.events.length && !hook.events.includes("*") ? hook.events : ["all events"]).map((event) => (
                     <span
                       key={event}
                       className="rounded-full border border-zinc-200 px-2.5 py-0.5 font-mono text-[0.6875rem] text-zinc-600"
@@ -424,7 +398,7 @@ function WebhooksSection() {
             ))}
           </ul>
         ) : (
-          <p className="type-label mt-8">No endpoints yet — add one alongside.</p>
+          <p className="type-label mt-8">No webhooks yet.</p>
         )}
       </div>
 
@@ -464,6 +438,11 @@ function WebhooksSection() {
         >
           {busy ? "Adding…" : "Add endpoint"}
         </button>
+        <p className="mt-3 text-center text-[0.8125rem] text-zinc-500">
+          {fullHooks
+            ? `You have ${MAX_WEBHOOKS} webhooks. Delete one to add another.`
+            : `${hooks.length} of ${MAX_WEBHOOKS} webhooks`}
+        </p>
         {error ? <p className="mt-3 text-[0.9375rem] text-red-600">{error}</p> : null}
       </div>
     </div>
@@ -480,9 +459,6 @@ const SECTIONS = [
   { id: "hooks", label: "Your webhooks" },
 ];
 
-/** Left rail of the docs — anchors, with the section you're reading marked.
- *  Uses an observer rather than scroll maths so it stays right regardless of
- *  section height. */
 function DocNav() {
   const [active, setActive] = useState(SECTIONS[0]?.id ?? "");
 
@@ -587,7 +563,7 @@ function Stack({ children }: { children: React.ReactNode }) {
 }
 
 const FILE_ENDPOINTS: [string, string, string][] = [
-  ["GET", "/files", "List files — paginated, filterable"],
+  ["GET", "/files", "List files (paged, filterable)"],
   ["POST", "/files", "Upload a file"],
   ["GET", "/files/{id}/content", "Download the bytes"],
   ["POST", "/files/{id}/replace", "Replace it, keeping history"],
@@ -646,19 +622,19 @@ function DocsSection() {
         }
         intro={
           <>
-            Create a key in {keysLink} further down this page, export it, and every endpoint is a
-            curl away. Plain REST over JSON — no SDK required, though there is one.
+            Create a key in {keysLink} below and you can call every endpoint with curl. It&apos;s
+            plain REST and JSON.
           </>
         }
         aside={
           <Terminal
             title="quickstart"
             lines={[
-              { kind: "comment", text: "# 1 — your key, from 'Your keys' below" },
+              { kind: "comment", text: "# 1. Your key, from 'Your keys' below" },
               { kind: "cmd", text: `export BYOS=${base}` },
               { kind: "cmd", text: "export KEY=byosk_your_key_here" },
               { kind: "comment", text: "" },
-              { kind: "comment", text: "# 2 — list your drive" },
+              { kind: "comment", text: "# 2. List your drive" },
               { kind: "cmd", text: "curl -s $BYOS/files \\" },
               { kind: "cont", text: '-H "Authorization: Bearer $KEY" | jq \'.[0]\'' },
               { kind: "out", text: "{" },
@@ -668,7 +644,7 @@ function DocsSection() {
               { kind: "out", text: '  "provider": "telegram"' },
               { kind: "out", text: "}" },
               { kind: "comment", text: "" },
-              { kind: "comment", text: "# 3 — upload one" },
+              { kind: "comment", text: "# 3. Upload a file" },
               { kind: "cmd", text: "curl -s $BYOS/files \\" },
               { kind: "cont", text: '-H "Authorization: Bearer $KEY" \\' },
               { kind: "cont", text: "-F file=@report.pdf" },
@@ -682,7 +658,7 @@ function DocsSection() {
             <>Open {keysLink} below.</>,
             <>Name it, pick its scopes, and set an expiry if you want one.</>,
             <>
-              Copy the value shown — it starts <code>byosk_</code>.
+              Copy the key. It starts with <code>byosk_</code>.
             </>,
           ].map((step, i) => (
             <li key={i} className="flex gap-3 text-[1rem] leading-[1.5] text-zinc-600">
@@ -699,7 +675,7 @@ function DocsSection() {
           </a>
         ) : (
           <p className="type-label mt-6">
-            The interactive reference is disabled in production — this page is the guide.
+            The interactive reference is off in production. Use this page instead.
           </p>
         )}
       </DocSection>
@@ -710,9 +686,8 @@ function DocsSection() {
         title="Authentication"
         intro={
           <>
-            Every request carries an API key as a bearer token. Keys are created in {keysLink}{" "}
-            below — there is no other way to get one, deliberately: the API can&apos;t mint its own
-            credentials.
+            Send your API key as a bearer token with every request. You can only create keys
+            in {keysLink} below.
           </>
         }
         aside={
@@ -736,8 +711,8 @@ function DocsSection() {
                 prefix, so the list can identify a key without being able to reveal it.
               </p>
               <p className="mt-3 text-[1rem] leading-[1.5] text-zinc-600">
-                Lost it? There&apos;s no recovery — revoke that key and create another. Revoking
-                takes effect immediately.
+                Lost it? It can&apos;t be recovered. Revoke it and create a new one. Revoking
+                works right away.
               </p>
             </div>
           </Stack>
@@ -772,9 +747,9 @@ function DocsSection() {
             <div className="surface-blush p-6">
               <p className="text-[0.8125rem]">Deliberate limitation</p>
               <p className="mt-2 text-[1rem] leading-[1.45]">
-                Keys cannot administer the account. Creating or revoking keys, reading your
-                Telegram credentials, and managing webhooks all need an interactive login — so a
-                leaked key can never escalate its own access.
+                Keys can&apos;t manage your account. Creating keys, managing webhooks and
+                Telegram settings all need you to be logged in, so a leaked key can&apos;t do more
+                than it was given.
               </p>
             </div>
           </Stack>
@@ -840,12 +815,11 @@ function DocsSection() {
           Events available today: {EVENT_TYPES.map((e) => <code key={e}>{e} </code>)}
         </p>
         <p className="mt-4 text-[1rem] leading-[1.5] text-zinc-600">
-          The signing secret is generated with the webhook and stays visible beside it in{" "}
+          Each webhook gets a signing secret, which you can view any time in{" "}
           <a href="#hooks" className="text-zinc-900 underline decoration-zinc-300 underline-offset-2 hover:decoration-zinc-900">
             Your webhooks
-          </a>{" "}
-          — unlike an API key, you can read it again later. Managing webhooks needs an interactive
-          login, so an API key can&apos;t reach it.
+          </a>
+          . Managing webhooks needs you to be logged in, so an API key can&apos;t change them.
         </p>
       </DocSection>
     </div>
@@ -861,8 +835,8 @@ export function DeveloperPanel() {
           The BYOS <span className="type-em">API</span>.
         </h1>
         <p className="mt-5 text-[1.125rem] leading-[1.4] text-zinc-600">
-          Everything the app does, your own code can do — list, upload, replace, move, search, and
-          repoint permanent links. Your files stay in your storage throughout.
+          Your code can do everything the app does: list, upload, replace, move, search and
+          update permanent links. Your files stay in your storage.
         </p>
       </header>
 

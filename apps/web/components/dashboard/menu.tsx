@@ -113,11 +113,14 @@ export function MenuItem({
   label,
   onClick,
   danger,
+  exit,
   icon,
 }: {
   label: string;
   onClick: () => void;
   danger?: boolean;
+  /** Leaving (Log out): plain until hovered, then red. */
+  exit?: boolean;
   icon?: ReactNode;
 }) {
   return (
@@ -127,7 +130,7 @@ export function MenuItem({
         e.stopPropagation();
         onClick();
       }}
-      className={`menu-item ${danger ? "text-red-600 hover:bg-red-50" : ""}`}
+      className={`menu-item ${danger ? "text-red-600 hover:bg-red-50" : ""} ${exit ? "menu-item-exit" : ""}`}
     >
       {icon}
       {label}

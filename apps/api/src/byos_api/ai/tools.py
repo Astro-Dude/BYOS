@@ -37,6 +37,10 @@ from byos_api.shares import service as shares_service
 
 READ = "read"
 WRITE = "write"
+# Ends the turn with a question for the user; offered in every mode.
+ASK = "ask"
+# Edits the plan being revised; offered only when there is one.
+PLAN = "plan"
 
 # A single tool result is fed straight back into the prompt, so keep listings
 # small enough that a wide sweep can't blow the context window.
@@ -72,13 +76,49 @@ _FOLDER_ID = {
 }
 
 SPEC: list[Tool] = [
+    # ── plan editing (revisions only) ───────────────────────────────────────
+    Tool(
+        "remove_change",
+        PLAN,
+        "Drop one change from the plan you're revising, by its number. Use it for "
+        "a change the user's note doesn't want; to change where something goes, "
+        "drop the old change and propose the new one. Changes you don't drop stay "
+        "in the plan as they are.",
+        _obj({"number": {"type": "integer", "description": "The change's number."}}, ["number"]),
+    ),
+    # ── ask ─────────────────────────────────────────────────────────────────
+    Tool(
+        "ask_user",
+        ASK,
+        "Ask the user one short clarifying question and stop until they answer. "
+        "Use it when the request could mean different things that would change "
+        "the answer (two years of June payslips, ID cards for several people). "
+        "Look first, so the options are what you actually found.",
+        _obj(
+            {
+                "question": {"type": "string", "description": "One short question."},
+                "options": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "description": (
+                        "2 to 5 short answers to pick from, taken from what you "
+                        'found (e.g. "June 2026", "June 2025"). The user can '
+                        "also type their own."
+                    ),
+                },
+            },
+            ["question", "options"],
+        ),
+    ),
     # ── read ────────────────────────────────────────────────────────────────
     Tool(
         "list_files",
         READ,
         "List or search the user's files. Omit `query` to list everything "
         "matching the filters. Returns id, name, size, folder path, tags and "
-        "star state — start here to find the ids other tools need.",
+        "star state — start here to find the ids other tools need. Results come "
+        "in pages: while `next_offset` is set there are more, so call again with "
+        "that offset to see them.",
         _obj(
             {
                 "query": {"type": "string", "description": "Full-text search terms."},
@@ -87,6 +127,7 @@ SPEC: list[Tool] = [
                 "favorite": {"type": "boolean"},
                 "folder_id": {"type": "string", "description": "Restrict to one folder."},
                 "limit": {"type": "integer", "description": f"Default 50, max {MAX_ROWS}."},
+                "offset": {"type": "integer", "description": "Skip this many (paging)."},
             }
         ),
     ),
@@ -94,7 +135,7 @@ SPEC: list[Tool] = [
         "search_content",
         READ,
         "Search INSIDE your files by meaning, over the indexed text. Use this for "
-        "questions about what documents say (\"what was my June salary\") — "
+        'questions about what documents say ("what was my June salary") — '
         "list_files only matches names and tags. Returns excerpts with the file "
         "they came from.",
         _obj(
@@ -202,8 +243,6 @@ SPEC: list[Tool] = [
             {
                 "file_id": _FILE_ID,
                 "expires_in_days": {"type": "integer"},
-                "max_downloads": {"type": "integer"},
-                "view_only": {"type": "boolean", "description": "Block downloading."},
             },
             ["file_id"],
         ),
@@ -229,17 +268,18 @@ SPEC: list[Tool] = [
 BY_NAME: dict[str, Tool] = {t.name: t for t in SPEC}
 
 
-def schemas(*, writes: bool = True) -> list[dict[str, Any]]:
+def schemas(*, writes: bool = True, exclude: frozenset[str] = frozenset()) -> list[dict[str, Any]]:
     """The tool list in OpenAI function-calling form. With `writes=False` only
     read tools are offered at all, so a read-only turn can't even be asked to
-    propose a change (the model can't call what it never sees)."""
+    propose a change (the model can't call what it never sees). `exclude`
+    withholds named tools the same way (/organize without renaming)."""
     return [
         {
             "type": "function",
             "function": {"name": t.name, "description": t.description, "parameters": t.params},
         }
         for t in SPEC
-        if writes or t.kind == READ
+        if (writes or t.kind != WRITE) and t.name not in exclude
     ]
 
 
@@ -262,9 +302,7 @@ def is_new_ref(value: Any) -> bool:
 
 async def _folder_paths(db: AsyncSession, user: User) -> dict[uuid.UUID, str]:
     """Every folder's full path, in one query (labels and listings both need it)."""
-    rows = list(
-        (await db.execute(select(Folder).where(Folder.owner_id == user.id))).scalars()
-    )
+    rows = list((await db.execute(select(Folder).where(Folder.owner_id == user.id))).scalars())
     parent = {f.id: f.parent_id for f in rows}
     name = {f.id: f.name for f in rows}
 
@@ -327,7 +365,10 @@ async def run_read(
     if name == "list_files":
         raw_limit = str(args.get("limit") or "")
         limit = min(int(raw_limit), MAX_ROWS) if raw_limit.isdigit() else 50
+        raw_offset = str(args.get("offset") or "")
+        offset = int(raw_offset) if raw_offset.isdigit() else 0
         folder_id = args.get("folder_id")
+        # One extra row says whether another page exists, without a count query.
         records = await files_service.search_files(
             db,
             user,
@@ -336,16 +377,27 @@ async def run_read(
             folder_id=_uuid(folder_id, "folder") if folder_id else None,
             tag=(str(args["tag"]) if args.get("tag") else None),
             favorite=args.get("favorite") if isinstance(args.get("favorite"), bool) else None,
-            limit=limit,
+            limit=limit + 1,
+            offset=offset,
         )
+        more = len(records) > limit
+        records = records[:limit]
         paths = await _folder_paths(db, user)
-        return {"count": len(records), "files": [_file_row(r, paths) for r in records]}
+        out: dict[str, Any] = {
+            "count": len(records),
+            "offset": offset,
+            "files": [_file_row(r, paths) for r in records],
+        }
+        if more:
+            out["next_offset"] = offset + limit
+            out["note"] = "More files match: call again with next_offset to see them."
+        return out
 
     if name == "search_content":
         if key is None or not key.embedding_model:
             raise ToolError(
-                "content search needs an embedding model on this key — "
-                "fall back to list_files, or tell the user to set one"
+                "content search needs an embedding model on this key. "
+                "Use list_files instead, or tell the user to add one"
             )
         raw_k = str(args.get("limit") or "")
         k = min(int(raw_k), 20) if raw_k.isdigit() else 8
@@ -364,7 +416,7 @@ async def run_read(
             vector = await semantic.embed_query(key, query)
             hits = await semantic.drive_semantic_chunks(db, user, key, vector, k=k)
         if not hits:
-            return {"hits": [], "note": "nothing indexed matched — the drive may not be indexed"}
+            return {"hits": [], "note": "nothing indexed matched. The drive may not be indexed"}
         return {
             "hits": [
                 {"file_id": fid, "name": fname, "excerpt": chunk[:1500]}
@@ -453,7 +505,7 @@ async def label(db: AsyncSession, user: User, op: str, args: dict[str, Any]) -> 
         return record.name
 
     def fpath(raw: Any) -> str:
-        if raw is None:
+        if is_root(raw):
             return "/ (root)"
         if is_new_ref(raw):
             return "the new folder"
@@ -464,7 +516,7 @@ async def label(db: AsyncSession, user: User, op: str, args: dict[str, Any]) -> 
 
     if op == "create_folder":
         parent = args.get("parent_id")
-        where = "" if parent is None else f" in {fpath(parent)}"
+        where = "" if is_root(parent) else f" in {fpath(parent)}"
         return f"Create folder “{args.get('name')}”{where}"
     if op == "rename_file":
         return f"Rename {await fname(args.get('file_id'))} → “{args.get('name')}”"
@@ -493,10 +545,37 @@ async def label(db: AsyncSession, user: User, op: str, args: dict[str, Any]) -> 
 
 
 # ── write: execution at apply time ──────────────────────────────────────────
+def resolve_folder(value: Any, created: dict[int, uuid.UUID]) -> uuid.UUID | None:
+    """Public form of `_resolve`, for finding a plan's folders again on retry."""
+    return _resolve(value, created)
+
+
+# What models write for "the top of the drive" instead of null.
+_ROOT_WORDS = {"", "null", "none", "root", "/", "my drive", "drive"}
+
+# Args that name a folder where None (the root) is a valid answer.
+ROOTABLE = {
+    ("create_folder", "parent_id"),
+    ("move_file", "folder_id"),
+    ("move_folder", "parent_id"),
+}
+
+
+def is_root(value: Any) -> bool:
+    """None, or a string that means the drive's top level ("", "root", "/")."""
+    return value is None or (isinstance(value, str) and value.strip().lower() in _ROOT_WORDS)
+
+
+def normalise_args(op: str, args: dict[str, Any]) -> dict[str, Any]:
+    """`args` with any "top of the drive" spelling of a rootable folder turned
+    into None, so `parent_id: ""` creates a top-level folder instead of failing."""
+    return {k: (None if (op, k) in ROOTABLE and is_root(v) else v) for k, v in args.items()}
+
+
 def _resolve(value: Any, created: dict[int, uuid.UUID]) -> uuid.UUID | None:
     """Turn a folder argument into a real id: None, a UUID, or a $new:N reference
     to a folder created earlier in this same plan."""
-    if value is None:
+    if is_root(value):
         return None
     if is_new_ref(value):
         index = str(value)[len(NEW_REF_PREFIX) :]
@@ -602,14 +681,9 @@ async def apply_action(
                 db,
                 user,
                 file_id=_uuid(args.get("file_id"), "file"),
-                password=None,  # never let a model invent a password
                 expires_in_days=args.get("expires_in_days")
                 if isinstance(args.get("expires_in_days"), int)
                 else None,
-                max_downloads=args.get("max_downloads")
-                if isinstance(args.get("max_downloads"), int)
-                else None,
-                view_only=bool(args.get("view_only")),
             )
             return f"shared at /s/{share.token}"
 

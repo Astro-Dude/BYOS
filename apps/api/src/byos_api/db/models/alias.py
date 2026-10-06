@@ -48,7 +48,5 @@ class Alias(UUIDPrimaryKey, TimestampMixin, Base):
             unique=True,
             postgresql_where=text("folder_id IS NOT NULL"),
         ),
-        CheckConstraint(
-            "num_nonnulls(file_id, folder_id) = 1", name="ck_aliases_one_target"
-        ),
+        CheckConstraint("num_nonnulls(file_id, folder_id) = 1", name="ck_aliases_one_target"),
     )

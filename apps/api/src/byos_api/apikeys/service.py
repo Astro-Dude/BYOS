@@ -13,7 +13,7 @@ import secrets
 import uuid
 from datetime import UTC, datetime, timedelta
 
-from sqlalchemy import select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.db.models import ApiKey, User
@@ -23,6 +23,9 @@ _PREFIX_BYTES = 4  # 8 hex chars
 _SECRET_BYTES = 32
 _TOUCH_INTERVAL = timedelta(minutes=5)
 _MAX_EXPIRY_DAYS = 3650  # 10 years
+# Active keys a user may hold at once. Revoked and expired keys don't count, so
+# revoking one frees a slot. Mirrored in the web app (lib/limits.ts).
+MAX_ACTIVE_KEYS = 10
 
 # Fine-grained, per-resource permissions. A key is granted a subset of these;
 # session logins (the web UI) implicitly have all of them.
@@ -31,6 +34,10 @@ ALL_SCOPES = tuple(f"{r}:{a}" for r in SCOPE_RESOURCES for a in ("read", "write"
 
 
 class InvalidScope(Exception):
+    pass
+
+
+class TooManyKeys(Exception):
     pass
 
 
@@ -67,6 +74,18 @@ async def create_key(
     expires_in_days: int | None = None,
 ) -> tuple[ApiKey, str]:
     validated = _validate_scopes(scopes)
+    now = datetime.now(UTC)
+    active = (
+        await db.execute(
+            select(func.count(ApiKey.id)).where(
+                ApiKey.owner_id == user.id,
+                ApiKey.revoked_at.is_(None),
+                or_(ApiKey.expires_at.is_(None), ApiKey.expires_at > now),
+            )
+        )
+    ).scalar_one()
+    if active >= MAX_ACTIVE_KEYS:
+        raise TooManyKeys
     expires_at = None
     if expires_in_days is not None:
         if expires_in_days <= 0 or expires_in_days > _MAX_EXPIRY_DAYS:
@@ -90,18 +109,26 @@ async def create_key(
 
 
 async def list_keys(db: AsyncSession, user: User) -> list[ApiKey]:
+    # Keys revoked before revoking became a delete may still be in the table;
+    # they're dead (authenticate rejects them) and hidden.
     result = await db.execute(
-        select(ApiKey).where(ApiKey.owner_id == user.id).order_by(ApiKey.created_at.desc())
+        select(ApiKey)
+        .where(ApiKey.owner_id == user.id, ApiKey.revoked_at.is_(None))
+        .order_by(ApiKey.created_at.desc())
     )
     return list(result.scalars())
 
 
 async def revoke_key(db: AsyncSession, user: User, key_id: uuid.UUID) -> None:
+    """Revoking deletes the key. Keeping it bought nothing: a revoked key is
+    rejected before its last-used time is touched, so later use was never
+    recorded, and with its hash gone the key can't authenticate either way. The
+    revoke itself stays in the audit log (api_key.revoke, with the key's id)."""
     key = await db.get(ApiKey, key_id)
-    if key is not None and key.owner_id == user.id and key.revoked_at is None:
-        key.revoked_at = datetime.now(UTC)
+    if key is not None and key.owner_id == user.id:
+        await db.delete(key)
         await db.commit()
-    # absent / already-revoked → idempotent no-op
+    # absent → idempotent no-op
 
 
 async def authenticate(db: AsyncSession, raw_key: str) -> tuple[User, ApiKey] | None:
@@ -111,9 +138,7 @@ async def authenticate(db: AsyncSession, raw_key: str) -> tuple[User, ApiKey] | 
     if len(parts) < 3 or parts[0] != _SCHEME:
         return None
     prefix = parts[1]
-    key = (
-        await db.execute(select(ApiKey).where(ApiKey.prefix == prefix))
-    ).scalar_one_or_none()
+    key = (await db.execute(select(ApiKey).where(ApiKey.prefix == prefix))).scalar_one_or_none()
     if key is None or key.revoked_at is not None:
         return None
     if not secrets.compare_digest(key.key_hash, _hash(raw_key)):

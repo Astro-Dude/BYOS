@@ -148,9 +148,8 @@ export function SupportModal({ onClose }: { onClose: () => void }) {
 
           {status === "blocked" ? (
             <p className="text-center text-[0.8125rem] leading-[1.5] text-zinc-500">
-              The payment button couldn&apos;t load — a content blocker or extension is likely
-              blocking <span className="font-mono">checkout.razorpay.com</span>. Allow it and
-              reopen this, or reach out directly.
+              The payment button couldn&apos;t load. An ad blocker may be blocking{" "}
+              <span className="font-mono">checkout.razorpay.com</span>. Allow it and try again.
             </p>
           ) : null}
         </div>

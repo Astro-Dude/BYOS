@@ -1,10 +1,12 @@
 "use client";
 
 import { ApiError, type DuplicateGroup, type FileItem } from "@byos/api-client";
-import { ChevronRight, FileText, Loader2, Trash2, X } from "lucide-react";
+import { ChevronDown, CopyCheck, FileText, Loader2, Trash2, X } from "lucide-react";
 import { type UIEvent, useCallback, useEffect, useRef, useState } from "react";
 
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
+import { fileIcon } from "@/components/dashboard/file-icon";
+import { ViewEmpty, ViewHeader } from "@/components/dashboard/view-header";
 import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { formatBytes } from "@/lib/utils";
@@ -104,7 +106,7 @@ function DuplicateGroupView({
             const crumbs = await authed((t) => api.folderBreadcrumb(t, f.folder_id!));
             return [f.id, `My Drive / ${crumbs.map((c) => c.name).join(" / ")}`] as const;
           } catch {
-            return [f.id, "—"] as const;
+            return [f.id, "Unknown folder"] as const;
           }
         }),
       );
@@ -156,14 +158,12 @@ function DuplicateGroupView({
   );
 
   return (
-    <div className="mt-2 flex gap-3 overflow-x-auto pb-1">
+    <div className="thin-scroll mt-3 flex gap-3 overflow-x-auto pb-1">
       {group.files.map((f, i) => (
         <div
           key={f.id}
-          className={`relative flex w-64 shrink-0 flex-col gap-2 rounded-lg border p-2.5 ${
- selected.has(f.id)
-              ? "border-zinc-900 bg-zinc-50/50"
-              : "border-zinc-200 bg-zinc-50/50"
+          className={`relative flex w-64 shrink-0 flex-col gap-2 rounded-xl border bg-white p-2.5 transition-colors ${
+            selected.has(f.id) ? "border-[rgb(var(--c-danger-500))] ring-1 ring-[rgb(var(--c-danger-300))]" : "border-zinc-200"
           }`}
         >
           <input
@@ -281,38 +281,66 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
     }
   };
 
-  return (
-    <div className="space-y-4 pt-2">
-      <div>
-        <h1 className="type-heading-sm">Duplicates</h1>
-        <p className="text-[0.9375rem] text-zinc-500">
-          Files with identical content, grouped by hash. Expand a group to compare copies (they
-          scroll together) before deleting.
-        </p>
-      </div>
+  // Per group, every copy but the oldest: the ones safe to let go.
+  const extrasOf = (g: DuplicateGroup) => {
+    const keep = [...g.files].sort((x, y) => x.modified_at.localeCompare(y.modified_at))[0];
+    return g.files.filter((f) => f.id !== keep?.id);
+  };
+  const extraCount = duplicates.reduce((n, g) => n + g.files.length - 1, 0);
+  const reclaimable = duplicates.reduce((n, g) => n + (g.files[0]?.size ?? 0) * (g.files.length - 1), 0);
+  const selectExtras = (groups: DuplicateGroup[]) =>
+    setSelected((s) => {
+      const n = new Set(s);
+      groups.forEach((g) => extrasOf(g).forEach((f) => n.add(f.id)));
+      return n;
+    });
 
-      {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
+  return (
+    <div className="pt-2">
+      <ViewHeader
+        label="Clean up"
+        title="Duplicates"
+        description="Files with exactly the same content, wherever they live. Open a group to compare the copies side by side (they scroll together), then keep one."
+        actions={
+          duplicates.length ? (
+            <button onClick={() => selectExtras(duplicates)} className="pill-sm-ghost inline-flex items-center gap-1.5">
+              <CopyCheck className="h-4 w-4" /> Keep one of each
+            </button>
+          ) : null
+        }
+        stats={
+          duplicates.length
+            ? [
+                { value: duplicates.length, label: duplicates.length === 1 ? "file with copies" : "files with copies" },
+                { value: extraCount, label: extraCount === 1 ? "extra copy" : "extra copies" },
+                { value: formatBytes(reclaimable), label: "you could free" },
+              ]
+            : undefined
+        }
+      />
+
+      {error ? <p className="mb-4 text-[0.9375rem] text-red-600">{error}</p> : null}
 
       {selected.size > 0 ? (
         // Opaque: sticky over a scrolling list, so any alpha showed the rows
         // underneath straight through the bar.
         <div
-          className={`sticky top-0 z-20 flex items-center gap-2 rounded-xl border px-3 py-2 text-[0.9375rem] transition-colors sm:gap-3 sm:px-4 sm:py-2.5 ${
+          className={`sticky top-0 z-20 mb-3 flex items-center gap-2 rounded-xl border px-3 py-2 text-[0.9375rem] transition-colors sm:gap-3 sm:px-4 sm:py-2.5 ${
             scrolled ? "border-zinc-300 bg-zinc-100" : "border-zinc-200 bg-zinc-50"
           }`}
         >
           <span className="shrink-0 font-medium text-zinc-900">
-            {selected.size} <span className="hidden sm:inline">selected</span>
+            {selected.size} <span className="hidden sm:inline">{selected.size === 1 ? "copy" : "copies"} selected</span>
           </span>
           <div className="ml-auto flex shrink-0 items-center gap-0.5 sm:gap-1.5">
             <button
               onClick={() => setConfirmBulk(true)}
               title="Delete"
               aria-label="Delete"
-              className="flex items-center gap-1.5 rounded-full px-2 py-1.5 text-red-600 transition-colors hover:bg-white sm:px-2.5"
+              className="flex items-center gap-1.5 rounded-full bg-[rgb(var(--c-danger-600))] px-3 py-1.5 text-[0.875rem] font-medium text-[rgb(var(--c-paper))] transition hover:opacity-90"
             >
               <Trash2 className="h-4 w-4 shrink-0" />
-              <span className="hidden sm:inline">Delete</span>
+              <span className="hidden sm:inline">Delete {selected.size}</span>
             </button>
             <button
               onClick={() => setSelected(new Set())}
@@ -327,55 +355,99 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
       ) : null}
 
       {loading ? (
-        <div className="space-y-2">
+        <div className="space-y-3">
           {Array.from({ length: 3 }).map((_, i) => (
-            <Skeleton key={i} className="h-16 w-full rounded-lg" />
+            <Skeleton key={i} className="h-28 w-full rounded-2xl" />
           ))}
         </div>
       ) : duplicates.length === 0 ? (
-        <div className="py-20 text-center text-[1.0625rem] text-zinc-400">
-          No duplicates found — nice and tidy.
-        </div>
+        <ViewEmpty
+          tone="go"
+          icon={<CopyCheck className="h-6 w-6" />}
+          title="No duplicates"
+          body="Every file in your drive is one of a kind. Upload the same file twice and it'll show up here."
+        />
       ) : (
         <ul className="space-y-3">
           {duplicates.map((group) => {
             const open = expanded.has(group.hash);
+            const rep = group.files[0];
+            const extras = extrasOf(group);
+            const keepId = group.files.find((f) => !extras.includes(f))?.id;
             return (
-              <li
-                key={group.hash}
-                className="surface-card p-4"
-              >
-                <button
-                  onClick={() => toggle(group.hash)}
-                  className="flex w-full items-center gap-2 text-left"
-                >
-                  <ChevronRight
-                    className={`h-4 w-4 shrink-0 text-zinc-400 transition-transform ${open ? "rotate-90" : ""}`}
-                  />
-                  <span className="min-w-0 flex-1 truncate text-[0.9375rem] text-zinc-700">
-                    {group.files[0]?.name}
-                  </span>
-                  <span className="shrink-0 text-[0.8125rem] font-medium text-zinc-500">
-                    {group.files.length} copies
-                  </span>
-                </button>
+              <li key={group.hash} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
+                <div className="flex items-center gap-3 px-4 py-3">
+                  <button onClick={() => toggle(group.hash)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100">
+                      {fileIcon(rep?.mime ?? null, rep?.ext ?? null)}
+                    </span>
+                    <span className="min-w-0 flex-1">
+                      <span className="block truncate text-[0.9375rem] font-medium text-zinc-900">{rep?.name}</span>
+                      <span className="block text-[0.8125rem] text-zinc-500">
+                        {group.files.length} copies · {formatBytes(rep?.size ?? 0)} each ·{" "}
+                        <span className="text-zinc-700">{formatBytes((rep?.size ?? 0) * extras.length)} to free</span>
+                      </span>
+                    </span>
+                  </button>
+                  <button
+                    onClick={() => selectExtras([group])}
+                    className="hidden shrink-0 rounded-full border border-zinc-200 px-3 py-1.5 text-[0.8125rem] text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 sm:inline-flex"
+                    title="Select every copy but the oldest"
+                  >
+                    Keep oldest
+                  </button>
+                  <button
+                    onClick={() => toggle(group.hash)}
+                    className="btn-icon-sm"
+                    aria-label={open ? "Collapse" : "Compare copies"}
+                    title={open ? "Collapse" : "Compare copies"}
+                  >
+                    <ChevronDown className={`h-4 w-4 transition-transform ${open ? "rotate-180" : ""}`} />
+                  </button>
+                </div>
 
                 {open ? (
-                  <DuplicateGroupView
-                    group={group}
-                    onDelete={setConfirmDel}
-                    selected={selected}
-                    onToggleSelect={toggleSelect}
-                  />
+                  <div className="border-t border-zinc-200 bg-zinc-50 px-4 pb-3">
+                    <DuplicateGroupView
+                      group={group}
+                      onDelete={setConfirmDel}
+                      selected={selected}
+                      onToggleSelect={toggleSelect}
+                    />
+                  </div>
                 ) : (
-                  <ul className="mt-1.5 space-y-1 pl-6">
+                  <ul className="border-t border-zinc-200">
                     {group.files.map((file) => (
                       <li
                         key={file.id}
-                        className="flex items-center gap-2 text-[0.9375rem] text-zinc-600"
+                        className={`flex items-center gap-3 px-4 py-2 text-[0.875rem] transition-colors ${
+                          selected.has(file.id) ? "bg-[rgb(var(--c-danger-50))]" : ""
+                        }`}
                       >
-                        <FileText className="h-4 w-4 shrink-0 text-zinc-400" />
-                        <span className="truncate">{file.name}</span>
+                        <input
+                          type="checkbox"
+                          checked={selected.has(file.id)}
+                          onChange={() => toggleSelect(file.id)}
+                          className="h-4 w-4 shrink-0 accent-zinc-900"
+                          aria-label={`Select ${file.name}`}
+                        />
+                        <span className={`min-w-0 flex-1 truncate ${selected.has(file.id) ? "text-zinc-500 line-through" : "text-zinc-800"}`}>
+                          {file.name}
+                        </span>
+                        {file.id === keepId ? (
+                          <span className="shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[0.6875rem] text-zinc-600">Oldest</span>
+                        ) : null}
+                        <span className="hidden shrink-0 text-[0.8125rem] text-zinc-500 sm:inline">
+                          {new Date(file.modified_at).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" })}
+                        </span>
+                        <button
+                          onClick={() => setConfirmDel(file)}
+                          className="btn-icon-sm h-7 w-7 hover:!bg-[rgb(var(--c-danger-50))] hover:!text-[rgb(var(--c-danger-600))]"
+                          title="Delete this copy"
+                          aria-label="Delete this copy"
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </button>
                       </li>
                     ))}
                   </ul>

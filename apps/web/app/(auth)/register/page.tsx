@@ -1,20 +1,28 @@
 "use client";
 
 import { ApiError } from "@byos/api-client";
-import { Send } from "lucide-react";
-import Link from "next/link";
+import { Loader2 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import type { FormEvent } from "react";
 import { useEffect, useState } from "react";
 
-import { Logo } from "@/components/logo";
+import {
+  AuthShell,
+  AuthSkeleton,
+  CodeInput,
+  Field,
+  FormError,
+  PasswordChecks,
+  TelegramNote,
+  TextLink,
+} from "@/components/auth/auth-shell";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { PasswordInput } from "@/components/ui/password-input";
-import { Skeleton } from "@/components/ui/skeleton";
 import { api } from "@/lib/api";
 import { useAuth } from "@/lib/auth-context";
-import { COUNTRY_CODES } from "@/lib/country-codes";
+import { CountryCodePicker } from "@/components/ui/country-code-picker";
+import { homeAfterSignIn } from "@/lib/pending-question";
 
 // "details" collects username + password + phone; only after that do we send
 // the OTP. Nothing is stored server-side until the code (or 2FA) verifies.
@@ -48,12 +56,12 @@ export default function RegisterPage() {
   };
 
   useEffect(() => {
-    if (!authLoading && user) router.replace("/dashboard");
+    if (!authLoading && user) router.replace(homeAfterSignIn());
   }, [authLoading, user, router]);
 
   const goToDashboard = async (accessToken: string) => {
     await establishSession(accessToken);
-    router.push("/dashboard");
+    router.push(homeAfterSignIn());
   };
 
   const onSubmit = (e: FormEvent) => {
@@ -91,157 +99,133 @@ export default function RegisterPage() {
     }
   };
 
-  if (authLoading || user) {
-    return (
-      <main className="mx-auto flex min-h-screen max-w-md flex-col justify-center px-6">
-        <Skeleton className="h-7 w-24" />
-        <Skeleton className="mt-10 h-11 w-full max-w-64" />
-        <Skeleton className="mt-5 h-5 w-full" />
-        <Skeleton className="mt-8 h-12 w-full rounded-lg" />
-        <Skeleton className="mt-3 h-12 w-full rounded-full" />
-      </main>
-    );
-  }
+  if (authLoading || user) return <AuthSkeleton />;
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-md flex-col px-6">
-      <header className="flex items-center justify-between py-8">
-        <Logo wordClassName="text-xl" />
-      </header>
-
-      <div className="flex flex-1 flex-col justify-center pb-20">
-        <h1 className="type-heading">Create your account</h1>
-        <p className="mt-5 text-[1.0625rem] leading-[1.4] text-zinc-600">
-          {step === "details" &&
-            "Pick a username and password. We'll send a confirmation code to your Telegram app — not by SMS."}
-          {step === "code" && "Enter the login code Telegram just sent to your app."}
-          {step === "password" && "Your Telegram account has two-factor auth — enter its password."}
+    <AuthShell
+      bao="auto"
+      greeting="New here? I'll have your drive set up in a minute."
+      title={
+        step === "details" ? "Create your account" : step === "code" ? "Check Telegram" : "One more step"
+      }
+      lead={
+        step === "details"
+          ? "Pick a username and password, then confirm with a code in your Telegram app. Your Telegram becomes your storage."
+          : step === "code"
+            ? `Enter the code Telegram just sent to ${dial} ${national}.`
+            : "Your Telegram account has two-step verification. Enter its password to finish."
+      }
+      steps={{
+        labels: ["Details", "Code", "Verify"],
+        current: ["details", "code", "password"].indexOf(step),
+      }}
+      footer={
+        <p className="text-zinc-500">
+          Already have an account? <TextLink href="/login">Sign in</TextLink>
         </p>
-        {step === "details" ? (
-          <div className="mt-6 flex items-start gap-3 text-[0.9375rem] leading-[1.45] text-zinc-600">
-            <Send className="mt-0.5 h-4 w-4 shrink-0 text-zinc-400" />
-            <span>
-              The code arrives as a message in <strong className="text-zinc-900">Telegram</strong>,
-              from the official “Telegram” chat. Nothing is sent by SMS, so keep the app to hand.
-            </span>
-          </div>
-        ) : null}
-        {step === "code" ? (
-          <div className="surface-card mt-6 flex items-start gap-3 px-5 py-4 text-[0.9375rem] leading-[1.45] text-zinc-900">
-            <Send className="mt-0.5 h-4 w-4 shrink-0" />
-            <span>
-              Check your <strong>Telegram app</strong> — the code is sent there (in the
-              official “Telegram” chat), not by SMS.
-            </span>
-          </div>
-        ) : null}
+      }
+    >
+      {step !== "password" ? <TelegramNote sent={step === "code"} /> : null}
 
-        <form onSubmit={onSubmit} className="mt-8 space-y-3">
-          {step === "details" && (
-            <>
-              <div className="flex items-center rounded-lg border border-zinc-200 bg-white px-4 transition-colors focus-within:border-zinc-900">
+      <form onSubmit={onSubmit} className="mt-6 space-y-4">
+        {step === "details" && (
+          <>
+            <Field label="Username" hint="Shows in your share links" htmlFor="username">
+              <div className="flex items-center rounded-lg border border-zinc-200 bg-white pl-4 transition-colors focus-within:border-zinc-900 focus-within:ring-1 focus-within:ring-zinc-900">
                 <span className="text-[0.9375rem] text-zinc-400">@</span>
                 <Input
+                  id="username"
                   required
                   autoFocus
                   autoComplete="username"
                   value={username}
                   onChange={(e) => setUsername(e.target.value.toLowerCase())}
                   placeholder="username"
-                  className="border-0 bg-transparent px-0 focus:border-0 focus:ring-0"
+                  className="border-0 bg-transparent pl-1 focus:border-0 focus:ring-0"
                 />
               </div>
-              <PasswordInput
-                required
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Password (min 8 characters)"
-              />
-              <PasswordInput
-                required
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                placeholder="Confirm password"
-              />
+            </Field>
+            <Field label="Phone number" hint="The one on Telegram" htmlFor="phone">
               <div className="flex gap-2">
-                <select
-                  value={dial}
-                  onChange={(e) => setDial(e.target.value)}
-                  aria-label="Country code"
-                  className="rounded-md border border-zinc-200 bg-white px-2 py-2 text-[0.9375rem] text-zinc-900 outline-none focus:border-zinc-900 focus:ring-1 focus:ring-zinc-900"
-                >
-                  {COUNTRY_CODES.map((c) => (
-                    <option key={`${c.iso}${c.dial}`} value={c.dial}>
-                      {c.iso} {c.dial}
-                    </option>
-                  ))}
-                </select>
+                <CountryCodePicker dial={dial} onChange={setDial} />
                 <Input
+                  id="phone"
                   type="tel"
                   required
                   inputMode="numeric"
+                  autoComplete="tel-national"
                   value={national}
                   onChange={(e) => setNational(e.target.value)}
                   placeholder="98765 43210"
                 />
               </div>
-            </>
-          )}
-          {step === "code" && (
-            <Input
-              required
-              autoFocus
-              inputMode="numeric"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              placeholder="Code from Telegram (e.g. 12345)"
-            />
-          )}
-          {step === "password" && (
+            </Field>
+            <Field label="Password" htmlFor="password">
+              <PasswordInput
+                id="password"
+                required
+                autoComplete="new-password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="At least 8 characters"
+              />
+            </Field>
+            <Field label="Confirm password" htmlFor="confirm">
+              <PasswordInput
+                id="confirm"
+                required
+                autoComplete="new-password"
+                value={confirm}
+                onChange={(e) => setConfirm(e.target.value)}
+                placeholder="Type it again"
+              />
+            </Field>
+            <PasswordChecks password={password} confirm={confirm} />
+          </>
+        )}
+        {step === "code" && (
+          <Field label="Login code" htmlFor="code">
+            <CodeInput id="code" value={code} onChange={setCode} />
+          </Field>
+        )}
+        {step === "password" && (
+          <Field label="Two-step verification password" htmlFor="twofa">
             <PasswordInput
+              id="twofa"
               required
               autoFocus
               value={twofa}
               onChange={(e) => setTwofa(e.target.value)}
-              placeholder="Two-factor password"
+              placeholder="Your Telegram password"
             />
-          )}
+          </Field>
+        )}
 
-          {error ? <p className="text-[0.9375rem] text-red-600">{error}</p> : null}
+        {error ? <FormError>{error}</FormError> : null}
 
-          <Button type="submit" disabled={busy} className="w-full">
-            {busy
-              ? "Please wait…"
-              : step === "details"
-                ? "Send code to Telegram"
-                : step === "code"
-                  ? "Verify"
-                  : "Create account"}
-          </Button>
-        </form>
-
-        <div className="mt-4 space-y-2 text-[0.9375rem]">
-          {step !== "details" && (
-            <button
-              onClick={() => {
-                setStep("details");
-                setError(null);
-              }}
-              className="block text-zinc-500 hover:text-zinc-800"
-            >
-              ← Start over
-            </button>
-          )}
-          <p className="text-zinc-500">
-            Already have an account?{" "}
-            <Link href="/login" className="text-zinc-900 hover:text-zinc-900">
-              Sign in
-            </Link>
-          </p>
-        </div>
-      </div>
-    </main>
+        <Button type="submit" disabled={busy} className="flex w-full items-center justify-center gap-2">
+          {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : null}
+          {busy
+            ? "Please wait…"
+            : step === "details"
+              ? "Send code to Telegram"
+              : step === "code"
+                ? "Verify code"
+                : "Create account"}
+        </Button>
+        {step !== "details" ? (
+          <button
+            type="button"
+            onClick={() => {
+              setStep("details");
+              setError(null);
+            }}
+            className="block w-full text-center text-[0.875rem] text-zinc-500 hover:text-zinc-900"
+          >
+            ← Start over
+          </button>
+        ) : null}
+      </form>
+    </AuthShell>
   );
 }

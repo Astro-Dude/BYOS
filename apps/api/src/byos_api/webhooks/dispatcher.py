@@ -63,9 +63,7 @@ async def _fanout(owner_id: uuid.UUID, event_type: str, payload: dict[str, Any])
         hooks = list(result.scalars())
     if not hooks:
         return
-    body = json.dumps(
-        {"event": event_type, "data": payload}, separators=(",", ":")
-    ).encode()
+    body = json.dumps({"event": event_type, "data": payload}, separators=(",", ":")).encode()
     for hook in hooks:
         if "*" in hook.events or event_type in hook.events:
             await _deliver(hook.url, hook.secret, body)

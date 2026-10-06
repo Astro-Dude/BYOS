@@ -97,6 +97,10 @@ export function useAuth(): AuthState {
 export type Authed = <T>(fn: (token: string) => Promise<T>) => Promise<T>;
 
 /** Runs an API call with the current access token; on a 401, refreshes once and retries. */
+/** Fired on window when GitHub or S3 rejects a storage's saved credentials, so
+ *  whatever shows storage status can refresh. `detail` is the API's message. */
+export const STORAGE_REJECTED_EVENT = "byos:storage-rejected";
+
 /** sessionStorage key the login page reads to show why the user was bounced. */
 export const RECONNECT_NOTICE_KEY = "byos:reconnect_notice";
 
@@ -123,6 +127,9 @@ export function useAuthed(): Authed {
             // sessionStorage unavailable — the thrown error still surfaces a toast
           }
           void logout(); // clears user → the app's guards redirect to /login
+        }
+        if (err instanceof ApiError && err.code === "storage_credentials_rejected") {
+          window.dispatchEvent(new CustomEvent(STORAGE_REJECTED_EVENT, { detail: err.detail }));
         }
         throw err;
       }

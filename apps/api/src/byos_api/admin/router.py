@@ -57,9 +57,7 @@ async def grant_admin(payload: GrantRequest, me: AdminUser, db: DbDep) -> AdminR
         raise HTTPException(status.HTTP_404_NOT_FOUND, "No account matches that username or phone")
     if not target.is_admin:
         await service.set_admin(db, target, True)
-    await audit.record(
-        me.id, "admin.grant", target_type="user", target_id=str(target.id)
-    )
+    await audit.record(me.id, "admin.grant", target_type="user", target_id=str(target.id))
     return AdminRow(
         id=target.id,
         username=target.username,
@@ -86,7 +84,7 @@ async def revoke_admin(user_id: uuid.UUID, me: AdminUser, db: DbDep) -> None:
     if service.is_bootstrap_admin(target):
         raise HTTPException(
             status.HTTP_400_BAD_REQUEST,
-            "That account is an admin via ADMIN_IDS — change the environment instead.",
+            "This account is an admin through ADMIN_IDS. Change it there instead.",
         )
     remaining = [a for a in await service.list_admins(db) if a["id"] != user_id]
     if not remaining:
