@@ -8,7 +8,8 @@ import { useEffect } from "react";
 export default function SettingsIndex() {
   const router = useRouter();
   useEffect(() => {
-    if (window.matchMedia("(min-width: 768px)").matches) router.replace("/settings/profile");
+    // Keep the query (?from=drive) so the way back still points where you came from.
+    if (window.matchMedia("(min-width: 768px)").matches) router.replace(`/settings/profile${window.location.search}`);
   }, [router]);
   return null;
 }

@@ -199,7 +199,7 @@ export function Dropdown({
       </button>
       {open ? (
         <div
-          className={`dropdown-menu absolute z-30 flex max-h-80 min-w-[12rem] flex-col rounded-2xl border border-zinc-200/80 bg-white p-1.5 ${
+          className={`dropdown-menu absolute z-30 flex max-h-80 min-w-[12rem] flex-col rounded-2xl p-1.5 ${
             place.up ? "dropdown-up bottom-full mb-2" : "top-full mt-2"
           } ${align === "right" ? "right-0" : "left-0"}`}
           style={{ minWidth: Math.max(place.minWidth, 192) }}

@@ -19,8 +19,12 @@ export function Menu({
   children,
   align = "right",
   className = "",
+  label,
 }: {
   trigger: (open: boolean) => ReactNode;
+  /** What an icon-only trigger is called for screen readers. Leave it out when
+   *  the trigger shows text, which already names it. */
+  label?: string;
   children: (close: () => void) => ReactNode;
   align?: "left" | "right";
   className?: string;
@@ -77,6 +81,9 @@ export function Menu({
       <button
         ref={triggerRef}
         type="button"
+        aria-label={label}
+        aria-haspopup="menu"
+        aria-expanded={open}
         className={className.includes("w-full") ? "w-full" : undefined}
         onClick={(e) => {
           e.stopPropagation();

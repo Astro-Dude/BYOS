@@ -1056,7 +1056,7 @@ export function DriveChat({
         <>
           <div className="fixed inset-0 z-10" onClick={() => setAddOpen(false)} />
           <div
-            className="dropdown-menu absolute bottom-full left-0 z-20 mb-2 w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-zinc-200/80 bg-white p-2"
+            className="dropdown-menu absolute bottom-full left-0 z-20 mb-2 w-[min(21rem,calc(100vw-2rem))] rounded-2xl p-2"
             style={{ boxShadow: "var(--shadow-popover)" }}
           >
             {/* System prompt: a searchable dropdown, since the list can be long */}
@@ -1223,8 +1223,7 @@ export function DriveChat({
         <div className="pointer-events-none absolute bottom-full left-0 right-0 z-20 mb-2 flex justify-center px-2">
           <p
             role="status"
-            className="notice-in flex items-center gap-2 rounded-2xl border border-zinc-200 bg-white px-3.5 py-2 text-[0.875rem] text-zinc-700"
-            style={{ boxShadow: "var(--shadow-popover)" }}
+            className="notice-in glass-panel flex items-center gap-2 rounded-2xl px-3.5 py-2 text-[0.875rem] text-zinc-700"
           >
             <Loader2 className="h-4 w-4 shrink-0 animate-spin" />
             Trying <span className="font-mono text-[0.8125rem] text-zinc-900">{switching.model}</span>…
@@ -1237,10 +1236,9 @@ export function DriveChat({
             role="status"
             onClick={() => setNotice(null)}
             title="Dismiss"
-            className={`notice-in pointer-events-auto flex max-w-full items-start gap-2 rounded-2xl border px-3.5 py-2 text-left text-[0.875rem] ${
-              notice.ok ? "border-zinc-200 bg-white text-zinc-800" : "border-red-200 bg-red-50 text-red-700"
+            className={`notice-in pointer-events-auto flex max-w-full items-start gap-2 rounded-2xl px-3.5 py-2 text-left text-[0.875rem] ${
+              notice.ok ? "glass-panel text-zinc-800" : "border border-red-200 bg-red-50 text-red-700 shadow-[var(--shadow-popover)]"
             }`}
-            style={{ boxShadow: "var(--shadow-popover)" }}
           >
             {notice.ok ? (
               <Check className="mt-0.5 h-4 w-4 shrink-0 text-zinc-900" />

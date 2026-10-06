@@ -1,9 +1,11 @@
 "use client";
 
-import { ArrowLeft, LogOut, Settings as SettingsIcon } from "lucide-react";
+import { ArrowLeft, Coffee, LogOut, Settings as SettingsIcon } from "lucide-react";
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 
+import { openSupport } from "@/components/support-fab";
+import { supportEnabled } from "@/components/support-modal";
 import { useAuth } from "@/lib/auth-context";
 
 export function initialsOf(label: string): string {
@@ -65,6 +67,17 @@ export function AccountMenu({ onSettings }: { onSettings: () => void }) {
           >
             <ArrowLeft className="h-4 w-4 text-zinc-500" /> Back to Drive
           </Link>
+          {supportEnabled ? (
+            <button
+              onClick={() => {
+                setOpen(false);
+                openSupport();
+              }}
+              className="flex w-full items-center gap-2.5 px-3 py-2 text-[0.9375rem] text-zinc-800 transition hover:bg-zinc-100"
+            >
+              <Coffee className="h-4 w-4 text-zinc-500" /> Buy me a coffee
+            </button>
+          ) : null}
           <div className="my-1 border-t border-zinc-200" />
           <button
             onClick={() => void logout()}

@@ -105,7 +105,7 @@ export function KeysSection({
               return (
                 <div
                   key={k.id}
-                  className="group flex flex-col rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
+                  className="group flex min-w-0 flex-col rounded-2xl border border-zinc-200 bg-white p-4 transition-colors hover:border-zinc-300"
                 >
                   <div className="flex items-start gap-3">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-900 font-display text-[1rem] text-[rgb(var(--c-paper))]">
@@ -129,14 +129,14 @@ export function KeysSection({
                       </button>
                     </div>
                   </div>
-                  <dl className="mt-4 grid gap-1.5 text-[0.8125rem]">
-                    <div className="flex items-center gap-2">
+                  <dl className="mt-4 grid min-w-0 gap-1.5 text-[0.8125rem]">
+                    <div className="flex min-w-0 items-center gap-2">
                       <dt className="flex w-24 shrink-0 items-center gap-1.5 text-zinc-500">
                         <MessageSquare className="h-3.5 w-3.5" /> Chat
                       </dt>
                       <dd className="min-w-0 truncate font-mono text-[0.75rem] text-zinc-900">{k.model}</dd>
                     </div>
-                    <div className="flex items-center gap-2">
+                    <div className="flex min-w-0 items-center gap-2">
                       <dt className="flex w-24 shrink-0 items-center gap-1.5 text-zinc-500">
                         <Database className="h-3.5 w-3.5" /> Indexing
                       </dt>

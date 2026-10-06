@@ -174,7 +174,7 @@ export function MissingPanel() {
             {missing.map((file) => (
               <li
                 key={file.id}
-                className="flex items-center gap-3 border-b border-zinc-200 px-4 py-3 last:border-b-0 hover:bg-zinc-50"
+                className="flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-4 py-3 last:border-b-0 hover:bg-zinc-50"
               >
                 <span className="relative flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 opacity-70" aria-hidden>
                   {fileIcon(file.mime, file.ext)}
@@ -182,7 +182,7 @@ export function MissingPanel() {
                     !
                   </span>
                 </span>
-                <div className="min-w-0 flex-1">
+                <div className="min-w-0 flex-1 basis-[12rem]">
                   <span className="block truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</span>
                   <span className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[0.8125rem] text-zinc-500">
                     <span className="inline-flex items-center gap-1">
@@ -195,7 +195,7 @@ export function MissingPanel() {
                 </div>
                 <button
                   onClick={() => setRemoving(file)}
-                  className="pill-sm-ghost shrink-0 hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))]"
+                  className="pill-sm-ghost shrink-0 hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))] max-sm:ml-[3.25rem]"
                 >
                   Remove record
                 </button>

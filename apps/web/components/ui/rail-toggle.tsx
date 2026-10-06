@@ -19,14 +19,17 @@ export function TravellingLight() {
 }
 
 /** The round handle that straddles a sidebar's right edge to collapse or
- *  expand it. Its parent must be `relative`. Desktop only: on phones the
- *  sidebars are drawers with their own close control. */
+ *  expand it. Its parent must be positioned (`relative` or `fixed`). Desktop
+ *  only unless `phone` is set, for a drawer that should close the same way. */
 export function RailToggle({
   collapsed,
   onToggle,
+  phone = false,
 }: {
   collapsed: boolean;
   onToggle: () => void;
+  /** Show it on phones too (a drawer's close handle). */
+  phone?: boolean;
 }) {
   return (
     <button
@@ -34,7 +37,9 @@ export function RailToggle({
       title={collapsed ? "Expand" : "Collapse"}
       aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
       aria-expanded={!collapsed}
-      className="group absolute -right-3.5 top-1/2 z-20 hidden h-7 w-7 -translate-y-1/2 overflow-hidden rounded-full bg-zinc-200 p-[1.5px] transition-colors hover:bg-zinc-900 md:block"
+      className={`group absolute -right-3.5 top-1/2 z-20 h-7 w-7 -translate-y-1/2 overflow-hidden rounded-full bg-zinc-200 p-[1.5px] transition-colors hover:bg-zinc-900 ${
+        phone ? "block" : "hidden md:block"
+      }`}
     >
       <TravellingLight />
       <span className="relative flex h-full w-full items-center justify-center rounded-full bg-white text-zinc-500 transition-colors group-hover:bg-zinc-900 group-hover:text-white">

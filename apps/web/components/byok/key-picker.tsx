@@ -159,7 +159,7 @@ export function KeyPicker({
 
       {open ? (
         <div
-          className={`dropdown-menu absolute left-0 top-full z-30 mt-2 flex max-h-[min(34rem,80vh)] flex-col rounded-2xl border border-zinc-200/80 bg-white ${
+          className={`dropdown-menu absolute left-0 top-full z-30 mt-2 flex max-h-[min(34rem,80vh)] flex-col rounded-2xl ${
             editKey ? "w-[min(22rem,calc(100vw-1.5rem))] overflow-y-auto p-1.5" : "w-[min(21rem,calc(100vw-1.5rem))] p-1.5"
           }`}
           style={{ boxShadow: "var(--shadow-popover)" }}

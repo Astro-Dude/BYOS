@@ -12,6 +12,7 @@ import Link from "next/link";
 
 import { Logo } from "@/components/logo";
 import { AskDemo } from "@/components/marketing/ask-demo";
+import { SwipeRow } from "@/components/marketing/swipe-row";
 import { BaoCompanion } from "@/components/marketing/bao-companion";
 import { ModeAvatar } from "@/components/mode-avatar";
 import { AVATAR_TINT, AVATARS } from "@/lib/avatars";
@@ -224,27 +225,27 @@ export default function LandingPage() {
       </section>
 
       {/* ── Pillars on a fog band ─────────────────────────────────────────── */}
-      <section data-bao="store" className="bg-zinc-50 py-20 sm:py-24">
+      <section data-bao="store" className="bg-zinc-50 py-16 sm:py-24">
         <div className={WRAP}>
           <Reveal as="h2" animation="steep-settle" className="type-heading max-w-2xl">
             Providers store bytes. BYOS provides <span className="type-em">the experience</span>.
           </Reveal>
-          <div className="mt-14 grid gap-6 md:grid-cols-3">
+          <SwipeRow label="What BYOS adds" grid="md:grid-cols-3 md:gap-6" className="mt-10 sm:mt-14">
             {PILLARS.map((p, i) => (
-              <Reveal key={p.title} delay={i * 120} className="surface-card p-8">
+              <Reveal key={p.title} delay={i * 120} className="surface-card p-6 sm:p-8">
                 <span className="type-label">{p.label}</span>
                 <h3 className="mt-4 text-[1.25rem] font-medium text-zinc-900">{p.title}</h3>
                 <p className="mt-3 text-[1rem] leading-[1.5] text-zinc-600">{p.body}</p>
               </Reveal>
             ))}
-          </div>
+          </SwipeRow>
         </div>
       </section>
 
       {/* ── Storages: where the bytes can live ───────────────────────────── */}
-      <section className="py-20 sm:py-24">
-        <div className={`${WRAP} grid items-center gap-12 lg:grid-cols-[1.3fr_1fr]`}>
-          <div>
+      <section className="py-16 sm:py-24">
+        <div className={`${WRAP} grid items-center gap-12 lg:grid-cols-[minmax(0,1.3fr)_minmax(0,1fr)]`}>
+          <div className="min-w-0">
             <Reveal as="p" className="type-label">
               Bring your own storage
             </Reveal>
@@ -255,7 +256,7 @@ export default function LandingPage() {
               Connect one or all three. Pick a default, choose another for any upload, and see where every
               file lives. Folders, search and links work the same wherever the bytes are.
             </Reveal>
-            <div className="mt-12 grid gap-4 sm:grid-cols-3">
+            <SwipeRow label="Storage options" grid="md:grid-cols-3 md:gap-4" className="mt-10 sm:mt-12">
               {STORAGES.map((st, i) => (
                 <Reveal key={st.provider} delay={i * 110} className="surface-card p-6">
                   <span className="flex h-10 w-10 items-center justify-center rounded-full bg-zinc-900 text-white">
@@ -276,7 +277,7 @@ export default function LandingPage() {
                   </ul>
                 </Reveal>
               ))}
-            </div>
+            </SwipeRow>
           </div>
           <Reveal delay={240} className="lg:pl-4">
             <StorageArtifact />
@@ -289,26 +290,26 @@ export default function LandingPage() {
       </section>
 
       {/* ── Aliases: the one peach card on this page ──────────────────────── */}
-      <section data-bao="share" className="bg-zinc-50 py-20 sm:py-24">
+      <section data-bao="share" className="bg-zinc-50 py-16 sm:py-24">
         {/* The card is a little narrower than its neighbour and stretches to
             its height, so the two columns end level. */}
         <div className={`${WRAP} grid items-stretch gap-10 lg:grid-cols-[minmax(0,0.85fr)_minmax(0,1fr)]`}>
-          <Reveal className="surface-blush flex flex-col p-10">
+          <Reveal className="surface-blush flex flex-col p-7 sm:p-10">
             <span className="text-[0.8125rem]">The flagship</span>
             <h2 className="type-heading-sm mt-4 font-display" style={{ color: "#5d2a1a" }}>
               One link, forever. Replace what sits behind it whenever you like.
             </h2>
             <p className="mt-5 text-[1.125rem] leading-[1.4]">
               Send <span className="italic">byos.link/a/portfolio</span> once. Swap the file whenever you like.
-              The link stays the same. Password it, expire it, cap the downloads, or revoke it outright.
+              The link stays the same. Rename it, or revoke it outright.
             </p>
             <p className="mt-6 text-[0.875rem] lg:mt-auto lg:pt-6">Permanent dynamic aliases</p>
           </Reveal>
           <Reveal delay={160} className="lg:pl-6">
             <AliasArtifact />
             <p className="mt-8 max-w-md text-[1.0625rem] leading-[1.35] text-zinc-600">
-              See every time the link is opened, so you know the recruiter read it. The file stays in your own
-              storage.
+              Need it only for a while? Send an expiring link instead; it stops working after the days you
+              pick. Either way, the file stays in your own storage.
             </p>
             <Link href="/register" className="link-arrow mt-6">
               Claim your username <ArrowRight className="h-4 w-4" />
@@ -318,7 +319,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── BYOK: every feature ───────────────────────────────────────────── */}
-      <section data-bao="ask" className="py-20 sm:py-24">
+      <section data-bao="ask" className="py-16 sm:py-24">
         <div className={WRAP}>
           <Reveal as="p" className="type-label">
             Bring Your Own Key
@@ -334,18 +335,19 @@ export default function LandingPage() {
 
           {/* The feature cards (two a row) take the wider side, so six cards stay
               three short rows; the examples beside them ride down the page as it
-              scrolls. */}
-          <div className="mt-14 grid items-start gap-10 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:gap-14">
-            <div className="grid gap-6 sm:grid-cols-2">
+              scrolls. On phones the live example comes first, then the cards as a
+              swipe row. */}
+          <div className="mt-10 grid items-start gap-10 sm:mt-14 lg:grid-cols-[minmax(0,1.4fr)_minmax(0,1fr)] xl:gap-14">
+            <SwipeRow label="What the assistant can do" grid="md:grid-cols-2 md:gap-6">
               {BYOK.map((f, i) => (
-                <Reveal key={f.title} delay={i * 100} className="surface-card p-7">
+                <Reveal key={f.title} delay={i * 100} className="surface-card p-6 sm:p-7">
                   <f.icon className="h-5 w-5 text-zinc-900" />
                   <h3 className="mt-4 text-[1.125rem] font-medium text-zinc-900">{f.title}</h3>
                   <p className="mt-2 text-[0.9375rem] leading-[1.5] text-zinc-600">{f.body}</p>
                 </Reveal>
               ))}
-            </div>
-            <div className="space-y-6 lg:sticky lg:top-24">
+            </SwipeRow>
+            <div className="-order-1 space-y-6 lg:sticky lg:top-24 lg:order-none">
               <Reveal delay={200}>
                 <AskDemo />
               </Reveal>
@@ -357,12 +359,20 @@ export default function LandingPage() {
 
           {/* Permission modes */}
           <div data-bao="modes" aria-hidden />
-          <Reveal as="h3" className="type-heading-sm mt-24">
+          <Reveal as="h3" className="type-heading-sm mt-16 sm:mt-24">
             You decide how much it may do <span className="type-em">unattended</span>.
           </Reveal>
-          <div className="mt-10 grid gap-px overflow-hidden rounded-2xl bg-zinc-200 sm:grid-cols-2 lg:grid-cols-4">
+          <SwipeRow
+            label="Permission modes"
+            grid="md:grid-cols-2 md:gap-px md:overflow-hidden md:rounded-2xl md:bg-zinc-200 lg:grid-cols-4"
+            className="mt-8 sm:mt-10"
+          >
             {MODES.map((m, i) => (
-              <Reveal key={m.name} delay={i * 90} className="bg-white p-7">
+              <Reveal
+                key={m.name}
+                delay={i * 90}
+                className="rounded-2xl border border-zinc-200 bg-white p-6 sm:p-7 md:rounded-none md:border-0"
+              >
                 <div
                   className={`flex h-24 w-24 items-center justify-center rounded-full border ${AVATAR_TINT[m.bot]}`}
                 >
@@ -373,7 +383,7 @@ export default function LandingPage() {
                 <p className="mt-2 text-[0.9375rem] leading-[1.5] text-zinc-600">{m.body}</p>
               </Reveal>
             ))}
-          </div>
+          </SwipeRow>
           <Reveal as="p" className="mt-6 max-w-2xl text-[0.9375rem] leading-[1.5] text-zinc-600">
             Before anything moves you see your drive as it will look: new folders, where each file lands,
             renames and tags. Ask for changes in plain words and Bao reworks the plan in place. Apply it in
@@ -381,19 +391,19 @@ export default function LandingPage() {
           </Reveal>
 
           {/* Tool inventory */}
-          <Reveal as="h3" className="type-heading-sm mt-24">
+          <Reveal as="h3" className="type-heading-sm mt-16 sm:mt-24">
             Everything it can be asked to do.
           </Reveal>
-          <ul className="mt-10 grid gap-x-10 gap-y-px sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
+          <ul className="mt-8 grid grid-cols-2 gap-x-4 gap-y-px sm:mt-10 sm:gap-x-10 lg:grid-cols-3 2xl:grid-cols-4">
             {AGENT_TOOLS.map((t, i) => (
               <Reveal
                 as="li"
                 key={t}
                 delay={i * 40}
-                className="flex items-baseline gap-3 border-b border-zinc-200 py-3.5"
+                className="flex items-baseline gap-2 border-b border-zinc-200 py-3 sm:gap-3 sm:py-3.5"
               >
-                <span className="text-[0.8125rem] text-zinc-400">{String(i + 1).padStart(2, "0")}</span>
-                <span className="text-[1rem] text-zinc-900">{t}</span>
+                <span className="text-[0.75rem] text-zinc-400 sm:text-[0.8125rem]">{String(i + 1).padStart(2, "0")}</span>
+                <span className="text-[0.875rem] leading-snug text-zinc-900 sm:text-[1rem]">{t}</span>
               </Reveal>
             ))}
           </ul>
@@ -401,7 +411,7 @@ export default function LandingPage() {
       </section>
 
       {/* ── Closing ───────────────────────────────────────────────────────── */}
-      <section data-bao="bye" className="py-24 sm:py-32">
+      <section data-bao="bye" className="py-20 sm:py-32">
         <div className={`${WRAP} text-center`}>
           <Reveal as="h2" animation="steep-settle" className="type-heading-lg mx-auto max-w-3xl">
             Keep your storage. Get the <span className="type-em">software</span> it deserves.

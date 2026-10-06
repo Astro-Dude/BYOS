@@ -37,7 +37,7 @@ function HoverCard({ hover }: { hover: Hover }) {
   if (!hover) return null;
   return (
     <div
-      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-lg bg-white px-3 py-2"
+      className="pointer-events-none absolute z-10 -translate-x-1/2 -translate-y-full rounded-xl glass-panel px-3 py-2"
       style={{ left: hover.x, top: hover.y - 10, boxShadow: "var(--shadow-popover)" }}
     >
       <p className="whitespace-nowrap text-[0.8125rem] text-zinc-900">{hover.title}</p>

@@ -376,8 +376,8 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
             const keepId = group.files.find((f) => !extras.includes(f))?.id;
             return (
               <li key={group.hash} className="overflow-hidden rounded-2xl border border-zinc-200 bg-white">
-                <div className="flex items-center gap-3 px-4 py-3">
-                  <button onClick={() => toggle(group.hash)} className="flex min-w-0 flex-1 items-center gap-3 text-left">
+                <div className="flex flex-wrap items-center gap-x-3 gap-y-2 px-4 py-3">
+                  <button onClick={() => toggle(group.hash)} className="flex min-w-0 flex-1 basis-[14rem] items-center gap-3 text-left">
                     <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100">
                       {fileIcon(rep?.mime ?? null, rep?.ext ?? null)}
                     </span>
@@ -391,7 +391,7 @@ export function DuplicatesPanel({ scrolled = false }: { scrolled?: boolean }) {
                   </button>
                   <button
                     onClick={() => selectExtras([group])}
-                    className="hidden shrink-0 rounded-full border border-zinc-200 px-3 py-1.5 text-[0.8125rem] text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 sm:inline-flex"
+                    className="inline-flex shrink-0 rounded-full border border-zinc-200 px-3 py-1.5 text-[0.8125rem] text-zinc-700 transition-colors hover:border-zinc-900 hover:text-zinc-900 max-sm:ml-[3.25rem]"
                     title="Select every copy but the oldest"
                   >
                     Keep oldest

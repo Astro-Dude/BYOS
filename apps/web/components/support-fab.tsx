@@ -1,7 +1,8 @@
 "use client";
 
 import { Coffee } from "lucide-react";
-import { useState } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 
 import { SupportModal, supportEnabled } from "@/components/support-modal";
 
@@ -18,15 +19,34 @@ import { SupportModal, supportEnabled } from "@/components/support-modal";
  *
  *  The two wisps off the cup are permanent rather than hover-gated — the button
  *  should read as hot whether or not anything is pointing at it.
+ *
+ *  The floating button only shows from tablet width up, and never in BYOK,
+ *  where it would sit on the composer's send button. There, and on phones, the
+ *  same dialog opens from a "Buy me a coffee" item in the menus (`openSupport`).
  */
+const OPEN_EVENT = "byos:open-support";
+
+/** Open the support dialog from anywhere (a menu item, a sheet). */
+export function openSupport() {
+  window.dispatchEvent(new Event(OPEN_EVENT));
+}
+
 export function SupportFab() {
   const [open, setOpen] = useState(false);
+  const pathname = usePathname() ?? "";
+
+  useEffect(() => {
+    const onOpen = () => setOpen(true);
+    window.addEventListener(OPEN_EVENT, onOpen);
+    return () => window.removeEventListener(OPEN_EVENT, onOpen);
+  }, []);
 
   if (!supportEnabled) return null;
+  const floating = !pathname.startsWith("/byok");
 
   return (
     <>
-      <div className="group fixed bottom-24 right-5 z-[90] print:hidden md:bottom-5">
+      <div className={`group fixed bottom-5 right-5 z-[90] hidden print:hidden ${floating ? "md:block" : ""}`}>
         {/* Blush breath rather than a coloured glow — the accent pair is the only
             warmth the system allows, and it retreats as soon as you engage. */}
         <span

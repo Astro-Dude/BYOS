@@ -271,7 +271,7 @@ function CreateKey({ onClose, onCreated }: { onClose: () => void; onCreated: () 
           <span className={label}>Access</span>
           <div className="divide-y divide-zinc-200 rounded-xl border border-zinc-200">
             {RESOURCES.map((r) => (
-              <div key={r.id} className="flex items-center justify-between gap-3 px-4 py-2.5">
+              <div key={r.id} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2 px-4 py-2.5">
                 <span className="text-[0.9375rem] text-zinc-900">{r.label}</span>
                 <Segmented<Access>
                   label={`${r.label} access`}
@@ -372,11 +372,11 @@ export function ApiKeysManager() {
             {active.map((k) => {
               const status = keyStatus(k);
               return (
-                <div key={k.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start">
+                <div key={k.id} className="flex flex-wrap items-start gap-x-3 gap-y-3 py-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700">
                     <KeyRound className="h-4 w-4" />
                   </span>
-                  <div className="min-w-0 flex-1 space-y-2">
+                  <div className="min-w-0 flex-1 basis-[13rem] space-y-2">
                     <p className="flex flex-wrap items-center gap-2">
                       <span className="text-[0.9375rem] font-medium text-zinc-900">{k.name}</span>
                       <code className="rounded-md bg-zinc-100 px-1.5 py-0.5 font-mono text-[0.6875rem] text-zinc-600">
@@ -394,7 +394,7 @@ export function ApiKeysManager() {
                   <button
                     type="button"
                     onClick={() => setRevoking(k)}
-                    className="pill-sm-ghost shrink-0 self-start hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))]"
+                    className="pill-sm-ghost shrink-0 self-start hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))] max-sm:ml-[3.25rem]"
                   >
                     Revoke
                   </button>
@@ -581,11 +581,11 @@ export function WebhooksManager() {
               // A webhook made with nothing picked is stored as ["*"]: every event.
               const all = !h.events.length || h.events.includes("*");
               return (
-                <div key={h.id} className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start">
+                <div key={h.id} className="flex flex-wrap items-start gap-x-3 gap-y-3 py-4">
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100 text-zinc-700">
                     <WebhookIcon className="h-4 w-4" />
                   </span>
-                  <div className="min-w-0 flex-1 space-y-2">
+                  <div className="min-w-0 flex-1 basis-[13rem] space-y-2">
                     <p className="flex min-w-0 items-center gap-2">
                       <span className="min-w-0 truncate font-mono text-[0.875rem] text-zinc-900" title={h.url}>
                         {h.url}
@@ -615,7 +615,7 @@ export function WebhooksManager() {
                   <button
                     type="button"
                     onClick={() => setDeleting(h)}
-                    className="pill-sm-ghost shrink-0 self-start hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))]"
+                    className="pill-sm-ghost shrink-0 self-start hover:!border-[rgb(var(--c-danger-600))] hover:!text-[rgb(var(--c-danger-600))] max-sm:ml-[3.25rem]"
                   >
                     Delete
                   </button>

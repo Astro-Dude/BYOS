@@ -45,7 +45,10 @@ const MAX_CHARS = 8000;
 /** Ready-made sections a system prompt usually has. */
 const SNIPPETS: { label: string; text: string }[] = [
   { label: "Role", text: "## Role\n\nYou are a {{role}} who helps with {{task}}.\n" },
-  { label: "Rules", text: "## Rules\n\n- Be concise.\n- If you're not sure, say so.\n- Never make up facts.\n" },
+  {
+    label: "Rules",
+    text: "## Rules\n\n- Be concise.\n- If you're not sure, say so.\n- Never make up facts.\n",
+  },
   { label: "Tone", text: "## Tone\n\nFriendly and plain. Short sentences. No jargon.\n" },
   {
     label: "Output format",
@@ -208,6 +211,9 @@ export function PromptEditor({
   const words = content.trim() ? content.trim().split(/\s+/).length : 0;
   const over = content.length > MAX_CHARS;
   const view: EditorView = prefs.editorView;
+  // Phones have room for one pane at a time, so they get their own Write /
+  // Preview switch; the saved view (with Split) applies from tablet width up.
+  const [phoneTab, setPhoneTab] = useState<"write" | "preview">("write");
 
   useEffect(() => {
     taRef.current?.focus();
@@ -381,7 +387,9 @@ export function PromptEditor({
     setContent(text);
     if (!name.trim()) setName(file.name.replace(/\.(md|markdown|txt)$/i, ""));
     if (text.length > MAX_CHARS) {
-      setError(`That file is ${text.length.toLocaleString()} characters. Trim it to ${MAX_CHARS.toLocaleString()} to save.`);
+      setError(
+        `That file is ${text.length.toLocaleString()} characters. Trim it to ${MAX_CHARS.toLocaleString()} to save.`,
+      );
     }
   };
 
@@ -422,7 +430,10 @@ export function PromptEditor({
             <FileText className="h-3.5 w-3.5 shrink-0" />
             {/* The input sizes to its text: an invisible copy sets the width. */}
             <span className="inline-grid min-w-0 font-mono">
-              <span aria-hidden="true" className="invisible col-start-1 row-start-1 max-w-[16rem] overflow-hidden whitespace-pre sm:max-w-[24rem]">
+              <span
+                aria-hidden="true"
+                className="invisible col-start-1 row-start-1 max-w-[16rem] overflow-hidden whitespace-pre sm:max-w-[24rem]"
+              >
                 {name || untitledName(takenNames)}
               </span>
               <input
@@ -436,9 +447,22 @@ export function PromptEditor({
               />
             </span>
             <span className="md-muted -ml-2 shrink-0 font-mono">.md</span>
-            {dirty ? <span className="md-dot h-1.5 w-1.5 shrink-0 rounded-full" title="Unsaved changes" /> : null}
+            {dirty ? (
+              <span className="md-dot h-1.5 w-1.5 shrink-0 rounded-full" title="Unsaved changes" />
+            ) : null}
           </label>
           <div className="ml-auto flex items-center gap-2">
+            <div className="md-seg sm:hidden">
+              <Segmented<"write" | "preview">
+                label="View"
+                value={phoneTab}
+                onChange={setPhoneTab}
+                options={[
+                  { value: "write", label: "Write" },
+                  { value: "preview", label: "Preview" },
+                ]}
+              />
+            </div>
             <div className="md-seg hidden sm:block">
               <Segmented<EditorView>
                 label="View"
@@ -451,7 +475,11 @@ export function PromptEditor({
                 ]}
               />
             </div>
-            <button type="button" onClick={requestClose} className="md-ghost rounded-full px-3 py-1.5 text-[0.8125rem]">
+            <button
+              type="button"
+              onClick={requestClose}
+              className="md-ghost rounded-full px-3 py-1.5 text-[0.8125rem]"
+            >
               Cancel
             </button>
             <button
@@ -462,30 +490,65 @@ export function PromptEditor({
             >
               {busy ? "Saving…" : "Save"}
             </button>
-            <button type="button" onClick={requestClose} aria-label="Close" className="md-ghost hidden h-8 w-8 items-center justify-center rounded-full sm:flex">
+            <button
+              type="button"
+              onClick={requestClose}
+              aria-label="Close"
+              className="md-ghost hidden h-8 w-8 items-center justify-center rounded-full sm:flex"
+            >
               <X className="h-4 w-4" />
             </button>
           </div>
         </div>
 
         {/* Toolbar */}
-        <div className="md-bar md-toolbar thin-scroll flex items-center gap-0.5 overflow-x-auto px-2 py-1 sm:px-3">
-          <ToolButton label="Heading 1" onClick={() => heading(1)}><Heading1 className={icon} /></ToolButton>
-          <ToolButton label="Heading 2" onClick={() => heading(2)}><Heading2 className={icon} /></ToolButton>
-          <ToolButton label="Heading 3" onClick={() => heading(3)}><Heading3 className={icon} /></ToolButton>
+        <div
+          className={`md-bar md-toolbar thin-scroll flex items-center gap-0.5 overflow-x-auto px-2 py-1 sm:px-3 ${
+            phoneTab === "preview" ? "max-sm:hidden" : ""
+          } ${showWrite ? "" : "sm:hidden"}`}
+        >
+          <ToolButton label="Heading 1" onClick={() => heading(1)}>
+            <Heading1 className={icon} />
+          </ToolButton>
+          <ToolButton label="Heading 2" onClick={() => heading(2)}>
+            <Heading2 className={icon} />
+          </ToolButton>
+          <ToolButton label="Heading 3" onClick={() => heading(3)}>
+            <Heading3 className={icon} />
+          </ToolButton>
           <span className="md-sep mx-1 h-5 w-px shrink-0" />
-          <ToolButton label="Bold (⌘B)" onClick={() => wrap("**", "**")}><Bold className={icon} /></ToolButton>
-          <ToolButton label="Italic (⌘I)" onClick={() => wrap("_", "_")}><Italic className={icon} /></ToolButton>
-          <ToolButton label="Inline code (⌘E)" onClick={() => wrap("`", "`")}><Code className={icon} /></ToolButton>
-          <ToolButton label="Link (⌘K)" onClick={link}><LinkIcon className={icon} /></ToolButton>
+          <ToolButton label="Bold (⌘B)" onClick={() => wrap("**", "**")}>
+            <Bold className={icon} />
+          </ToolButton>
+          <ToolButton label="Italic (⌘I)" onClick={() => wrap("_", "_")}>
+            <Italic className={icon} />
+          </ToolButton>
+          <ToolButton label="Inline code (⌘E)" onClick={() => wrap("`", "`")}>
+            <Code className={icon} />
+          </ToolButton>
+          <ToolButton label="Link (⌘K)" onClick={link}>
+            <LinkIcon className={icon} />
+          </ToolButton>
           <span className="md-sep mx-1 h-5 w-px shrink-0" />
-          <ToolButton label="Quote" onClick={() => prefixLines(() => "> ", /^>\s?/)}><Quote className={icon} /></ToolButton>
-          <ToolButton label="Bullet list" onClick={() => prefixLines(() => "- ", /^[-*+]\s/)}><List className={icon} /></ToolButton>
-          <ToolButton label="Numbered list" onClick={() => prefixLines((i) => `${i + 1}. `, /^\d+[.)]\s/)}><ListOrdered className={icon} /></ToolButton>
-          <ToolButton label="Checklist" onClick={() => prefixLines(() => "- [ ] ", /^[-*+]\s\[[ xX]\]\s/)}><ListChecks className={icon} /></ToolButton>
+          <ToolButton label="Quote" onClick={() => prefixLines(() => "> ", /^>\s?/)}>
+            <Quote className={icon} />
+          </ToolButton>
+          <ToolButton label="Bullet list" onClick={() => prefixLines(() => "- ", /^[-*+]\s/)}>
+            <List className={icon} />
+          </ToolButton>
+          <ToolButton label="Numbered list" onClick={() => prefixLines((i) => `${i + 1}. `, /^\d+[.)]\s/)}>
+            <ListOrdered className={icon} />
+          </ToolButton>
+          <ToolButton label="Checklist" onClick={() => prefixLines(() => "- [ ] ", /^[-*+]\s\[[ xX]\]\s/)}>
+            <ListChecks className={icon} />
+          </ToolButton>
           <span className="md-sep mx-1 h-5 w-px shrink-0" />
-          <ToolButton label="Code block" onClick={() => insertBlock("```\n\n```\n", 4)}><SquareCode className={icon} /></ToolButton>
-          <ToolButton label="Divider" onClick={() => insertBlock("---\n")}><Minus className={icon} /></ToolButton>
+          <ToolButton label="Code block" onClick={() => insertBlock("```\n\n```\n", 4)}>
+            <SquareCode className={icon} />
+          </ToolButton>
+          <ToolButton label="Divider" onClick={() => insertBlock("---\n")}>
+            <Minus className={icon} />
+          </ToolButton>
           <span className="md-sep mx-1 h-5 w-px shrink-0" />
           <div className="relative shrink-0">
             <button
@@ -505,8 +568,12 @@ export function PromptEditor({
             </button>
           </div>
           <div className="ml-auto flex shrink-0 items-center gap-0.5">
-            <ToolButton label="Import .md file" onClick={() => fileRef.current?.click()}><FileUp className={icon} /></ToolButton>
-            <ToolButton label="Download as .md" onClick={exportFile}><FileDown className={icon} /></ToolButton>
+            <ToolButton label="Import .md file" onClick={() => fileRef.current?.click()}>
+              <FileUp className={icon} />
+            </ToolButton>
+            <ToolButton label="Download as .md" onClick={exportFile}>
+              <FileDown className={icon} />
+            </ToolButton>
             <button
               type="button"
               title="Editor settings"
@@ -564,7 +631,10 @@ export function PromptEditor({
             >
               <div>
                 <p className="md-muted mb-1.5">Theme</p>
-                <ThemePicker value={prefs.editorTheme} onChange={(editorTheme) => setPrefs({ editorTheme })} />
+                <ThemePicker
+                  value={prefs.editorTheme}
+                  onChange={(editorTheme) => setPrefs({ editorTheme })}
+                />
               </div>
               <div>
                 <p className="md-muted mb-1.5">Font</p>
@@ -593,7 +663,11 @@ export function PromptEditor({
               </div>
               <div className="flex items-center justify-between">
                 <span>Wrap long lines</span>
-                <Toggle label="Wrap long lines" checked={prefs.editorWrap} onChange={(editorWrap) => setPrefs({ editorWrap })} />
+                <Toggle
+                  label="Wrap long lines"
+                  checked={prefs.editorWrap}
+                  onChange={(editorWrap) => setPrefs({ editorWrap })}
+                />
               </div>
               <div className="flex items-center justify-between">
                 <span>Line numbers</span>
@@ -609,58 +683,60 @@ export function PromptEditor({
 
         {/* Write and preview panes */}
         <div className="flex min-h-0 flex-1">
-          {showWrite ? (
-            <div className={`md-pane relative min-w-0 flex-1 ${showPreview ? "md:border-r md-divider" : ""}`}>
-              <div ref={layerRef} className="md-layer md-highlight" aria-hidden="true">
-                {lines.map((line, i) => (
-                  <div key={i} className={`md-line ${line.cls ?? ""}`}>
-                    {line.segments.length && line.segments.some((s) => s.text)
-                      ? line.segments.map((s, j) =>
-                          s.cls ? (
-                            <span key={j} className={s.cls}>
-                              {s.text}
-                            </span>
-                          ) : (
-                            s.text
-                          ),
-                        )
-                      : "​"}
-                  </div>
-                ))}
-              </div>
-              <textarea
-                ref={taRef}
-                value={content}
-                onChange={(e) => {
-                  setContent(e.target.value);
-                  trackCaret();
-                }}
-                onKeyDown={onKeyDown}
-                onKeyUp={trackCaret}
-                onClick={trackCaret}
-                onSelect={trackCaret}
-                onScroll={onScroll}
-                spellCheck={false}
-                aria-label="Prompt text, in Markdown"
-                placeholder={"# Role\n\nYou are a helpful assistant who…"}
-                className="md-layer md-input-layer"
-              />
+          {/* Both panes are always there; which show depends on the phone tab
+              below `sm` and on the saved view above it. */}
+          <div
+            className={`md-pane relative min-w-0 flex-1 ${showWrite && showPreview ? "sm:border-r md-divider" : ""} ${
+              phoneTab === "write" ? "" : "max-sm:hidden"
+            } ${showWrite ? "" : "sm:hidden"}`}
+          >
+            <div ref={layerRef} className="md-layer md-highlight" aria-hidden="true">
+              {lines.map((line, i) => (
+                <div key={i} className={`md-line ${line.cls ?? ""}`}>
+                  {line.segments.length && line.segments.some((s) => s.text)
+                    ? line.segments.map((s, j) =>
+                        s.cls ? (
+                          <span key={j} className={s.cls}>
+                            {s.text}
+                          </span>
+                        ) : (
+                          s.text
+                        ),
+                      )
+                    : "​"}
+                </div>
+              ))}
             </div>
-          ) : null}
-          {showPreview ? (
-            <div
-              ref={previewRef}
-              className={`md-pane md-preview thin-scroll min-w-0 flex-1 overflow-y-auto px-6 py-5 ${
-                showWrite ? "hidden md:block" : ""
-              }`}
-            >
-              {content.trim() ? (
-                <ReactMarkdown remarkPlugins={MD_PLUGINS}>{content}</ReactMarkdown>
-              ) : (
-                <p className="md-muted">Nothing to preview yet.</p>
-              )}
-            </div>
-          ) : null}
+            <textarea
+              ref={taRef}
+              value={content}
+              onChange={(e) => {
+                setContent(e.target.value);
+                trackCaret();
+              }}
+              onKeyDown={onKeyDown}
+              onKeyUp={trackCaret}
+              onClick={trackCaret}
+              onSelect={trackCaret}
+              onScroll={onScroll}
+              spellCheck={false}
+              aria-label="Prompt text, in Markdown"
+              placeholder={"# Role\n\nYou are a helpful assistant who…"}
+              className="md-layer md-input-layer"
+            />
+          </div>
+          <div
+            ref={previewRef}
+            className={`md-pane md-preview thin-scroll min-w-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6 ${
+              phoneTab === "preview" ? "" : "max-sm:hidden"
+            } ${showPreview ? "" : "sm:hidden"}`}
+          >
+            {content.trim() ? (
+              <ReactMarkdown remarkPlugins={MD_PLUGINS}>{content}</ReactMarkdown>
+            ) : (
+              <p className="md-muted">Nothing to preview yet.</p>
+            )}
+          </div>
         </div>
 
         {/* Status bar */}
@@ -677,15 +753,28 @@ export function PromptEditor({
         </div>
 
         {confirmClose ? (
-          <div className="md-scrim absolute inset-0 z-30 flex items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
+          <div
+            className="md-scrim absolute inset-0 z-30 flex items-center justify-center p-4"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="md-menu w-full max-w-sm rounded-2xl p-5">
               <p className="text-[0.9375rem]">Discard your changes?</p>
-              <p className="md-muted mt-1 text-[0.8125rem]">What you&apos;ve written here hasn&apos;t been saved.</p>
+              <p className="md-muted mt-1 text-[0.8125rem]">
+                What you&apos;ve written here hasn&apos;t been saved.
+              </p>
               <div className="mt-4 flex justify-end gap-2">
-                <button type="button" onClick={() => setConfirmClose(false)} className="md-ghost rounded-full px-3 py-1.5 text-[0.8125rem]">
+                <button
+                  type="button"
+                  onClick={() => setConfirmClose(false)}
+                  className="md-ghost rounded-full px-3 py-1.5 text-[0.8125rem]"
+                >
                   Keep editing
                 </button>
-                <button type="button" onClick={onClose} className="md-primary rounded-full px-4 py-1.5 text-[0.8125rem]">
+                <button
+                  type="button"
+                  onClick={onClose}
+                  className="md-primary rounded-full px-4 py-1.5 text-[0.8125rem]"
+                >
                   Discard
                 </button>
               </div>

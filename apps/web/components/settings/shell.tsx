@@ -99,7 +99,10 @@ export function SettingsShell({
             <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
           </Link>
 
-          {SETTINGS_GROUPS.map((group) => (
+          {/* The name card above already opens Profile, so the list leaves it out. */}
+          {SETTINGS_GROUPS.map((group) => ({ ...group, items: group.items.filter((i) => i.id !== "profile") }))
+            .filter((group) => group.items.length > 0)
+            .map((group) => (
             <section key={group.label} className="mt-7">
               <h2 className="type-label mb-2 px-1">{group.label}</h2>
               <div className="divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200">
@@ -153,7 +156,7 @@ export function SettingsShell({
             onClick={() => setSwitcher(false)}
             className="absolute inset-0 bg-zinc-900/40"
           />
-          <div className="sheet-up thin-scroll absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl bg-white px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl">
+          <div className="sheet-up thin-scroll absolute inset-x-0 bottom-0 max-h-[85dvh] overflow-y-auto rounded-t-3xl glass-panel px-4 pb-[calc(1.25rem+env(safe-area-inset-bottom))] pt-3 shadow-2xl">
             <div className="mx-auto mb-3 h-1 w-10 rounded-full bg-zinc-200" aria-hidden />
             <div className="mb-2 flex items-center justify-between">
               <p className="type-heading-sm">Settings</p>

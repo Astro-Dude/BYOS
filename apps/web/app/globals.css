@@ -210,23 +210,58 @@
   }
 
   /* ── Overlays ─────────────────────────────────────────────────────────────
-     Modals and popovers are the only chrome that earns elevation, and it stays
-     under 10% opacity. No glass, no blur: the system is flat paper. */
-  /* Scrim: ink at low opacity — near-black would read as a different system. The
-     z-index stays with the call site, which knows what it must sit above. */
+     Menus, dropdowns and dialogs are crisp white paper with a soft shadow. The
+     page itself is flat; only what floats over it earns elevation.
+
+     `.glass-panel` is the same white card for one-off floating pieces (toasts,
+     the search window, previews). Actual glass is kept to the phone's floating
+     tab bar and its sheet (`.glass`, `.glass-fill`), an iOS convention. */
+  .menu-surface,
+  .dropdown-menu,
+  .glass-panel {
+    background-color: rgb(var(--c-paper));
+    border: 1px solid rgb(var(--c-900) / 0.06);
+    box-shadow: var(--shadow-popover);
+  }
+  .glass-panel {
+    box-shadow: var(--shadow-overlay);
+  }
+  .dropdown-menu {
+    box-shadow: var(--shadow-overlay);
+  }
+  .modal-surface {
+    background-color: rgb(var(--c-paper));
+    box-shadow: var(--shadow-overlay);
+  }
+  .glass,
+  .glass-fill {
+    background-color: rgb(var(--c-paper) / 0.96);
+  }
+  .glass {
+    border: 1px solid rgb(var(--c-900) / 0.08);
+    box-shadow: var(--shadow-overlay);
+  }
+  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
+    .glass,
+    .glass-fill {
+      background-color: rgb(var(--c-paper) / 0.62);
+      -webkit-backdrop-filter: blur(20px) saturate(180%);
+      backdrop-filter: blur(20px) saturate(180%);
+    }
+  }
+
+  /* The z-index stays with the call site, which knows what it must sit above. */
   .modal-scrim {
     @apply fixed inset-0 flex items-center justify-center p-3 sm:p-4;
     background-color: rgba(23, 25, 28, 0.28);
   }
   .modal-surface {
-    /* 24px radius and 32px padding: Steep's card geometry. Height is capped so a
-       long list scrolls inside the dialog rather than off the viewport. */
-    @apply thin-scroll max-h-[85vh] w-full overflow-y-auto rounded-2xl bg-white p-6 sm:p-8;
-    box-shadow: var(--shadow-overlay);
+    /* Height is capped so a long list scrolls inside the dialog rather than off
+       the viewport. */
+    @apply thin-scroll max-h-[85vh] w-full overflow-y-auto rounded-2xl p-6 sm:p-8;
   }
   .menu-surface {
-    @apply overflow-hidden rounded-2xl bg-white py-1.5;
-    box-shadow: var(--shadow-popover);
+    @apply overflow-hidden rounded-2xl py-1.5;
   }
   .menu-item {
     @apply flex w-full items-center gap-2.5 px-4 py-2.5 text-left text-[0.9375rem] text-zinc-900 transition-colors hover:bg-zinc-50;
@@ -238,27 +273,6 @@
     @apply hover:bg-red-50 hover:text-red-700 focus-visible:bg-red-50 focus-visible:text-red-700;
   }
 
-  /* ── Glass (phone only) ───────────────────────────────────────────────────
-   A deliberate departure from the flat system, and confined to it: DESIGN.md
-   forbids glass, but a floating tab bar over scrolling content is an iOS
-   convention strong enough to be worth the exception. Every use is inside a
-   `md:hidden` element, so nothing above phone width ever renders frosted.
-
-   `saturate` is what makes it read as iOS glass rather than a grey wash — Apple
-   boosts saturation behind the blur so colour bleeds through. The fallback keeps
-   a near-opaque fill for browsers without backdrop-filter, since a 62% panel
-   with no blur is unreadable over text. */
-  .glass {
-    background-color: rgb(var(--c-paper) / 0.96);
-    border: 1px solid rgb(var(--c-900) / 0.08);
-  }
-  @supports ((-webkit-backdrop-filter: blur(1px)) or (backdrop-filter: blur(1px))) {
-    .glass {
-      background-color: rgb(var(--c-paper) / 0.62);
-      -webkit-backdrop-filter: blur(20px) saturate(180%);
-      backdrop-filter: blur(20px) saturate(180%);
-    }
-  }
   /* Sits clear of the home indicator on a notched iPhone. */
   .safe-bottom {
     padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
@@ -1156,7 +1170,6 @@ html[data-text-size="xlarge"] {
 /* ── Dropdown menus (components/byok/dropdown.tsx) ─────────────────────────
    A soft drop from the trigger; from below when the menu opens upward. */
 .dropdown-menu {
-  box-shadow: var(--shadow-overlay);
   transform-origin: top;
   animation: dropdown-in 0.16s cubic-bezier(0.22, 1, 0.36, 1);
 }
@@ -2197,4 +2210,22 @@ html[data-text-size="xlarge"] {
   .greeting-in {
     animation: none;
   }
+}
+
+/* ── Touch screens ─────────────────────────────────────────────────────────
+   Phones and tablets can't hover, so anything that only appears on hover
+   (row actions, quick buttons) would be unreachable there. Show it outright. */
+@media (hover: none) {
+  [class*="group-hover:opacity-100"],
+  .row-actions {
+    opacity: 1 !important;
+  }
+}
+
+/* Swipe rows (components/marketing/swipe-row.tsx): scroll without a bar. */
+.no-scrollbar {
+  scrollbar-width: none;
+}
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
 }

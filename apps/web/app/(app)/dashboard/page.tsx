@@ -49,8 +49,10 @@ import { UsernameSetup } from "@/components/dashboard/username-setup";
 import { Menu, MenuItem } from "@/components/dashboard/menu";
 import { PreviewModal } from "@/components/dashboard/preview-modal";
 import { StorageAlerts } from "@/components/dashboard/storage-alert";
-import { MobileTabs } from "@/components/dashboard/mobile-tabs";
+import { MobileNewMenu, MobileTabs } from "@/components/dashboard/mobile-tabs";
 import { LogoMark } from "@/components/logo";
+import { openSupport } from "@/components/support-fab";
+import { supportEnabled } from "@/components/support-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
 import { IntroSplash } from "@/components/intro-splash";
 import { StoragePicker } from "@/components/dashboard/storage-picker";
@@ -166,8 +168,10 @@ function kindOf(file: FileItem): string {
 // The list's columns. Name takes the most room but the rest share the width
 // too, so on a wide screen the details sit across the row instead of bunching
 // at the right edge; Kind joins from lg. Folders, files and the heading share it.
+// Phones: name (with its details underneath) and the menu. Tablets add Modified
+// and Size; from lg every column, Kind and Stored on included.
 const LIST_COLS =
-  "grid-cols-[minmax(0,1fr)_7.5rem_8.75rem_6.25rem_2.75rem] lg:grid-cols-[minmax(0,2.6fr)_minmax(6rem,0.8fr)_minmax(8rem,1.3fr)_minmax(7rem,0.9fr)_minmax(5.5rem,0.7fr)_2.75rem]";
+  "grid-cols-[minmax(0,1fr)_2.75rem] sm:grid-cols-[minmax(0,1fr)_6.5rem_5.5rem_2.75rem] lg:grid-cols-[minmax(0,2.6fr)_minmax(6rem,0.8fr)_minmax(8rem,1.3fr)_minmax(7rem,0.9fr)_minmax(5.5rem,0.7fr)_2.75rem]";
 
 // Cards: as many columns as fit (two on a phone), so a wide screen gets more
 // of them rather than wider ones.
@@ -998,7 +1002,7 @@ export default function DashboardPage() {
     return (
       <>
         {bootOverlay}
-        <div className="flex h-screen bg-zinc-50">
+        <div className="flex h-dvh bg-zinc-50">
         <div className="hidden w-[4.5rem] shrink-0 border-r border-zinc-200 bg-white p-4 sm:block md:w-64">
           <Skeleton className="h-8 w-24" />
           <Skeleton className="mt-4 h-12 w-full rounded-2xl" />
@@ -1080,7 +1084,7 @@ export default function DashboardPage() {
   );
 
   const fileMenu = (file: FileItem) => (
-    <Menu trigger={() => menuTrigger}>
+    <Menu label="More actions" trigger={() => menuTrigger}>
       {(close) => (
         <>
           <MenuItem icon={<Eye className="h-4 w-4" />} label="Preview" onClick={() => { close(); setPreview(file); }} />
@@ -1097,7 +1101,7 @@ export default function DashboardPage() {
   );
 
   const folderMenu = (folder: FolderItem) => (
-    <Menu trigger={() => menuTrigger}>
+    <Menu label="More actions" trigger={() => menuTrigger}>
       {(close) => (
         <>
           <MenuItem icon={<FolderOpen className="h-4 w-4" />} label="Open" onClick={() => { close(); openFolder(folder.id); }} />
@@ -1173,14 +1177,10 @@ export default function DashboardPage() {
   );
 
   const listView = (
-    // Horizontally scrollable rather than hiding columns: on a phone you can
-    // reach Source, Modified and Size by swiping the rows instead of losing them.
-    // The `min-w` is the floor at which the five tracks stay legible — without it the
-    // 1fr name column would collapse to nothing before the scroller engaged.
-    // `thin-scroll` keeps the scrollbar from becoming furniture on desktop, where
-    // there's room and it never appears.
-    <div className="thin-scroll -mx-4 overflow-x-auto px-4 sm:mx-0 sm:px-0">
-      <div className="min-w-[42rem]">
+    // Columns drop away as the screen narrows (see LIST_COLS) instead of the
+    // rows scrolling sideways; on a phone what they held moves under the name.
+    <div>
+      <div>
         {/* Column headings are museum-signage labels, not a table chrome bar. */}
       <div className={`grid ${LIST_COLS} items-center gap-4 border-b border-zinc-200 px-4 py-[var(--row-py)] text-[0.8125rem] text-zinc-500`}>
         <div className="flex items-center gap-2">
@@ -1203,16 +1203,16 @@ export default function DashboardPage() {
           </button>
         </div>
         <span className="hidden lg:block">Kind</span>
-        <span>Stored on</span>
+        <span className="hidden lg:block">Stored on</span>
         <button
           onClick={() => cycleSort("modified")}
-          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "modified" ? "text-zinc-900" : ""}`}
+          className={`hidden items-center text-left hover:text-zinc-800 sm:flex ${sortField === "modified" ? "text-zinc-900" : ""}`}
         >
           Modified{sortArrow("modified")}
         </button>
         <button
           onClick={() => cycleSort("size")}
-          className={`flex items-center text-left hover:text-zinc-800 ${sortField === "size" ? "text-zinc-900" : ""}`}
+          className={`hidden items-center text-left hover:text-zinc-800 sm:flex ${sortField === "size" ? "text-zinc-900" : ""}`}
         >
           Size{sortArrow("size")}
         </button>
@@ -1281,7 +1281,7 @@ export default function DashboardPage() {
               checked={selFolders.has(folder.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFolder(folder.id)}
-              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"}`}
             />
             {/* Folders have no star — reserve the column so names align with files. */}
             <span className="h-4 w-4 shrink-0" aria-hidden />
@@ -1290,14 +1290,19 @@ export default function DashboardPage() {
               fill={folder.color ?? "none"}
               style={folder.color ? { color: folder.color } : undefined}
             />
-            <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{folder.name}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{folder.name}</span>
+              <span className="truncate text-[0.75rem] text-zinc-500 sm:hidden">
+                {shortDate(folder.created_at)} · {folder.size ? humanSize(folder.size) : "Empty"}
+              </span>
+            </span>
           </div>
           <span className="hidden text-[0.9375rem] text-zinc-500 lg:block">Folder</span>
-          <span />
-          <span className="text-[0.9375rem] text-zinc-500">
+          <span className="hidden lg:block" />
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:block">
             {shortDate(folder.created_at)}
           </span>
-          <span className="text-[0.9375rem] text-zinc-500">
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:block">
             {folder.size ? humanSize(folder.size) : "Empty"}
           </span>
           {folderMenu(folder)}
@@ -1328,7 +1333,7 @@ export default function DashboardPage() {
               checked={selFiles.has(file.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFile(file.id)}
-              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"}`}
             />
             <button
               onClick={(e) => { e.stopPropagation(); toggleFavorite(file); }}
@@ -1340,23 +1345,29 @@ export default function DashboardPage() {
               />
             </button>
             <span aria-hidden>{fileIcon(file.mime, file.ext)}</span>
-            <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</span>
+            <span className="flex min-w-0 flex-col">
+              <span className="truncate text-[0.9375rem] font-medium text-zinc-900">{file.name}</span>
+              <span className="flex min-w-0 items-center gap-1 text-[0.75rem] text-zinc-500 sm:hidden">
+                {storageSource(file, false)}
+                <span className="shrink-0">· {shortDate(file.modified_at)} · {humanSize(file.size)}</span>
+              </span>
+            </span>
             {file.tags.slice(0, 3).map((tag) => (
               <button
                 key={tag}
                 onClick={(e) => { e.stopPropagation(); openTag(tag); }}
-                className="hidden rounded-full bg-zinc-100 px-2 py-0.5 text-[0.8125rem] text-zinc-600 hover:bg-zinc-200 sm:inline"
+                className="hidden shrink-0 rounded-full bg-zinc-100 px-2 py-0.5 text-[0.8125rem] text-zinc-600 hover:bg-zinc-200 xl:inline"
               >
                 {tag}
               </button>
             ))}
           </div>
           <span className="hidden truncate text-[0.9375rem] text-zinc-500 lg:block">{kindOf(file)}</span>
-          <span className="flex min-w-0 text-[0.9375rem]">{storageSource(file)}</span>
-          <span className="text-[0.9375rem] text-zinc-500">
+          <span className="hidden min-w-0 text-[0.9375rem] lg:flex">{storageSource(file)}</span>
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:block">
             {shortDate(file.modified_at)}
           </span>
-          <span className="text-[0.9375rem] text-zinc-500">
+          <span className="hidden text-[0.9375rem] text-zinc-500 sm:block">
             {humanSize(file.size)}
           </span>
           {fileMenu(file)}
@@ -1431,7 +1442,7 @@ export default function DashboardPage() {
               checked={selFolders.has(folder.id)}
               onClick={(e) => e.stopPropagation()}
               onChange={() => toggleSelFolder(folder.id)}
-              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+              className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFolders.has(folder.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"}`}
             />
             <Folder
               className="h-6 w-6 shrink-0 text-zinc-900"
@@ -1478,7 +1489,7 @@ export default function DashboardPage() {
                 checked={selFiles.has(file.id)}
                 onClick={(e) => e.stopPropagation()}
                 onChange={() => toggleSelFile(file.id)}
-                className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100"}`}
+                className={`h-4 w-4 shrink-0 accent-zinc-900 ${selCount > 0 || selFiles.has(file.id) ? "opacity-100" : "opacity-0 group-hover:opacity-100 [@media(hover:none)]:opacity-100"}`}
               />
               <span aria-hidden>{fileIcon(file.mime, file.ext, "h-7 w-7 text-zinc-500")}</span>
             </div>
@@ -1527,14 +1538,8 @@ export default function DashboardPage() {
   return (
     <>
       {bootOverlay}
-      <div className="flex h-screen bg-zinc-50">
-      <MobileTabs
-        view={view}
-        onView={setView}
-        onNewFolder={newFolder}
-        onUpload={pickFiles}
-        onUploadTo={usableStorages.length > 1 ? pickFilesTo : undefined}
-      />
+      <div className="flex h-dvh bg-zinc-50">
+      <MobileTabs view={view} onView={setView} />
       <Sidebar
         view={view}
         onView={setView}
@@ -1562,6 +1567,7 @@ export default function DashboardPage() {
             </button>
           </div>
           <Menu
+            label="Account"
             trigger={() => (
               <span className="flex h-9 w-9 items-center justify-center rounded-full bg-zinc-900 text-[0.9375rem] font-medium text-white">
                 {initials}
@@ -1573,7 +1579,7 @@ export default function DashboardPage() {
                 <div className="border-b border-zinc-100 px-4 py-2 text-[0.8125rem] text-zinc-500">
                   {user.display_name ?? "Signed in"}
                 </div>
-                <MenuItem label="Settings" onClick={() => { close(); router.push("/settings/profile?from=drive"); }} />
+                <MenuItem label="Settings" onClick={() => { close(); router.push("/settings?from=drive"); }} />
                 {/* Admins only. `is_admin` is computed server-side from config,
                     so hiding this is presentation — the endpoint itself 404s for
                     anyone else regardless of what the client renders. */}
@@ -1583,6 +1589,15 @@ export default function DashboardPage() {
                     onClick={() => {
                       close();
                       router.push("/admin");
+                    }}
+                  />
+                ) : null}
+                {supportEnabled ? (
+                  <MenuItem
+                    label="Buy me a coffee"
+                    onClick={() => {
+                      close();
+                      openSupport();
                     }}
                   />
                 ) : null}
@@ -1600,7 +1615,7 @@ export default function DashboardPage() {
         </header>
 
         <main
-          className="flex-1 overflow-auto px-4 pb-28 sm:px-6 md:pb-16 lg:px-8"
+          className="flex-1 overflow-auto px-4 pb-[calc(9rem+env(safe-area-inset-bottom))] sm:px-6 md:pb-24 lg:px-8"
           onScroll={(e) => setScrolled(e.currentTarget.scrollTop > 4)}
           onDragOver={(e) => {
             // Only highlight for external file uploads, not internal move-drags.
@@ -1924,6 +1939,11 @@ export default function DashboardPage() {
                     }
                   </Menu>
                 ) : null}
+                <MobileNewMenu
+                  onNewFolder={newFolder}
+                  onUpload={pickFiles}
+                  onUploadTo={usableStorages.length > 1 ? pickFilesTo : undefined}
+                />
               </div>
 
               <StorageAlerts storages={storages} />
@@ -2078,7 +2098,7 @@ export default function DashboardPage() {
       ) : null}
 
       {delProgress ? (
-        <div className="fixed bottom-24 left-4 right-4 z-40 flex items-center gap-3 rounded-xl border border-zinc-200 bg-white px-4 py-3 shadow-lg sm:right-auto md:bottom-4">
+        <div className="fixed bottom-32 left-4 right-4 z-40 flex items-center gap-3 rounded-2xl glass-panel px-4 py-3 sm:right-auto md:bottom-4">
           <Loader2 className="h-4 w-4 shrink-0 animate-spin text-red-600" />
           <div>
             <div className="text-[0.9375rem] font-medium text-zinc-800">
@@ -2095,7 +2115,7 @@ export default function DashboardPage() {
       ) : null}
 
       {uploads.length > 0 ? (
-        <div className="fixed bottom-24 left-4 right-4 z-40 overflow-hidden rounded-xl border border-zinc-200 bg-white shadow-lg sm:left-auto sm:w-72 md:bottom-4">
+        <div className="fixed bottom-32 left-4 right-4 z-40 overflow-hidden rounded-2xl glass-panel sm:left-auto sm:w-72 md:bottom-4">
           <div className="flex items-center justify-between border-b border-zinc-100 px-3 py-2 text-[0.9375rem] font-medium text-zinc-800">
             <span>
               {uploads.some((u) => u.status === "uploading")

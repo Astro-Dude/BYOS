@@ -1,7 +1,7 @@
 "use client";
 
 import { type AiConversation, type AiKey, type AiPrompt } from "@byos/api-client";
-import { ArrowLeft, ChevronLeft, Pencil, Plus, Trash2 } from "lucide-react";
+import { ArrowLeft, Pencil, Plus, Trash2 } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
@@ -12,7 +12,7 @@ import { Glow } from "@/components/byok/glow";
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
 import { settingsHref } from "@/components/settings/sections";
 import { IntroSplash } from "@/components/intro-splash";
-import { RailToggle, RingButton } from "@/components/ui/rail-toggle";
+import { RailToggle } from "@/components/ui/rail-toggle";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
 import { useToast } from "@/lib/toast";
@@ -171,12 +171,10 @@ export default function ByokPage() {
               >
                 <ArrowLeft className="h-3.5 w-3.5" /> Drive
               </Link>
-              {/* Phones: the drawer's own close, styled like the desktop handle. */}
-              <RingButton label="Close sidebar" onClick={() => setSidebarOpen(false)} className="md:hidden">
-                <ChevronLeft className="h-4 w-4" />
-              </RingButton>
             </div>
-            <RailToggle collapsed={false} onToggle={() => setSidebarOpen(false)} />
+            {/* Collapse: the handle on the sidebar's edge, as in the Drive, on
+                phones (where the sidebar is a drawer) as well as laptops. */}
+            <RailToggle collapsed={false} onToggle={() => setSidebarOpen(false)} phone />
 
             <div className="px-3">
               <button
@@ -252,7 +250,9 @@ export default function ByokPage() {
           </aside>
 
           {/* Main */}
-          <main className="flex min-h-0 w-full flex-1 flex-col overflow-clip">
+          {/* min-w-0: a flex child defaults to its content's width, so a wide
+              table or plan card would push the chat past the screen edge. */}
+          <main className="flex min-h-0 w-full min-w-0 flex-1 flex-col overflow-clip">
             <DriveChat
               conversationId={activeId}
               onOpenSidebar={() => setSidebarOpen(true)}

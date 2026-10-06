@@ -166,12 +166,12 @@ export function AliasesPanel({
               return (
                 <li
                   key={alias.id}
-                  className="group flex flex-col gap-3 border-b border-zinc-200 px-4 py-3.5 last:border-b-0 hover:bg-zinc-50 sm:flex-row sm:items-center"
+                  className="group flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-zinc-200 px-4 py-3.5 last:border-b-0 hover:bg-zinc-50"
                 >
                   <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-zinc-100">
                     {folder ? <Folder className="h-5 w-5 text-zinc-500" /> : fileIcon(null, ext)}
                   </span>
-                  <div className="min-w-0 flex-1">
+                  <div className="min-w-0 flex-1 basis-[12rem]">
                     <p className="flex min-w-0 items-baseline gap-0.5 font-mono text-[0.875rem]">
                       <span className="shrink-0 text-zinc-400">/{username}/</span>
                       <span className="truncate font-medium text-zinc-900">{alias.slug}</span>
@@ -194,7 +194,7 @@ export function AliasesPanel({
                       <span className="hidden shrink-0 text-zinc-400 sm:inline">· {day(alias.created_at)}</span>
                     </p>
                   </div>
-                  <div className="flex shrink-0 items-center gap-1">
+                  <div className="flex shrink-0 items-center gap-1 max-sm:ml-[3.25rem]">
                     <button
                       onClick={() => void copy(alias)}
                       className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-[0.8125rem] font-medium transition-colors ${
