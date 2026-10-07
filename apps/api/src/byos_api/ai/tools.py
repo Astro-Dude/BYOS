@@ -30,10 +30,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.ai import rag, semantic
 from byos_api.aliases import service as aliases_service
+from byos_api.audit import recorder as audit
 from byos_api.db.models import AiFileChunk, AiKey, File, Folder, User
 from byos_api.files import service as files_service
 from byos_api.folders import service as folders_service
 from byos_api.shares import service as shares_service
+from byos_api.webhooks import dispatcher
 
 READ = "read"
 WRITE = "write"
@@ -666,7 +668,11 @@ async def apply_action(
             record = await files_service.get_owned_file(
                 db, user, _uuid(args.get("file_id"), "file")
             )
+            payload = dispatcher.file_payload(record)  # before the row goes away
             await files_service.delete_file_record(db, user, record)
+            # Exactly what DELETE /files/{id} does after deleting.
+            dispatcher.emit(user.id, "file.deleted", payload)
+            await audit.record(user.id, "file.delete", target_type="file", target_id=str(record.id))
             return "deleted"
 
         if op == "delete_folder":
@@ -684,6 +690,9 @@ async def apply_action(
                 expires_in_days=args.get("expires_in_days")
                 if isinstance(args.get("expires_in_days"), int)
                 else None,
+            )
+            await audit.record(
+                user.id, "share.create", target_type="share", target_id=str(share.id)
             )
             return f"shared at /s/{share.token}"
 

@@ -71,13 +71,7 @@ async def _validate_upload(file: UploadFile, filename: str) -> None:
 
 
 def _file_event_payload(record: File) -> dict[str, object]:
-    return {
-        "file_id": str(record.id),
-        "name": record.name,
-        "size": record.size,
-        "mime": record.mime,
-        "folder_id": str(record.folder_id) if record.folder_id else None,
-    }
+    return dispatcher.file_payload(record)
 
 
 def _flood(exc: FloodWaitError) -> HTTPException:

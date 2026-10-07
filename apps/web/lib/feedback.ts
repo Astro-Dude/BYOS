@@ -77,13 +77,9 @@ function play(cue: Cue) {
   const t = ac.currentTime + 0.002;
   if (cue === "tap") click(ac, t, 3200, 0.16);
   else if (cue === "soft") click(ac, t, 2600, 0.07, 0.012);
-  else if (cue === "toggle") {
-    click(ac, t, 2400, 0.14);
-    click(ac, t + 0.045, 3600, 0.1);
-  } else if (cue === "success") {
-    blip(ac, t, 880, 1180, 0.05);
-    blip(ac, t + 0.07, 1180, 1480, 0.045);
-  } else blip(ac, t, 300, 210, 0.07, 0.12);
+  else if (cue === "toggle") click(ac, t, 2200, 0.16, 0.024); // one tick, a touch deeper than a tap
+  else if (cue === "success") blip(ac, t, 1000, 1350, 0.045);
+  else blip(ac, t, 300, 210, 0.07, 0.12);
 }
 
 let iosSwitch: HTMLLabelElement | null = null;
@@ -110,18 +106,20 @@ const PATTERN: Record<Cue, number | number[]> = {
   tap: 6,
   soft: 3,
   toggle: 10,
-  success: [8, 40, 8],
+  success: 8,
   error: [18, 50, 18],
 };
 
 let last = 0;
 
-/** Play a cue. Taps closer than 40ms apart are merged, so a click that also
- *  fires a programmatic click doesn't stutter. */
+/** Play a cue. Taps and toggles closer than 80ms apart are merged into the
+ *  first, so one click that sets off another (a label and its input, an
+ *  option that also closes its menu) only ever ticks once. */
 export function feedback(cue: Cue = "tap") {
   if (typeof window === "undefined") return;
   const now = performance.now();
-  if ((cue === "tap" || cue === "soft") && now - last < 40) return;
+  // A toast right after a tap: the tap already said it.
+  if (cue !== "error" && now - last < (cue === "success" ? 300 : 80)) return;
   last = now;
   if (sound) {
     try {

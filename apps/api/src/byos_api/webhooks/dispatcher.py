@@ -25,7 +25,7 @@ import httpx
 from sqlalchemy import select
 
 from byos_api.core.db import SessionLocal
-from byos_api.db.models import Webhook
+from byos_api.db.models import File, Webhook
 
 logger = logging.getLogger("byos.webhooks")
 
@@ -67,6 +67,18 @@ async def _fanout(owner_id: uuid.UUID, event_type: str, payload: dict[str, Any])
     for hook in hooks:
         if "*" in hook.events or event_type in hook.events:
             await _deliver(hook.url, hook.secret, body)
+
+
+def file_payload(record: File) -> dict[str, object]:
+    """What a file event carries. One builder for the files router and Bao's
+    tools, so a change made either way sends the same delivery."""
+    return {
+        "file_id": str(record.id),
+        "name": record.name,
+        "size": record.size,
+        "mime": record.mime,
+        "folder_id": str(record.folder_id) if record.folder_id else None,
+    }
 
 
 def emit(owner_id: uuid.UUID, event_type: str, payload: dict[str, Any]) -> None:
