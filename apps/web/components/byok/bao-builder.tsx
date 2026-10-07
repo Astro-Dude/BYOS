@@ -5,6 +5,7 @@ import { type RefObject, useEffect, useRef, useState } from "react";
 
 import { FileText, PencilLine, Sparkles } from "lucide-react";
 
+import { stepLabel } from "@/lib/step-labels";
 import { ModeAvatar } from "@/components/mode-avatar";
 
 /** How each Bao works, matching what the mode may do: Bookish only looks
@@ -356,7 +357,7 @@ export function progressOf(buffer: string): { status: string; items: ProgressIte
     try {
       const evt = JSON.parse(line.slice(1));
       if (evt.kind === "step") {
-        status = String(evt.detail || evt.label);
+        status = String(evt.detail || stepLabel(evt.label));
         items.push({ kind: "read", text: status });
       } else if (evt.kind === "thinking") {
         status = "Thinking…";

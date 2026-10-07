@@ -570,7 +570,7 @@ const FILE_ENDPOINTS: [string, string, string][] = [
   ["PATCH", "/files/{id}", "Rename"],
   ["POST", "/files/{id}/move", "Move to a folder"],
   ["DELETE", "/files/{id}", "Delete permanently"],
-  ["GET", "/files/search", "Full-text search"],
+  ["GET", "/files/search", "Search by name, extension and type"],
 ];
 
 const OTHER_ENDPOINTS: [string, string, string][] = [
@@ -699,9 +699,9 @@ function DocsSection() {
                 { kind: "cont", text: '-H "Authorization: Bearer byosk_…"' },
                 { kind: "comment", text: "" },
                 { kind: "comment", text: "# missing or wrong key" },
-                { kind: "out", text: '401  {"detail": "Invalid API key"}' },
+                { kind: "out", text: '401  {"detail": "Not authenticated"}' },
                 { kind: "comment", text: "# outside the key\'s scopes" },
-                { kind: "out", text: '403  {"detail": "Insufficient scope"}' },
+                { kind: "out", text: '403  {"detail": "API key is missing the required scope: files:write"}' },
               ]}
             />
             <div className="surface-card p-6">
@@ -747,9 +747,9 @@ function DocsSection() {
             <div className="surface-blush p-6">
               <p className="text-[0.8125rem]">Deliberate limitation</p>
               <p className="mt-2 text-[1rem] leading-[1.45]">
-                Keys can&apos;t manage your account. Creating keys, managing webhooks and
-                Telegram settings all need you to be logged in, so a leaked key can&apos;t do more
-                than it was given.
+                Keys can&apos;t manage your account or use Bao. Creating keys, webhooks, storage,
+                your username and the assistant all need you to be logged in, so a leaked key
+                can&apos;t do more than it was given.
               </p>
             </div>
           </Stack>

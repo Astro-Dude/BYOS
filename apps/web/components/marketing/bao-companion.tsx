@@ -58,7 +58,7 @@ const CREW: Job[] = [
     work: 2800,
     lines: [
       "IMG_4410.jpg → Trips/Lisbon/Tram 28.jpg",
-      "untitled (2).docx → Recipes/Banana bread.docx",
+      "untitled (2).pdf → Recipes/Banana bread.pdf",
       "Screenshot 14.png → Receipts/Laptop stand.png",
       "logo_final_v3.psd → Studio Nova/Logo v3.psd",
     ],
@@ -68,7 +68,7 @@ const CREW: Job[] = [
     speed: 130,
     work: 3200,
     lines: [
-      "Published byos.app/a/portfolio",
+      "Published …/you/portfolio",
       "Share link: expires in 7 days",
       "Removed a duplicate photo",
       "Done. All 18 changes applied",

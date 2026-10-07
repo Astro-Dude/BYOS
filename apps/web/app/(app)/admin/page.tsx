@@ -395,8 +395,8 @@ export default function AdminPage() {
 
             <Panel
               id="sharing"
-              title="How links are guarded"
-              hint="Every share link by its strictest setting."
+              title="How long links last"
+              hint="Share links that expire, and ones that stay open."
               delay={80}
             >
               {stats.shares_by_kind.length ? (
@@ -466,11 +466,6 @@ export default function AdminPage() {
                             label="Failed"
                             value={bao.changes.failed.toLocaleString()}
                             sub="changes that didn't go through"
-                          />
-                          <Stat
-                            label="Undone"
-                            value={bao.changes.undone.toLocaleString()}
-                            sub="put back with /undo"
                           />
                         </div>
                       </div>

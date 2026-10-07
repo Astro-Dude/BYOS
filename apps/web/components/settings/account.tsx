@@ -152,7 +152,7 @@ export function ProfileSettings() {
           description={
             user?.username
               ? `@${user.username}. Your public links use it.`
-              : "Not set. Pick one to get public links like byos.link/you."
+              : "Not set. Pick one to get public links like …/you/portfolio."
           }
         >
           {user?.username ? null : (

@@ -65,7 +65,7 @@ export function AliasArtifact({ className = "" }: { className?: string }) {
         <Link2 className="h-4 w-4 text-zinc-900" />
         <span className="type-label">Permanent link</span>
       </div>
-      <p className="mt-3 font-display text-[1.375rem] tracking-[-0.009em]">byos.link/a/portfolio</p>
+      <p className="mt-3 font-display text-[1.375rem] tracking-[-0.009em]">…/you/portfolio</p>
       <div className="mt-4 space-y-2 border-t border-zinc-200 pt-3">
         <div className="flex items-center gap-2 text-[0.8125rem] text-zinc-500 line-through">
           <FileText className="h-3.5 w-3.5" /> portfolio_v1.pdf
@@ -91,33 +91,28 @@ export function IndexingArtifact({ className = "" }: { className?: string }) {
       <div className="relative mt-3 h-px overflow-hidden bg-zinc-200">
         <div className="h-full bg-zinc-900" style={{ width: "27%" }} />
       </div>
-      <p className="mt-2 truncate text-[0.8125rem] text-zinc-600">Banana_bread.docx</p>
+      <p className="mt-2 truncate text-[0.8125rem] text-zinc-600">Banana_bread.pdf</p>
     </Artifact>
   );
 }
 
-/** Stat card with a gestural line — no axes, no gridlines, sienna stroke. */
+/** Index coverage, as the Indexing settings show it: how much of the drive
+ *  chat can search. */
 export function StatArtifact({ className = "" }: { className?: string }) {
   return (
     <Artifact className={className}>
       <div className="flex items-center gap-2">
         <Database className="h-3.5 w-3.5 text-zinc-500" />
-        <span className="type-label">Indexed</span>
+        <span className="type-label">Searchable in chat</span>
       </div>
-      <p className="mt-2 text-[1.25rem] font-medium text-zinc-900">128 files</p>
-      <p className="text-[0.8125rem] text-zinc-600">↑ 5.5× vs last week</p>
-      {/* Stretched to the card's width: a wide card used to show the line as a
-          small squiggle in the middle. */}
-      <svg viewBox="0 0 120 34" preserveAspectRatio="none" className="mt-3 h-12 w-full" aria-hidden>
-        <path
-          vectorEffect="non-scaling-stroke"
-          d="M2 30 C 18 28, 26 20, 38 21 S 58 12, 72 14 S 96 5, 118 3"
-          fill="none"
-          stroke="var(--ink-on-blush)"
-          strokeWidth="1.5"
-          strokeLinecap="round"
-        />
-      </svg>
+      <p className="mt-2 text-zinc-900">
+        <span className="font-display text-[1.75rem] leading-none">128</span>
+        <span className="text-[0.9375rem] text-zinc-500"> of 128 files</span>
+      </p>
+      <div className="mt-4 h-1.5 overflow-hidden rounded-full bg-zinc-100">
+        <div className="h-full w-full rounded-full bg-[var(--ink-on-blush)]" />
+      </div>
+      <p className="mt-2 text-[0.8125rem] text-zinc-600">PDFs, notes and scans, indexed with your own key.</p>
     </Artifact>
   );
 }

@@ -7,11 +7,15 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.analytics import service
 from byos_api.analytics.schemas import AnalyticsOverview
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.cache import cached_json
 from byos_api.core.db import get_db
 
-router = APIRouter(prefix="/analytics", tags=["analytics"])
+router = APIRouter(
+    prefix="/analytics",
+    tags=["analytics"],
+    dependencies=[Depends(require_scope("files")), Depends(api_key_rate_limit)],
+)
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 

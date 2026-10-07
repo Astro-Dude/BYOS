@@ -96,7 +96,7 @@ export function TagsModal({
         {error ? <p className="mt-2 text-[0.9375rem] text-red-600">{error}</p> : null}
 
         <div className="mt-4 flex justify-end">
-          <Button onClick={onClose} className="bg-zinc-900 hover:bg-zinc-700">
+          <Button onClick={onClose}>
             Done
           </Button>
         </div>

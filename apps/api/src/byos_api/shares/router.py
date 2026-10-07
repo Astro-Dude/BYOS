@@ -8,7 +8,7 @@ from fastapi.responses import Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from byos_api.audit import recorder as audit
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import CurrentUser, api_key_rate_limit, require_scope
 from byos_api.core.config import get_settings
 from byos_api.core.db import get_db
 from byos_api.core.ratelimit import limit
@@ -18,7 +18,13 @@ from byos_api.shares.schemas import ShareCreate, ShareOut
 from byos_api.storage import StoredObjectRef, get_provider
 from byos_api.streaming import stream_object
 
-router = APIRouter(prefix="/shares", tags=["shares"])
+# Share links are links: an API key needs the "aliases" (Links) scope, read to
+# list them and write to create or revoke one.
+router = APIRouter(
+    prefix="/shares",
+    tags=["shares"],
+    dependencies=[Depends(require_scope("aliases")), Depends(api_key_rate_limit)],
+)
 public_router = APIRouter(tags=["shares"])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]

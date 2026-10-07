@@ -140,7 +140,7 @@ export function VersionsModal({
                     <p className="text-[0.9375rem] font-medium text-zinc-900">
                       v{v.version_no}
                       {v.is_current ? (
-                        <span className="ml-2 rounded-full bg-green-100 px-2 py-0.5 text-[0.8125rem] font-medium text-green-700">
+                        <span className="ml-2 rounded-full bg-[rgb(var(--c-go-50))] px-2 py-0.5 text-[0.8125rem] font-medium text-zinc-900 ring-1 ring-inset ring-[rgb(var(--c-go-300))]">
                           current
                         </span>
                       ) : null}

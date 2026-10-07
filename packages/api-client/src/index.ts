@@ -1371,14 +1371,6 @@ export class ByosClient {
     );
   }
 
-  /** TEMPORARY (/undo): reverse an applied plan's changes. Removed once used. */
-  undoAgentPlan(
-    token: string,
-    planId: string,
-  ): Promise<{ undone: number; not_undone: { label: string; detail: string }[] }> {
-    return this.request(`/ai/agent/plans/${planId}/undo`, { method: "POST", token });
-  }
-
   /** Every plan in a conversation, with its current status. */
   agentPlans(token: string, conversationId: string): Promise<AgentPlan[]> {
     return this.request<AgentPlan[]>(

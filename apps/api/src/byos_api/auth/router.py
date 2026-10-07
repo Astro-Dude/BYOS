@@ -281,7 +281,7 @@ async def me(user: CurrentUser) -> UserResponse:
 
 
 @router.post("/username", response_model=UserResponse)
-async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -> UserResponse:
+async def set_username(payload: UsernameRequest, user: SessionUser, db: DbDep) -> UserResponse:
     try:
         updated = await service.set_username(db, user, payload.username)
     except service.InvalidUsername:
@@ -296,7 +296,7 @@ async def set_username(payload: UsernameRequest, user: CurrentUser, db: DbDep) -
 
 @router.post("/display-name", response_model=UserResponse)
 async def set_display_name(
-    payload: DisplayNameRequest, user: CurrentUser, db: DbDep
+    payload: DisplayNameRequest, user: SessionUser, db: DbDep
 ) -> UserResponse:
     updated = await service.set_display_name(db, user, payload.display_name)
     return _with_admin(updated)

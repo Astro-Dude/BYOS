@@ -41,6 +41,17 @@ function trackPointer(e: PointerEvent) {
 export function Cursor() {
   const { prefs } = usePreferences();
   const [finePointer, setFinePointer] = useState(false);
+  // The images bake in the theme's colours, so they're redrawn when it changes.
+  const [theme, setTheme] = useState<string | undefined>(undefined);
+
+  useEffect(() => {
+    const html = document.documentElement;
+    const read = () => setTheme(html.dataset.theme);
+    read();
+    const watch = new MutationObserver(read);
+    watch.observe(html, { attributes: true, attributeFilter: ["data-theme"] });
+    return () => watch.disconnect();
+  }, []);
 
   useEffect(() => {
     const mq = window.matchMedia(FINE_POINTER);
@@ -55,7 +66,7 @@ export function Cursor() {
   }, []);
 
   if (!finePointer || prefs.cursorDesign === "system") return null;
-  const look = { design: prefs.cursorDesign, color: prefs.cursorColor, size: prefs.cursorSize };
+  const look = { design: prefs.cursorDesign, color: prefs.cursorColor, size: prefs.cursorSize, theme };
   if (prefs.cursorMotion) return <LiveCursor {...look} />;
   return <NativeCursor {...look} />;
 }
@@ -88,16 +99,19 @@ function LiveCursor({
   design,
   color,
   size,
+  theme,
 }: {
   design: CursorDesign;
   color: CursorColor;
   size: CursorSizeName;
+  /** Only a redraw trigger: the colours are read from the theme's tokens. */
+  theme?: string;
 }) {
   const rootRef = useRef<HTMLDivElement>(null);
   const shakeRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
 
-  // One image per state, drawn once per design, colour and size.
+  // One image per state, drawn once per design, colour, size and theme.
   const images = useMemo(() => {
     const px = SIZE_PX[size];
     return {
@@ -106,7 +120,8 @@ function LiveCursor({
       text: cursorSvg("text", design, color, px),
       disabled: cursorSvg("disabled", design, color, px),
     };
-  }, [design, color, size]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- theme: the tokens changed
+  }, [design, color, size, theme]);
 
   useEffect(() => {
     const root = rootRef.current;

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from byos_api.admin import service
 from byos_api.admin.schemas import AdminRow, GrantRequest, PlatformStats
 from byos_api.audit import recorder as audit
-from byos_api.auth.dependencies import CurrentUser
+from byos_api.auth.dependencies import SessionUser
 from byos_api.core.db import get_db
 from byos_api.db.models import User
 
@@ -20,7 +20,7 @@ router = APIRouter(prefix="/admin", tags=["admin"])
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
 
-async def require_admin(user: CurrentUser) -> User:
+async def require_admin(user: SessionUser) -> User:
     """404, not 403, for non-admins.
 
     A 403 confirms the endpoint exists and that the caller simply isn't allowed —

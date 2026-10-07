@@ -44,10 +44,13 @@ export function NativeCursor({
   design,
   color,
   size,
+  theme,
 }: {
   design: CursorDesign;
   color: CursorColor;
   size: CursorSizeName;
+  /** Only a redraw trigger: the colours are read from the theme's tokens. */
+  theme?: string;
 }) {
   useEffect(() => {
     const v = (state: CursorState) => {
@@ -73,7 +76,7 @@ export function NativeCursor({
       style.remove();
       document.documentElement.classList.remove("byos-native-cursor");
     };
-  }, [design, color, size]);
+  }, [design, color, size, theme]);
 
   return null;
 }

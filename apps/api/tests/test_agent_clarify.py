@@ -16,7 +16,11 @@ def _user(**fields: Any) -> Any:
 
 
 _KEY = SimpleNamespace(
-    base_url="https://api.openai.com/v1", model="gpt-5-mini", max_tokens=1024, reasoning_effort=None
+    base_url="https://api.openai.com/v1",
+    model="gpt-5-mini",
+    max_tokens=1024,
+    temperature=0.2,
+    reasoning_effort=None,
 )
 
 

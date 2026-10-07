@@ -54,7 +54,7 @@ import { LogoMark } from "@/components/logo";
 import { openSupport } from "@/components/support-fab";
 import { supportEnabled } from "@/components/support-modal";
 import { Sidebar, type DriveView } from "@/components/dashboard/sidebar";
-import { IntroSplash } from "@/components/intro-splash";
+import { IntroSplash, useIntroOnce } from "@/components/intro-splash";
 import { StoragePicker } from "@/components/dashboard/storage-picker";
 import { StorageIcon, providerName, storageTitle } from "@/components/storage-icon";
 import { TagsModal } from "@/components/dashboard/tags-modal";
@@ -206,11 +206,6 @@ function uniqueName(name: string, used: Set<string>): string {
   return candidate;
 }
 
-// Module-level: survives client-side navigations but resets on a full page load,
-// so the boot splash plays only on a hard refresh / first load — not every time
-// you navigate back to the dashboard.
-let bootShown = false;
-
 // Replace the default single-row drag ghost with an on-brand "stack of cards"
 // badge that makes the count obvious when several items are dragged at once.
 function setMultiDragImage(dt: DataTransfer, count: number): void {
@@ -277,7 +272,7 @@ export default function DashboardPage() {
   const toast = useToast();
 
   const [view, setView] = useState<DriveView>("drive");
-  const [showBoot, setShowBoot] = useState(() => !bootShown);
+  const [showBoot, finishBoot] = useIntroOnce("drive");
   // Layout and sort are preferences: changing them here is remembered, and
   // Settings sets where they start.
   const { prefs, setPrefs } = usePreferences();
@@ -475,11 +470,6 @@ export default function DashboardPage() {
       window.removeEventListener(STORAGE_REJECTED_EVENT, reloadStorages);
     };
   }, [user, reloadStorages]);
-
-  // Remember the splash has played this page-load (skips it on SPA re-mounts).
-  useEffect(() => {
-    bootShown = true;
-  }, []);
 
   // Drop any multi-selection when the visible set changes.
   useEffect(() => {
@@ -992,9 +982,9 @@ export default function DashboardPage() {
     <IntroSplash
       word="BYOS"
       subtitle="Bring Your Own Storage"
-      skippable={false}
+      skippable
       minMs={2000}
-      onFinished={() => setShowBoot(false)}
+      onFinished={finishBoot}
     />
   ) : null;
 

@@ -59,9 +59,9 @@ const day = (iso: string) =>
   new Date(iso).toLocaleDateString(undefined, { day: "numeric", month: "short", year: "numeric" });
 
 /** Sharing in one place. The permanent link comes first: name it (prefilled
- *  from the file name, cleaned as you type, previewed in full), then copy or
+ *  from the file name, cleaned as you type, shown as …/you/name), then copy or
  *  open it, rename it or stop sharing. Files can also get expiring links that
- *  run out after a few days, listed with how often they've been downloaded. */
+ *  run out after a few days, listed with when each one ends. */
 export function ShareModal({
   target,
   onClose,
@@ -226,7 +226,7 @@ export function ShareModal({
               <p className={`mt-1.5 text-[0.75rem] ${slug && !slugValid ? "text-[rgb(var(--c-danger-600))]" : "text-zinc-500"}`}>
                 {slug && !slugValid
                   ? "Start with a letter or digit; then letters, digits and hyphens."
-                  : urlFor(slug || "name").replace(/^https?:\/\//, "")}
+                  : `…/${username}/${slug || "name"}`}
               </p>
               <p className="mt-3 flex items-start gap-2 rounded-xl bg-zinc-100 px-3 py-2.5 text-[0.8125rem] leading-[1.45] text-zinc-600">
                 <Globe2 className="mt-0.5 h-3.5 w-3.5 shrink-0" />
@@ -255,7 +255,7 @@ export function ShareModal({
             <div>
               <div className="flex items-center gap-2 rounded-xl border border-zinc-200 bg-zinc-50 p-1.5 pl-3.5">
                 <span className="min-w-0 flex-1 truncate font-mono text-[0.8125rem] text-zinc-900" title={linkUrl}>
-                  {linkUrl.replace(/^https?:\/\//, "")}
+                  {`…/${username}/${existing.slug}`}
                 </span>
                 <a
                   href={linkUrl}
@@ -476,8 +476,6 @@ function ExpiringLinks({
                   <p className="truncate font-mono text-[0.75rem] text-zinc-800">…/s/{s.token.slice(0, 10)}…</p>
                   <p className="text-[0.6875rem] text-zinc-500">
                     {s.expires_at ? `Until ${day(s.expires_at)}` : "No expiry"}
-                    {" · "}
-                    {`${s.download_count} download${s.download_count === 1 ? "" : "s"}`}
                   </p>
                 </div>
                 <CopyPill url={url} copied={copied === url} onCopy={onCopy} />

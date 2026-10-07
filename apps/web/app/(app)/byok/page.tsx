@@ -11,7 +11,7 @@ import { DriveChat } from "@/components/byok/drive-chat";
 import { Glow } from "@/components/byok/glow";
 import { ConfirmModal } from "@/components/dashboard/confirm-modal";
 import { settingsHref } from "@/components/settings/sections";
-import { IntroSplash } from "@/components/intro-splash";
+import { IntroSplash, useIntroOnce } from "@/components/intro-splash";
 import { RailToggle } from "@/components/ui/rail-toggle";
 import { api } from "@/lib/api";
 import { useAuth, useAuthed } from "@/lib/auth-context";
@@ -23,7 +23,7 @@ export default function ByokPage() {
   const router = useRouter();
   const toast = useToast();
 
-  const [showIntro, setShowIntro] = useState(true);
+  const [showIntro, finishIntro] = useIntroOnce("byok");
   const [keys, setKeys] = useState<AiKey[]>([]);
   const [prompts, setPrompts] = useState<AiPrompt[]>([]);
   const [conversations, setConversations] = useState<AiConversation[]>([]);
@@ -105,20 +105,30 @@ export default function ByokPage() {
     setConversations((prev) => prev.map((c) => (c.id === id ? updated : c)));
   };
 
-  if (loading || !user) return <div className="min-h-screen bg-white" />;
+  // Rendered on every return path, like the Drive's boot splash: it covers the
+  // sign-in check from the first paint instead of appearing after it.
+  const intro = showIntro ? (
+    <IntroSplash
+      word="BYOK"
+      subtitle="Bring Your Own Key"
+      skippable
+      grid
+      minMs={2400}
+      onFinished={finishIntro}
+    />
+  ) : null;
+
+  if (loading || !user)
+    return (
+      <>
+        {intro}
+        <div className="min-h-screen bg-white" />
+      </>
+    );
 
   return (
     <>
-      {showIntro ? (
-        <IntroSplash
-          word="BYOK"
-          subtitle="Bring Your Own Key"
-          skippable
-          grid
-          minMs={2400}
-          onFinished={() => setShowIntro(false)}
-        />
-      ) : null}
+      {intro}
 
       {/* overflow-clip (not hidden): a hidden box can still be scrolled by focus()
           or scrollIntoView, which shoved the whole frame up mid-run and left the
@@ -243,6 +253,11 @@ export default function ByokPage() {
                 <p className="px-2 py-4 text-[0.8125rem] text-zinc-400">No conversations yet.</p>
               ) : null}
             </nav>
+
+            {/* Matches CHAT_RETENTION_DAYS in the API (ai/service.py). */}
+            <p className="px-5 pb-2 pt-1 text-[0.75rem] leading-snug text-zinc-400">
+              Chats are kept for 7 days after their last message.
+            </p>
 
             <div className="border-t border-zinc-200 p-2">
               <AccountMenu onSettings={() => router.push("/settings/models?from=byok")} />

@@ -33,7 +33,7 @@ const EXAMPLES: { q: string; a: ReactNode; file: string }[] = [
         <mark>250 g</mark> plain flour, plus a teaspoon of baking soda.
       </>
     ),
-    file: "Banana_bread.docx",
+    file: "Banana_bread.pdf",
   },
   {
     q: "Put every Studio Nova logo draft in one folder",

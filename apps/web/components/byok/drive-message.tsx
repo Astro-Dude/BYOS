@@ -18,6 +18,7 @@ import { BaoBuilder, BaoWorksite, progressOf } from "@/components/byok/bao-build
 import { ModeAvatar } from "@/components/mode-avatar";
 import { Working } from "@/components/byok/working";
 import { MD_CLASS, MD_PLUGINS, splitThought } from "@/components/dashboard/chat-format";
+import { stepLabel } from "@/lib/step-labels";
 
 /** A file the answer drew on. Stored with the message as a reference only (id,
  *  name, the quoted words), so it shows on reload and even after the file is
@@ -74,7 +75,7 @@ function parseStream(content: string): {
       if (nl === -1) break; // trailing event still arriving
       try {
         const evt = JSON.parse(content.slice(i + 1, nl));
-        if (evt.kind === "step") steps.push({ label: evt.label, detail: evt.detail ?? "" });
+        if (evt.kind === "step") steps.push({ label: stepLabel(evt.label), detail: evt.detail ?? "" });
         else if (evt.kind === "sources") sources = evt.sources ?? [];
         else if (evt.kind === "applied")
           applied.push({ label: evt.label, detail: evt.detail ?? "", failed: evt.failed });

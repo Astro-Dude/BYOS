@@ -152,6 +152,9 @@ const promptPreview = (content: string) => {
   return flat ? (flat.length > 70 ? `${flat.slice(0, 70)}…` : flat) : "Empty prompt";
 };
 
+/** The agent's per-step output floor (MIN_STEP_TOKENS in ai/agent.py). */
+const BAO_MIN_TOKENS = 8192;
+
 export function DriveChat({
   conversationId,
   keys,
@@ -657,7 +660,13 @@ export function DriveChat({
     const setTo = async (value: string): Promise<Outcome> => {
       const n = Number(value);
       if (!(await saveParams({ max_tokens: n }))) return fail("Couldn't change the length.");
-      return done(`Max tokens: ${n.toLocaleString()}.`);
+      // Bao keeps a floor per step (MIN_STEP_TOKENS in the agent): below it a
+      // model can run out mid-thought and never propose anything.
+      return done(
+        n < BAO_MIN_TOKENS
+          ? `Max tokens: ${n.toLocaleString()}. Bao still gets ${BAO_MIN_TOKENS.toLocaleString()} per step, so its plans aren't cut off.`
+          : `Max tokens: ${n.toLocaleString()}.`,
+      );
     };
     if (!rest.trim()) {
       openPicker({
@@ -922,56 +931,6 @@ export function DriveChat({
         // everything already current.
         indexing.start({ keyId, all: true, remaining: !everything, force: everything });
         return done(everything ? "Rebuilding the index for every file." : "Indexing whatever's left.");
-      },
-    },
-    {
-      // TEMPORARY: a one-time revert of Bao's applied plans. Removed once used.
-      name: "/undo",
-      hint: "Undo every change Bao applied in this chat, newest first",
-      run: async () => {
-        if (!conversationId)
-          return fail("Open the chat whose changes you want undone, then run /undo there.");
-        const plans = await authed((tk) => api.agentPlans(tk, conversationId));
-        const applied = plans
-          .filter((pl) => pl.status === "applied")
-          .sort((a, b) => b.created_at.localeCompare(a.created_at));
-        if (!applied.length) {
-          toast("Nothing to undo: no applied plans in this chat.", "error");
-          return fail("Nothing applied in this chat to undo.");
-        }
-        const label = `${applied.length} plan${applied.length === 1 ? "" : "s"}`;
-        toast(`Undoing Bao's changes from ${label}…`);
-        setNotice({ ok: true, text: `Undoing Bao's changes from ${label}…` }); // stays up while it runs
-        if (noticeTimer.current) clearTimeout(noticeTimer.current);
-        let undone = 0;
-        const stuck: string[] = [];
-        let broken = 0;
-        for (const pl of applied) {
-          try {
-            const res = await authed((tk) => api.undoAgentPlan(tk, pl.id));
-            undone += res.undone;
-            stuck.push(...res.not_undone.map((n) => `${n.label}: ${n.detail}`));
-            setPlans((prev) => ({
-              ...prev,
-              [pl.id]: { planId: pl.id, status: "undone", actions: pl.actions },
-            }));
-          } catch {
-            broken += 1; // keep going: the other plans can still be undone
-          }
-        }
-        onActivity();
-        const summary = `Undid ${undone} change${undone === 1 ? "" : "s"} from ${label}.`;
-        const problems = [
-          stuck.length
-            ? `${stuck.length} couldn't be undone (${stuck.slice(0, 2).join("; ")}${stuck.length > 2 ? "…" : ""})`
-            : "",
-          broken ? `${broken} plan${broken === 1 ? "" : "s"} failed to undo; run /undo again` : "",
-        ].filter(Boolean);
-        toast(
-          problems.length ? `${summary} ${problems.join(". ")}.` : summary,
-          problems.length ? "error" : "success",
-        );
-        return problems.length ? fail(`${summary} ${problems.join(". ")}.`) : done(summary);
       },
     },
     {

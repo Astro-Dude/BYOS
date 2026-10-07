@@ -65,7 +65,7 @@ from byos_api.ai.schemas import (
     UnindexRequest,
 )
 from byos_api.audit import recorder as audit
-from byos_api.auth.dependencies import CurrentUser, SessionUser
+from byos_api.auth.dependencies import CurrentUser, SessionUser, get_session_user
 from byos_api.core import crypto
 from byos_api.core.db import SessionLocal, get_db
 from byos_api.db.models import (
@@ -82,7 +82,9 @@ from byos_api.storage import StoredObjectRef, get_provider
 
 logger = logging.getLogger("byos.ai")
 
-router = APIRouter(prefix="/ai", tags=["ai"])
+# Session-only: the assistant spends the user's model keys and can change or
+# delete files and make links, so an API key (whatever its scopes) can't reach it.
+router = APIRouter(prefix="/ai", tags=["ai"], dependencies=[Depends(get_session_user)])
 
 DbDep = Annotated[AsyncSession, Depends(get_db)]
 
@@ -757,25 +759,6 @@ async def conversation_messages(
 
 
 # ── Drive-wide: RAG chat ─────────────────────────────────────────────────────
-def _superseded(content: str) -> str:
-    """A rewritten message's earlier plans, kept as hidden "superseded" records
-    (the chat only follows "plan_id", so it never shows them). They hold what an
-    applied plan's undo needs: where each moved file came from."""
-    out = []
-    for chunk in content.split("\x1e")[1:]:
-        try:
-            evt = json.loads(chunk.split("\n", 1)[0])
-        except ValueError:
-            continue
-        if evt.get("kind") == "plan" and evt.get("plan_id"):
-            out.append(
-                _evt({"kind": "superseded", "plan": evt["plan_id"], "preview": evt.get("preview")})
-            )
-        elif evt.get("kind") == "superseded":
-            out.append(_evt(evt))
-    return "".join(out)
-
-
 async def _retire_plan(plan_id: uuid.UUID) -> None:
     """Mark a revised plan discarded, if it's still waiting: its replacement
     has arrived. One that was applied meanwhile is left as it is."""
@@ -825,9 +808,7 @@ async def _persist_drive_turn(
             ).scalar_one_or_none()
             if old is not None:
                 note = _evt({"kind": "revised", "note": question})
-                old.content = (
-                    _revision_events(old.content) + note + answer + _superseded(old.content)
-                )
+                old.content = _revision_events(old.content) + note + answer
                 await store.commit()
                 return
         store.add(
@@ -1193,57 +1174,6 @@ async def apply_plan(plan_id: uuid.UUID, user: CurrentUser, db: DbDep) -> ApplyR
         failed=sum(1 for r in results if r and not r.get("ok")),
         actions=_actions_out(list(plan.actions or []), results),
     )
-
-
-# TEMPORARY: a one-time way to revert Bao's applied plans (/undo in the chat).
-# To be removed with ai/undo.py once the user has reverted their drive.
-@router.post("/agent/plans/{plan_id}/undo")
-async def undo_plan(plan_id: uuid.UUID, user: CurrentUser, db: DbDep) -> dict[str, Any]:
-    """Reverse an applied plan's changes. Each change's outcome gets an "undone"
-    note saying whether it went back and, if not, why."""
-    from byos_api.ai import undo
-
-    plan = await _owned_plan(db, user, plan_id)
-    if plan.status != "applied":
-        raise HTTPException(status.HTTP_409_CONFLICT, f"This plan is {plan.status}, not applied.")
-    # Plans applied before "before" values were recorded: where moved files came
-    # from is in the preview stored with the chat message.
-    stored = (
-        (
-            await db.execute(
-                select(AiChatMessage.content).where(
-                    AiChatMessage.user_id == user.id,
-                    or_(
-                        AiChatMessage.content.contains(f'"plan_id": "{plan.id}"'),
-                        AiChatMessage.content.contains(f'"plan": "{plan.id}"'),
-                    ),
-                )
-            )
-        )
-        .scalars()
-        .first()
-    )
-    preview = None
-    for chunk in (stored or "").split("\x1e")[1:]:
-        try:
-            evt = json.loads(chunk.split("\n", 1)[0])
-        except ValueError:
-            continue
-        if (evt.get("kind") == "plan" and evt.get("plan_id") == str(plan.id)) or (
-            evt.get("kind") == "superseded" and evt.get("plan") == str(plan.id)
-        ):
-            preview = evt.get("preview")
-    results = await agent.undo_plan(db, user, plan, undo.origins_from_preview(preview))
-    pairs = zip(plan.actions or [], results, strict=False)
-    notes = [(a, (r or {}).get("undone")) for a, r in pairs]
-    return {
-        "undone": sum(1 for _, u in notes if u and u.get("ok")),
-        "not_undone": [
-            {"label": a.get("label", ""), "detail": u.get("detail", "")}
-            for a, u in notes
-            if u and not u.get("ok")
-        ],
-    }
 
 
 @router.post("/agent/plans/{plan_id}/discard", response_model=PlanOut)

@@ -252,7 +252,8 @@ export function PlanCard({
             <Wand2 className="h-3.5 w-3.5" /> Fix {failed.length} with Bao
           </button>
           <span className="text-[0.75rem] text-zinc-500">
-            Bao redoes the failed changes against your folders as they are now. You approve them first.
+            Bao redoes just the failed ones against your folders as they are now. Ask first shows them
+            to you before they run; Auto and Full apply them straight away.
           </span>
         </div>
       ) : null}

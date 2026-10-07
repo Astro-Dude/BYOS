@@ -257,6 +257,7 @@ async def run(
                 model=key.model,
                 messages=messages,
                 tools=tools.schemas(writes=mode is not Mode.READ_ONLY, exclude=exclude),
+                temperature=key.temperature,
                 max_tokens=max(key.max_tokens, MIN_STEP_TOKENS),
                 reasoning_effort=key.reasoning_effort,
             )
@@ -335,7 +336,7 @@ async def run(
                     _remember_reads(call, result, cited, read_text)
                     yield {
                         "kind": "step",
-                        "label": call.name,
+                        "label": STEP_LABELS.get(call.name, call.name.replace("_", " ")),
                         "detail": _summarise(call.name, call.arguments, result),
                     }
                 except tools.ToolError as exc:
@@ -501,45 +502,6 @@ def apply_order(actions: list[dict[str, Any]]) -> list[int]:
     return ordered + [i for i in range(len(actions)) if i not in placed]
 
 
-async def undo_plan(
-    db: AsyncSession, user: User, plan: AiActionPlan, origins: dict[str, str]
-) -> list[dict[str, Any] | None]:
-    """Reverse an applied plan's changes, newest first, recording each undo's
-    outcome under "undone" next to the change's own result. Anything that can't
-    be reversed says why; the rest still go back."""
-    from byos_api.ai import undo
-
-    actions = list(plan.actions or [])
-    results: list[dict[str, Any] | None] = list(plan.result or [None] * len(actions))
-    results += [None] * (len(actions) - len(results))
-    made: dict[int, uuid.UUID] = {}
-    await recall_folders(db, user, actions, results, made)
-
-    for index in reversed(apply_order(actions)):
-        outcome = results[index]
-        if not outcome or not outcome.get("ok") or outcome.get("undone", {}).get("ok"):
-            continue  # never ran, failed, or already undone
-        if index in made and not outcome.get("folder_id"):
-            outcome = {**outcome, "folder_id": str(made[index])}
-        try:
-            detail = await undo.undo_action(db, user, actions[index], outcome, origins)
-            results[index] = {**outcome, "undone": {"ok": True, "detail": detail}}
-        except tools.ToolError as exc:
-            await db.rollback()
-            await db.refresh(user)
-            results[index] = {**outcome, "undone": {"ok": False, "detail": str(exc)}}
-        except Exception as exc:
-            await db.rollback()
-            await db.refresh(user)
-            results[index] = {**outcome, "undone": {"ok": False, "detail": f"failed: {exc}"}}
-
-    await db.refresh(plan)
-    plan.result = results
-    plan.status = "undone"
-    await db.commit()
-    return results
-
-
 async def recall_folders(
     db: AsyncSession,
     user: User,
@@ -685,6 +647,18 @@ def _remember_reads(
         read_text[fid] = read_text.get(fid, "") + "\n" + text
 
 
+# Read steps as the person sees them ("How I searched", Bao's bubble): plain
+# words, never the tool's name.
+STEP_LABELS = {
+    "list_files": "Looked through your files",
+    "search_content": "Searched inside your files",
+    "list_folders": "Checked your folders",
+    "list_tags": "Checked your tags",
+    "find_duplicates": "Looked for duplicates",
+    "read_file_text": "Read a file",
+}
+
+
 def _summarise(name: str, args: dict[str, Any], result: Any) -> str:
     """One-line detail for a read step, for the UI's step disclosure."""
     if isinstance(result, dict):
@@ -692,12 +666,17 @@ def _summarise(name: str, args: dict[str, Any], result: Any) -> str:
             return str(result["error"])
         if "count" in result:
             query = args.get("query") or args.get("tag") or args.get("ext")
-            return f"{result['count']} files" + (f" matching “{query}”" if query else "")
-        for field in ("folders", "tags", "groups"):
+            count = int(result["count"])
+            found = f"{count} file{'' if count == 1 else 's'}"
+            return found + (f" matching “{query}”" if query else "")
+        labels = {"folders": "folder", "tags": "tag", "groups": "set of copies"}
+        for field, noun in labels.items():
             if field in result and isinstance(result[field], list):
-                return f"{len(result[field])} {field}"
+                n = len(result[field])
+                plural = "sets of copies" if noun == "set of copies" else f"{noun}s"
+                return f"{n} {noun if n == 1 else plural}"
         if "name" in result:
-            return f"read {result['name']}"
+            return str(result["name"])
     return ""
 
 
@@ -778,13 +757,8 @@ async def apply(db: AsyncSession, user: User, plan: AiActionPlan) -> list[dict[s
             results[index] = done
             continue
         try:
-            from byos_api.ai import undo
-
-            before = await undo.snapshot(db, user, action)  # what this replaces, for Undo
             outcome = await tools.apply_action(db, user, action, created, index)
             ran: dict[str, Any] = {"ok": True, "detail": outcome}
-            if before is not None:
-                ran["before"] = before
             if index in created:
                 ran["folder_id"] = str(created[index])  # so "Fix with Bao" can find it
             results[index] = ran

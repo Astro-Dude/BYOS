@@ -42,7 +42,7 @@ const PILLARS = [
   {
     label: "Structure",
     title: "A real filesystem on top",
-    body: "Nested folders, duplicate detection, unlimited versions, favourites, tags and full-text search. Browsing is instant because it never waits on your storage.",
+    body: "Nested folders, duplicate detection, unlimited versions, favourites, tags, and search by name, type, size or date, even in plain words like “pdfs from last week”. Browsing is instant because it never waits on your storage.",
   },
   {
     label: "Sharing",
@@ -255,8 +255,9 @@ export default function LandingPage() {
               One drive, <span className="type-em">three kinds</span> of storage.
             </Reveal>
             <Reveal as="p" delay={120} className="mt-6 max-w-2xl text-[1.125rem] leading-[1.4] text-zinc-600">
-              Connect one or all three. Pick a default, choose another for any upload, and see where every
-              file lives. Folders, search and links work the same wherever the bytes are.
+              Telegram comes with your account; add GitHub or S3 whenever you like. Pick a default, choose
+              another for any upload, and see where every file lives. Folders, search and links work the same
+              wherever the bytes are.
             </Reveal>
             <SwipeRow label="Storage options" grid="md:grid-cols-3 md:gap-4" className="mt-10 sm:mt-12">
               {STORAGES.map((st, i) => (
@@ -284,8 +285,9 @@ export default function LandingPage() {
           <Reveal delay={240} className="lg:pl-4">
             <StorageArtifact />
             <p className="mt-6 max-w-md text-[1.0625rem] leading-[1.35] text-zinc-600">
-              BYOS stores your credentials encrypted and only uses them to move your own files. If one
-              expires, it tells you before anything breaks.
+              BYOS stores your credentials encrypted and only uses them to move your own files. A GitHub
+              token about to expire gets a warning ahead of time, and a storage that stops answering gets a
+              one-click reconnect.
             </p>
           </Reveal>
         </div>
@@ -302,7 +304,7 @@ export default function LandingPage() {
               One link, forever. Replace what sits behind it whenever you like.
             </h2>
             <p className="mt-5 text-[1.125rem] leading-[1.4]">
-              Send <span className="italic">byos.link/a/portfolio</span> once. Swap the file whenever you like.
+              Send <span className="italic">…/you/portfolio</span> once. Swap the file whenever you like.
               The link stays the same. Rename it, or revoke it outright.
             </p>
             <p className="mt-6 text-[0.875rem] lg:mt-auto lg:pt-6">Permanent dynamic aliases</p>

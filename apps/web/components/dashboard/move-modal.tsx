@@ -106,7 +106,11 @@ export function MoveModal({
                 className="flex w-full items-center justify-between gap-2 border-b border-zinc-50 px-3 py-2 text-left text-[0.9375rem] hover:bg-zinc-50"
               >
                 <span className="flex min-w-0 items-center gap-2">
-                  <Folder className="h-4 w-4 shrink-0" style={{ color: f.color ?? "#8FB6AD" }} />
+                  <Folder
+                    className="h-4 w-4 shrink-0 text-zinc-900"
+                    fill={f.color ?? "none"}
+                    style={f.color ? { color: f.color } : undefined}
+                  />
                   <span className="truncate text-zinc-800">{f.name}</span>
                 </span>
                 <ChevronRight className="h-4 w-4 shrink-0 text-zinc-400" />
@@ -122,7 +126,7 @@ export function MoveModal({
             Destination: <span className="font-medium text-zinc-700">{destName}</span>
           </span>
           <div className="flex gap-2">
-            <Button onClick={onClose} className="bg-zinc-100 text-zinc-700 hover:bg-zinc-200">
+            <Button onClick={onClose} className="border border-zinc-200 bg-white text-zinc-700 hover:bg-zinc-50">
               Cancel
             </Button>
             <Button onClick={move} disabled={busy || file.folder_id === parent}>
