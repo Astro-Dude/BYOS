@@ -14,10 +14,11 @@ import { ModeAvatar } from "@/components/mode-avatar";
  *  scroll sends them all off to new spots, so the crew keeps moving with you.
  *
  *  A fixed layer over the page with pointer events off, so they never get in
- *  the way of a click. The button at the bottom right jails them: they march
- *  into a cell there and rattle the bars, hop and plead until someone frees
- *  them. Every visit starts with them free. Under reduced motion they stand
- *  still where they start. Hidden on phones, where there's no room to roam. */
+ *  the way of a click. Every visit starts with them locked in a cell at the
+ *  bottom right, rattling the bars, hopping and pleading until someone frees
+ *  them; the button there lets them out, and jails them again (they march
+ *  back in). Under reduced motion they stand still where they start. Hidden
+ *  on phones, where there's no room to roam. */
 
 type Job = {
   mode: AgentMode;
@@ -93,14 +94,15 @@ const PLEAS = [
 ];
 
 export function BaoCompanion() {
-  const [phase, setPhase] = useState<Phase>("free");
+  const [phase, setPhase] = useState<Phase>("jailed");
   const [still, setStill] = useState(false);
   const [mounted, setMounted] = useState(false);
   // Where each Bao stands in the cell: they walk there when jailed, and
   // burst out from there when freed.
   const [cellSpots, setCellSpots] = useState<Spot[] | null>(null);
-  // Which Baos have reached the cell; the rest are still on their way.
-  const [inside, setInside] = useState<boolean[]>(() => CREW.map(() => false));
+  // Which Baos have reached the cell; the rest are still on their way. They
+  // all start in it.
+  const [inside, setInside] = useState<boolean[]>(() => CREW.map(() => true));
   const cellRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
